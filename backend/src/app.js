@@ -4,8 +4,8 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 
-import authRoutes from "./routes/auth.routes.js";
-import studentRoutes from "./routes/student.routes.js";
+import authRoutes from "./routes/auth.route.js";
+import studentRoutes from "./routes/student.route.js";
 
 const app = express();
 
