@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  phone    String  @unique
+  email    String? @unique
+  password String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id         Int    @id @default(autoincrement())
+  name       String
+  age        Int
+  gender     String
+  class      String
+  schoolName String
+  parentName String
+  phone      String
+  location   String
+
+  attendance Attendance[]
+  skills     Skill[]
+  careers    Career[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attendance {
+  id           Int      @id @default(autoincrement())
+  studentId    Int
+  date         DateTime
+  sessionTopic String
+  status       String
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Skill {
+  id             Int @id @default(autoincrement())
+  studentId      Int
+  communication  Int
+  confidence     Int
+  computerSkill  Int
+  problemSolving Int
+  languageSkill  Int
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Career {
+  id               Int     @id @default(autoincrement())
+  studentId        Int
+  interestedCareer String
+  courseSelected   String
+  collegeApplied   String
+  scholarship      Boolean
+  followupStatus   String
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
