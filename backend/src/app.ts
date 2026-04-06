@@ -9,8 +9,10 @@ import examRoutes from "./routes/examRoutes.js";
 import formRoutes from "./routes/formRoutes.js";
 import centerRoutes, { programRoutes } from "./routes/centerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
 // @ts-expect-error JavaScript route module
 import authRoutes from "./routes/auth.route.js";
+import reportRoutes from "./routes/reportRoutes.js";
 // @ts-expect-error JavaScript route module
 import studentRoutes from "./routes/student.route.js";
 
@@ -44,6 +46,8 @@ app.use("/api/forms", formRoutes);
 app.use("/api/centers", centerRoutes);
 app.use("/api/programs", programRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/activities", activityRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.use(errorHandler);
 
