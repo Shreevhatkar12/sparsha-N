@@ -1,13 +1,5 @@
 import * as authService from "../services/auth.service.js";
 
-// Cookie config for refresh token
-const REFRESH_COOKIE_OPTIONS = {
-  httpOnly: true,          // not accessible via JS
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
-};
-
 /**
  * POST /api/auth/register
  */
@@ -29,18 +21,16 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const { user, accessToken, refreshToken } = await authService.registerUser({
+    const { user, token } = await authService.registerUser({
       phone,
       email,
       password,
     });
 
-    res.cookie("refreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
-
     return res.status(201).json({
       success: true,
       message: "Registration successful",
-      data: { user, accessToken },
+      data: { user, token },
     });
   } catch (err) {
     next(err);
@@ -52,26 +42,23 @@ export const register = async (req, res, next) => {
  */
 export const login = async (req, res, next) => {
   try {
-    const { identifier, password } = req.body;
+    const { email, password } = req.body;
 
-    if (!identifier || !password) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Identifier (phone or email) and password are required",
+        message: "email and password are required",
       });
     }
 
-    const { user, accessToken, refreshToken } = await authService.loginUser({
-      identifier,
+    const { user, token } = await authService.loginUser({
+      email,
       password,
     });
 
-    res.cookie("refreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
-
     return res.status(200).json({
-      success: true,
-      message: "Login successful",
-      data: { user, accessToken },
+      token,
+      user,
     });
   } catch (err) {
     next(err);
@@ -80,19 +67,21 @@ export const login = async (req, res, next) => {
 
 /**
  * POST /api/auth/refresh
- * Reads refresh token from httpOnly cookie
+ * Accepts token in request body
  */
 export const refresh = async (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refreshToken;
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "token is required",
+      });
+    }
 
-    const { accessToken, user } = await authService.refreshAccessToken(refreshToken);
+    const refreshed = await authService.refreshAccessToken(token);
 
-    return res.status(200).json({
-      success: true,
-      message: "Token refreshed",
-      data: { accessToken, user },
-    });
+    return res.status(200).json(refreshed);
   } catch (err) {
     next(err);
   }
@@ -122,8 +111,7 @@ export const getMe = async (req, res, next) => {
     const user = await authService.getMe(req.user.userId);
 
     return res.status(200).json({
-      success: true,
-      data: { user },
+      user,
     });
   } catch (err) {
     next(err);
@@ -151,12 +139,12 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    const result = await authService.changePassword(req.user.userId, {
+    await authService.changePassword(req.user.userId, {
       currentPassword,
       newPassword,
     });
 
-    return res.status(200).json({ success: true, ...result });
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
   } catch (err) {
     next(err);
   }

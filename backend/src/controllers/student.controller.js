@@ -6,7 +6,7 @@ import * as studentService from "../services/student.service.js";
 
 export const createStudent = async (req, res, next) => {
   try {
-    const student = await studentService.createStudent(req.body);
+    const student = await studentService.createStudent(req.user, req.body);
     return res.status(201).json({ success: true, data: student });
   } catch (err) {
     next(err);
@@ -15,13 +15,17 @@ export const createStudent = async (req, res, next) => {
 
 export const getAllStudents = async (req, res, next) => {
   try {
-    const { page, limit, search } = req.query;
-    const result = await studentService.getAllStudents({
-      page: parseInt(page) || 1,
-      limit: parseInt(limit) || 20,
+    const { page, limit, search, centerId, programId, isActive } = req.query;
+    const result = await studentService.getAllStudents(req.user, {
+      page: parseInt(page, 10) || 1,
+      limit: parseInt(limit, 10) || 50,
       search,
+      centerId,
+      programId,
+      isActive:
+        typeof isActive === "string" ? isActive.toLowerCase() === "true" : undefined,
     });
-    return res.status(200).json({ success: true, data: result });
+    return res.status(200).json(result);
   } catch (err) {
     next(err);
   }
@@ -29,8 +33,8 @@ export const getAllStudents = async (req, res, next) => {
 
 export const getStudentById = async (req, res, next) => {
   try {
-    const student = await studentService.getStudentById(parseInt(req.params.id));
-    return res.status(200).json({ success: true, data: student });
+    const student = await studentService.getStudentById(req.user, req.params.id);
+    return res.status(200).json(student);
   } catch (err) {
     next(err);
   }
@@ -38,11 +42,8 @@ export const getStudentById = async (req, res, next) => {
 
 export const updateStudent = async (req, res, next) => {
   try {
-    const student = await studentService.updateStudent(
-      parseInt(req.params.id),
-      req.body
-    );
-    return res.status(200).json({ success: true, data: student });
+    const student = await studentService.updateStudent(req.user, req.params.id, req.body);
+    return res.status(200).json(student);
   } catch (err) {
     next(err);
   }
@@ -50,8 +51,26 @@ export const updateStudent = async (req, res, next) => {
 
 export const deleteStudent = async (req, res, next) => {
   try {
-    const result = await studentService.deleteStudent(parseInt(req.params.id));
+    const result = await studentService.deleteStudent(req.user, req.params.id);
     return res.status(200).json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const filterStudents = async (req, res, next) => {
+  try {
+    const result = await studentService.filterStudents(req.user, req.query);
+    return res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getStudentSummary = async (req, res, next) => {
+  try {
+    const summary = await studentService.getStudentSummary(req.user, req.params.id);
+    return res.status(200).json(summary);
   } catch (err) {
     next(err);
   }
@@ -64,7 +83,8 @@ export const deleteStudent = async (req, res, next) => {
 export const addAttendance = async (req, res, next) => {
   try {
     const record = await studentService.addAttendance(
-      parseInt(req.params.studentId),
+      req.user,
+      req.params.studentId,
       req.body
     );
     return res.status(201).json({ success: true, data: record });
@@ -76,7 +96,8 @@ export const addAttendance = async (req, res, next) => {
 export const getAttendanceByStudent = async (req, res, next) => {
   try {
     const records = await studentService.getAttendanceByStudent(
-      parseInt(req.params.studentId)
+      req.user,
+      req.params.studentId,
     );
     return res.status(200).json({ success: true, data: records });
   } catch (err) {
@@ -103,7 +124,8 @@ export const updateAttendance = async (req, res, next) => {
 export const addSkill = async (req, res, next) => {
   try {
     const record = await studentService.addSkill(
-      parseInt(req.params.studentId),
+      req.user,
+      req.params.studentId,
       req.body
     );
     return res.status(201).json({ success: true, data: record });
@@ -115,7 +137,8 @@ export const addSkill = async (req, res, next) => {
 export const getSkillsByStudent = async (req, res, next) => {
   try {
     const records = await studentService.getSkillsByStudent(
-      parseInt(req.params.studentId)
+      req.user,
+      req.params.studentId,
     );
     return res.status(200).json({ success: true, data: records });
   } catch (err) {
@@ -142,7 +165,8 @@ export const updateSkill = async (req, res, next) => {
 export const addCareer = async (req, res, next) => {
   try {
     const record = await studentService.addCareer(
-      parseInt(req.params.studentId),
+      req.user,
+      req.params.studentId,
       req.body
     );
     return res.status(201).json({ success: true, data: record });
@@ -154,7 +178,8 @@ export const addCareer = async (req, res, next) => {
 export const getCareersByStudent = async (req, res, next) => {
   try {
     const records = await studentService.getCareersByStudent(
-      parseInt(req.params.studentId)
+      req.user,
+      req.params.studentId,
     );
     return res.status(200).json({ success: true, data: records });
   } catch (err) {

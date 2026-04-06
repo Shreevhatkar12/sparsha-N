@@ -1,10 +1,10 @@
-import { verifyAccessToken } from "../utils/jwt.js";
+import { verifyToken } from "../utils/jwt.js";
 
 /**
  * Middleware to protect routes.
  * Expects:  Authorization: Bearer <accessToken>
  */
-export const protect = (req, res, next) => {
+export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -17,14 +17,15 @@ export const protect = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = verifyAccessToken(token);
-    req.user = decoded; // { userId, phone, iat, exp }
+    const decoded = verifyToken(token);
+    req.user = decoded;
     next();
   } catch (err) {
-    const isExpired = err.name === "TokenExpiredError";
     return res.status(401).json({
       success: false,
-      message: isExpired ? "Token expired. Please refresh." : "Invalid token.",
+      message: "Invalid token.",
     });
   }
 };
+
+export const protect = authenticate;
