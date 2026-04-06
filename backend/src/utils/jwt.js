@@ -1,26 +1,15 @@
 import jwt from "jsonwebtoken";
 
-const ACCESS_TOKEN_SECRET = process.env.JWT_ACCESS_SECRET;
-const REFRESH_TOKEN_SECRET = process.env.JWT_REFRESH_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
 
 const ACCESS_TOKEN_EXPIRY = "15m";
-const REFRESH_TOKEN_EXPIRY = "7d";
 
 /**
  * Generate an access token (short-lived)
  */
-export const generateAccessToken = (payload) => {
-  return jwt.sign(payload, ACCESS_TOKEN_SECRET, {
+export const generateToken = (payload) => {
+  return jwt.sign(payload, JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRY,
-  });
-};
-
-/**
- * Generate a refresh token (long-lived)
- */
-export const generateRefreshToken = (payload) => {
-  return jwt.sign(payload, REFRESH_TOKEN_SECRET, {
-    expiresIn: REFRESH_TOKEN_EXPIRY,
   });
 };
 
@@ -28,12 +17,14 @@ export const generateRefreshToken = (payload) => {
  * Verify an access token
  */
 export const verifyAccessToken = (token) => {
-  return jwt.verify(token, ACCESS_TOKEN_SECRET);
+  return jwt.verify(token, JWT_SECRET);
 };
 
 /**
  * Verify a refresh token
  */
-export const verifyRefreshToken = (token) => {
-  return jwt.verify(token, REFRESH_TOKEN_SECRET);
-};
+export const verifyToken = (token) => jwt.verify(token, JWT_SECRET);
+
+// Backward-compatible aliases
+export const generateAccessToken = generateToken;
+export const verifyRefreshToken = verifyToken;

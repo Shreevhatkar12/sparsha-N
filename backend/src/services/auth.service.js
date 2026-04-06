@@ -1,12 +1,28 @@
 import bcrypt from "bcryptjs";
-import prisma from "../lib/prisma.js";
+import { PrismaClient } from "@prisma/client";
 import {
-  generateAccessToken,
-  generateRefreshToken,
-  verifyRefreshToken,
+  generateToken,
+  verifyToken,
 } from "../utils/jwt.js";
 
-const SALT_ROUNDS = 12;
+const prisma = globalThis.__prismaAuthService ?? new PrismaClient();
+if (process.env.NODE_ENV !== "production") {
+  globalThis.__prismaAuthService = prisma;
+}
+
+const SALT_ROUNDS = 10;
+
+const getCenterIdsByUserId = async (userId) => {
+  const assignments = await prisma.userCenterAssignment.findMany({
+    where: {
+      userId,
+      OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
+    },
+    select: { centerId: true },
+  });
+
+  return assignments.map((a) => a.centerId);
+};
 
 /**
  * Register a new user
@@ -29,26 +45,40 @@ export const registerUser = async ({ phone, email, password }) => {
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
   const user = await prisma.user.create({
-    data: { phone, email: email || null, password: hashedPassword },
-    select: { id: true, phone: true, email: true, createdAt: true },
+    data: {
+      email: email || `${phone}@internal.local`,
+      passwordHash: hashedPassword,
+      fullName: phone || "User",
+      role: "staff",
+    },
+    select: { id: true, email: true, fullName: true, role: true, createdAt: true },
   });
 
-  const tokenPayload = { userId: user.id, phone: user.phone };
-  const accessToken = generateAccessToken(tokenPayload);
-  const refreshToken = generateRefreshToken(tokenPayload);
+  const centerIds = await getCenterIdsByUserId(user.id);
+  const tokenPayload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    centerIds,
+  };
+  const token = generateToken(tokenPayload);
 
-  return { user, accessToken, refreshToken };
+  return { user: { ...user, centerIds }, token };
 };
 
 /**
  * Login with phone (or email) + password
  */
-export const loginUser = async ({ identifier, password }) => {
-  // identifier can be phone or email
-  const isEmail = identifier.includes("@");
-
-  const user = await prisma.user.findFirst({
-    where: isEmail ? { email: identifier } : { phone: identifier },
+export const loginUser = async ({ email, password }) => {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      passwordHash: true,
+    },
   });
 
   if (!user) {
@@ -57,26 +87,39 @@ export const loginUser = async ({ identifier, password }) => {
     throw error;
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
+  const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
   if (!isPasswordValid) {
     const error = new Error("Invalid credentials");
     error.statusCode = 401;
     throw error;
   }
 
-  const tokenPayload = { userId: user.id, phone: user.phone };
-  const accessToken = generateAccessToken(tokenPayload);
-  const refreshToken = generateRefreshToken(tokenPayload);
+  const centerIds = await getCenterIdsByUserId(user.id);
+  const tokenPayload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    centerIds,
+  };
+  const token = generateToken(tokenPayload);
 
-  const { password: _, ...safeUser } = user;
-  return { user: safeUser, accessToken, refreshToken };
+  return {
+    token,
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      centerIds,
+    },
+  };
 };
 
 /**
  * Refresh access token using refresh token
  */
-export const refreshAccessToken = async (refreshToken) => {
-  if (!refreshToken) {
+export const refreshAccessToken = async (token) => {
+  if (!token) {
     const error = new Error("Refresh token required");
     error.statusCode = 401;
     throw error;
@@ -84,9 +127,9 @@ export const refreshAccessToken = async (refreshToken) => {
 
   let decoded;
   try {
-    decoded = verifyRefreshToken(refreshToken);
+    decoded = verifyToken(token);
   } catch {
-    const error = new Error("Invalid or expired refresh token");
+    const error = new Error("Invalid or expired token");
     error.statusCode = 401;
     throw error;
   }
@@ -94,7 +137,7 @@ export const refreshAccessToken = async (refreshToken) => {
   // Confirm user still exists
   const user = await prisma.user.findUnique({
     where: { id: decoded.userId },
-    select: { id: true, phone: true, email: true },
+    select: { id: true, email: true, role: true },
   });
 
   if (!user) {
@@ -103,10 +146,16 @@ export const refreshAccessToken = async (refreshToken) => {
     throw error;
   }
 
-  const tokenPayload = { userId: user.id, phone: user.phone };
-  const accessToken = generateAccessToken(tokenPayload);
+  const centerIds = await getCenterIdsByUserId(user.id);
+  const tokenPayload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    centerIds,
+  };
+  const refreshedToken = generateToken(tokenPayload);
 
-  return { accessToken, user };
+  return { token: refreshedToken };
 };
 
 /**
@@ -115,7 +164,14 @@ export const refreshAccessToken = async (refreshToken) => {
 export const getMe = async (userId) => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, phone: true, email: true, createdAt: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+    },
   });
 
   if (!user) {
@@ -124,7 +180,8 @@ export const getMe = async (userId) => {
     throw error;
   }
 
-  return user;
+  const centerIds = await getCenterIdsByUserId(userId);
+  return { ...user, centerIds };
 };
 
 /**
@@ -139,7 +196,7 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
     throw error;
   }
 
-  const isValid = await bcrypt.compare(currentPassword, user.password);
+  const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!isValid) {
     const error = new Error("Current password is incorrect");
     error.statusCode = 400;
@@ -149,7 +206,7 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
   const hashedNew = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await prisma.user.update({
     where: { id: userId },
-    data: { password: hashedNew },
+    data: { passwordHash: hashedNew },
   });
 
   return { message: "Password updated successfully" };

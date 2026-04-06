@@ -7,7 +7,7 @@ import {
   getMe,
   changePassword,
 } from "../controllers/auth.controller.js";
-import { protect } from "../middlewares/auth.middleware.js";
+import { authenticate } from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.post("/refresh", refresh);
 router.post("/logout", logout);
 
 // Protected routes
-router.get("/me", protect, getMe);
-router.put("/change-password", protect, changePassword);
+router.get("/me", authenticate, getMe);
+router.post("/change-password", authenticate, changePassword);
 
 export default router;
