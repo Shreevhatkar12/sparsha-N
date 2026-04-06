@@ -1,11 +1,13 @@
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import {
   generateToken,
   verifyToken,
 } from "../utils/jwt.js";
 
-const prisma = globalThis.__prismaAuthService ?? new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" });
+const prisma = globalThis.__prismaAuthService ?? new PrismaClient({ adapter });
 if (process.env.NODE_ENV !== "production") {
   globalThis.__prismaAuthService = prisma;
 }

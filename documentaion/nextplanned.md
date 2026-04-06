@@ -2,6 +2,16 @@
 
 This document outlines the immediate tasks and improvements that developers need to focus on next.
 
+## Frontend Current Progress (Apr 2026)
+
+- React + TypeScript + Vite app initialized in `frontend/`.
+- Corporate-style responsive UI shell created for Sparsha NGO.
+- PWA baseline enabled using:
+  - `manifest.webmanifest`
+  - `sw.js` service worker
+  - service worker registration in app bootstrap
+- Detailed frontend status is tracked in `documentaion/frontend.md`.
+
 ## Backend Actions
 1. **Fix Prisma DB Synchronization (Crucial):** Run standard Prisma setup over the `database.md` layout. It is highly recommended to actually port the schema block from `database.md` to `backend/prisma/schema.prisma` if not already done, and run migrations (`npx prisma migrate dev`).
 2. **Environment Variable Configurations:** Copy `.env.example` to `.env` and fill in necessary secrets (Database URLs, JWT Secret keys).

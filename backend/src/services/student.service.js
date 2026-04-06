@@ -1,9 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
 import { centerScope } from "../lib/centerScope.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.js";
 
-const prisma = globalThis.__prismaStudentService ?? new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" });
+const prisma = globalThis.__prismaStudentService ?? new PrismaClient({ adapter });
 if (process.env.NODE_ENV !== "production") {
   globalThis.__prismaStudentService = prisma;
 }
