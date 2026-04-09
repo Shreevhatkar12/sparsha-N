@@ -1,39 +1,73 @@
-# Sparsha NGO Project
+# React + TypeScript + Vite
 
-Monorepo for Sparsha NGO operations platform.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Repository Contents
+Currently, two official plugins are available:
 
-- `backend/`: Express + Prisma API for auth, students, attendance, exams, forms, centers, users, and reports.
-- `frontend/`: React + TypeScript + Vite PWA web app for Android and desktop usage.
-- `documentaion/`: working docs, planning notes, and API/database references.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## How to Run
+## React Compiler
 
-### Backend
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```bash
-cd backend
-npm install
-npm run dev
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-Default API URL: `http://localhost:5000`
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-### Frontend
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-
-Frontend dev URL is provided by Vite (usually `http://localhost:5173`).
-
-## Notes
-
-- Frontend auth stores `accessToken` only in memory.
-- Frontend API base URL is configured via `VITE_API_BASE_URL`.
-- For backend + Prisma 7, Node.js `22.x` is recommended.
-- Documentation is still evolving; code is the current source of truth.
