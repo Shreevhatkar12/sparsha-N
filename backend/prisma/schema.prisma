@@ -6,9 +6,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─────────────────────────────────────────
+//////////////////////////
 // CORE TABLES
-// ─────────────────────────────────────────
+//////////////////////////
 
 model Center {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -17,15 +17,15 @@ model Center {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  centerPrograms       CenterProgram[]
-  users                UserCenterAssignment[]
-  students             Student[]
-  activities           Activity[]
-  attendanceSessions   AttendanceSession[]
-  attendanceRecords    AttendanceRecord[]
-  exams                Exam[]
-  examScores           ExamScore[]
-  formSubmissions      FormSubmission[]
+  centerPrograms     CenterProgram[]
+  users              UserCenterAssignment[]
+  students           Student[]
+  activities         Activity[]
+  attendanceSessions AttendanceSession[]
+  attendanceRecords  AttendanceRecord[]
+  exams              Exam[]
+  examScores         ExamScore[]
+  formSubmissions    FormSubmission[]
 
   @@map("centers")
 }
@@ -61,6 +61,10 @@ model CenterProgram {
   @@map("center_programs")
 }
 
+//////////////////////////
+// USERS
+//////////////////////////
+
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique
@@ -73,13 +77,16 @@ model User {
 
   centerAssignments    UserCenterAssignment[]   @relation("UserAssignments")
   assignedByCenters    UserCenterAssignment[]   @relation("AssignedByUser")
+
   activityAssignments  UserActivityAssignment[] @relation("UserActivityAssignments")
   assignedByActivities UserActivityAssignment[] @relation("AssignedByUserActivity")
+
   parentStudents       ParentStudent[]
-  createdActivities    Activity[]
-  createdSessions      AttendanceSession[]
-  createdExams         Exam[]
-  formSubmissions      FormSubmission[]
+
+  createdActivities    Activity[]           @relation("UserCreatedActivities")
+  createdSessions      AttendanceSession[]  @relation("UserCreatedSessions")
+  createdExams         Exam[]               @relation("UserCreatedExams")
+  formSubmissions      FormSubmission[]     @relation("UserFormSubmissions")
 
   @@map("users")
 }
@@ -91,8 +98,6 @@ enum UserRole {
   volunteer
   parent
   shareholder
-
-  @@map("user_role")
 }
 
 model UserCenterAssignment {
@@ -103,13 +108,17 @@ model UserCenterAssignment {
   validUntil DateTime? @map("valid_until") @db.Date
   createdBy  String?   @map("created_by") @db.Uuid
 
-  user      User   @relation("UserAssignments", fields: [userId], references: [id])
-  center    Center @relation(fields: [centerId], references: [id])
-  createdByUser User? @relation("AssignedByUser", fields: [createdBy], references: [id])
+  user          User   @relation("UserAssignments", fields: [userId], references: [id])
+  center        Center @relation(fields: [centerId], references: [id])
+  createdByUser User?  @relation("AssignedByUser", fields: [createdBy], references: [id])
 
   @@unique([userId, centerId])
   @@map("user_center_assignments")
 }
+
+//////////////////////////
+// ACTIVITIES
+//////////////////////////
 
 model Activity {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -122,11 +131,13 @@ model Activity {
   createdBy   String?   @map("created_by") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  center              Center                   @relation(fields: [centerId], references: [id])
-  program             Program                  @relation(fields: [programId], references: [id])
-  createdByUser       User?                    @relation(fields: [createdBy], references: [id])
-  userAssignments     UserActivityAssignment[]
-  attendanceSessions  AttendanceSession[]
+  center        Center  @relation(fields: [centerId], references: [id])
+  program       Program @relation(fields: [programId], references: [id])
+
+  createdByUser User?   @relation("UserCreatedActivities", fields: [createdBy], references: [id])
+
+  userAssignments    UserActivityAssignment[]
+  attendanceSessions AttendanceSession[]
 
   @@map("activities")
 }
@@ -146,6 +157,10 @@ model UserActivityAssignment {
   @@map("user_activity_assignments")
 }
 
+//////////////////////////
+// STUDENTS
+//////////////////////////
+
 model Student {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   centerId       String    @map("center_id") @db.Uuid
@@ -159,12 +174,12 @@ model Student {
   isActive       Boolean   @default(true) @map("is_active")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  center             Center              @relation(fields: [centerId], references: [id])
-  program            Program             @relation(fields: [programId], references: [id])
-  parents            ParentStudent[]
-  attendanceRecords  AttendanceRecord[]
-  examScores         ExamScore[]
-  formSubmissions    FormSubmission[]
+  center  Center  @relation(fields: [centerId], references: [id])
+  program Program @relation(fields: [programId], references: [id])
+  parents         ParentStudent[]
+  attendanceRecords AttendanceRecord[]
+  examScores      ExamScore[]
+  formSubmissions FormSubmission[]
 
   @@map("students")
 }
@@ -173,8 +188,6 @@ enum Gender {
   male
   female
   other
-
-  @@map("gender")
 }
 
 model ParentStudent {
@@ -189,9 +202,9 @@ model ParentStudent {
   @@map("parent_student")
 }
 
-// ─────────────────────────────────────────
-// TRACKING TABLES
-// ─────────────────────────────────────────
+//////////////////////////
+// ATTENDANCE
+//////////////////////////
 
 model AttendanceSession {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -202,11 +215,13 @@ model AttendanceSession {
   createdBy   String?   @map("created_by") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
-  center        Center             @relation(fields: [centerId], references: [id])
-  program       Program            @relation(fields: [programId], references: [id])
-  activity      Activity?          @relation(fields: [activityId], references: [id])
-  createdByUser User?              @relation(fields: [createdBy], references: [id])
-  records       AttendanceRecord[]
+  center  Center  @relation(fields: [centerId], references: [id])
+  program Program @relation(fields: [programId], references: [id])
+  activity Activity? @relation(fields: [activityId], references: [id])
+
+  createdByUser User? @relation("UserCreatedSessions", fields: [createdBy], references: [id])
+
+  records AttendanceRecord[]
 
   @@map("attendance_sessions")
 }
@@ -230,9 +245,11 @@ enum AttendanceStatus {
   present
   absent
   late
-
-  @@map("attendance_status")
 }
+
+//////////////////////////
+// EXAMS
+//////////////////////////
 
 model Exam {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -243,10 +260,12 @@ model Exam {
   examDate     DateTime? @map("exam_date") @db.Date
   createdBy    String?  @map("created_by") @db.Uuid
 
-  center        Center      @relation(fields: [centerId], references: [id])
-  program       Program     @relation(fields: [programId], references: [id])
-  createdByUser User?       @relation(fields: [createdBy], references: [id])
-  scores        ExamScore[]
+  center  Center  @relation(fields: [centerId], references: [id])
+  program Program @relation(fields: [programId], references: [id])
+
+  createdByUser User? @relation("UserCreatedExams", fields: [createdBy], references: [id])
+
+  scores ExamScore[]
 
   @@map("exams")
 }
@@ -254,8 +273,6 @@ model Exam {
 enum ExamType {
   baseline
   endline
-
-  @@map("exam_type")
 }
 
 model ExamScore {
@@ -275,9 +292,9 @@ model ExamScore {
   @@map("exam_scores")
 }
 
-// ─────────────────────────────────────────
-// FLEXIBLE FORMS (JSONB)
-// ─────────────────────────────────────────
+//////////////////////////
+// FORMS
+//////////////////////////
 
 model FormTemplate {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -301,11 +318,11 @@ model FormSubmission {
   data        Json
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  template      FormTemplate @relation(fields: [templateId], references: [id])
-  student       Student      @relation(fields: [studentId], references: [id])
-  center        Center       @relation(fields: [centerId], references: [id])
-  submittedByUser User?      @relation(fields: [submittedBy], references: [id])
+  template FormTemplate @relation(fields: [templateId], references: [id])
+  student  Student      @relation(fields: [studentId], references: [id])
+  center   Center       @relation(fields: [centerId], references: [id])
+
+  submittedByUser User? @relation("UserFormSubmissions", fields: [submittedBy], references: [id])
 
   @@map("form_submissions")
 }
-
