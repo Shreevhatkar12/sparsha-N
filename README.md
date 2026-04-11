@@ -1,131 +1,121 @@
-# 🌿 Sparsha: NGO Empowerment Platform
+# SPARSHA (kittykat)
 
-[![Status: Working Phase](https://img.shields.io/badge/Status-Working%20Phase-teal?style=for-the-badge)](https://github.com/seucra/sparsha)
-[![Stack: Full-Stack WPA](https://img.shields.io/badge/Stack-Full--Stack%20WPA-orange?style=for-the-badge)](https://github.com/seucra/sparsha)
-
-**Sparsha** is a modern, high-performance Progressive Web Application (PWA) designed to empower NGO staff in managing student progress, tracking attendance, and analyzing skill development. Built with a focus on ease of use in the field and data integrity, it provides a unified terminal-style dashboard for real-time impact monitoring.
+Student administration stack for SPARSHA NGO: **React + Vite** frontend and **Express + Prisma + PostgreSQL** backend. This repo is a monorepo with two deployable parts: `frontend/` and `backend/`.
 
 ---
 
-## 🏗️ Architecture Overview
+## End-to-end: run the project locally
 
-The platform uses a decoupled architecture ensuring high availability and secure data handling.
+Do these steps **in order** on a machine with Node.js 20+ and a running PostgreSQL instance (or cloud URL).
 
-```mermaid
-graph LR
-    subgraph Frontend [📱 Client Layer]
-        A[React 19 WPA] -- HTTPS/JSON --> B[Axios Interceptor]
-    end
+### 1. Clone and open the repo
 
-    subgraph Backend [🖥️ API Layer]
-        B -- Bearer Token --> C[Express.js Controller]
-        C --> D[Business Logic / Services]
-        D --> E[Prisma ORM]
-    end
-
-    subgraph Database [🗄️ Storage Layer]
-        E --> F[(PostgreSQL / Neon)]
-    end
-
-    subgraph Auth [🔐 Security]
-        G[JWT Architecture] -.-> C
-        H[HttpOnly Refresh Cookies] -.-> B
-    end
+```bash
+cd kittykat
 ```
 
----
+### 2. Backend
 
-## ✨ Key Features
-
-### 🔐 Enterprise-Grade Security
-- **Dual Token Strategy**: Secure authentication using short-lived Access Tokens (in-memory) and long-lived Refresh Tokens (HttpOnly cookies).
-- **Role-Based Access Control**: Granular permissions for Admins and NGO staff.
-
-### 📊 Impact Tracking
-- **Student Profile Management**: Comprehensive tracking of student demographics and history.
-- **Attendance Monitoring**: Easy logging of sessions with real-time status updates.
-- **Skill Matrices**: Track development in communication, confidence, and technical skills using advanced radar charts and analytics.
-- **Career Pathways**: Manage scholarships, college applications, and career interests.
-
-### 📱 Responsive Design
-- **Mobile Optimized**: Optimized for both high-density desktop dashboards and touch-friendly mobile views.
-- **Modern UI**: Teal-themed professional interface using Tailwind CSS 4.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technologies |
-| :--- | :--- |
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query |
-| **State & Logic** | Zustand, Axios, React Router 7 |
-| **Visualization** | Recharts, Lucide Icons |
-| **Backend** | Node.js (v22+ recommended), Express.js |
-| **Database** | PostgreSQL (Neon), Prisma ORM |
-| **PWA** | Web Manifests, Service Workers |
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-- **Node.js**: v22.x or higher
-- **PostgreSQL**: A running instance or Neon account
-- **npm**: v10.x or higher
-
-### 2. Backend Setup
 ```bash
 cd backend
 npm install
 cp .env.example .env
-# Edit .env and add your DATABASE_URL and JWT_ACCESS_SECRET
+```
+
+Edit **`backend/.env`**: set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` to real values. Set `CLIENT_URL=http://localhost:5173` for local CORS.
+
+```bash
+npx prisma generate
+npx prisma migrate deploy
+```
+
+For a **new** local database during development you may use:
+
+```bash
+npx prisma migrate dev
+```
+
+Optional demo data:
+
+```bash
+npx prisma db seed
+```
+
+Start the API:
+
+```bash
 npm run dev
 ```
-*The backend will run on `http://localhost:5000`.*
 
-### 3. Frontend Setup
+Confirm **`http://localhost:5000/health`** returns JSON with `"status": "ok"`.
+
+### 3. Frontend
+
+Open a **second terminal**:
+
 ```bash
 cd frontend
 npm install
 cp .env.example .env
-# Ensure VITE_API_BASE_URL=http://localhost:5000
+```
+
+Leave `VITE_API_URL` commented for local dev (Vite proxies `/api` to port 5000 — see `frontend/vite.config.ts`).
+
+```bash
 npm run dev
 ```
-*The frontend will run on `http://localhost:5173`.*
+
+Open **`http://localhost:5173`**. Log in with a user from your database (seed creates users such as `admin@sparsha.org` / `Admin@123` if you ran the seed — change passwords in production).
+
+### 4. Production-style frontend build (optional)
+
+```bash
+cd frontend
+# Set VITE_API_URL in .env to your public API base, e.g. https://api.example.com/api
+npm run build
+npm run preview
+```
 
 ---
 
-## 📄 Environment Configuration
+## Implemented vs not (summary)
 
-### Backend (`/backend/.env`)
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string | REQUIRED |
-| `JWT_ACCESS_SECRET` | Secret key for access tokens | REQUIRED |
-| `JWT_REFRESH_SECRET`| Secret key for refresh tokens | REQUIRED |
-| `PORT` | Backend server port | `5000` |
-| `CLIENT_URL` | Frontend URL for CORS | `http://localhost:3000` |
+| Area | Implemented | Not / partial |
+|------|-------------|-----------------|
+| Auth | JWT login, protected routes, `/api/auth` | Memory-only tokens, full refresh-queue interceptor (see frontend README) |
+| Students | List, CRUD, **`GET /api/students/:id/profile`**, detail UI with charts | Some legacy student sub-routes in JS may not match current Prisma schema |
+| Attendance | Session + record APIs, UI | Pagination polish everywhere |
+| Exams | Exams CRUD, bulk scores, **`ExamScore` unique** constraint, bulk grid UI | — |
+| Forms | Templates, builder, renderer, submissions, form-type filter, seeds | — |
+| Reports & dashboard | `/api/reports/*`, **`/api/dashboard/pending`**, dashboard + sidebar badges | Heuristic pending counts; tune business rules as needed |
+| UI | Brand theme, Sora/DM Sans, layout width 1280px | Full design-system audit |
 
-### Frontend (`/frontend/.env`)
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `VITE_API_BASE_URL` | Base URL of the backend API | `http://localhost:5000` |
+Details: **`documentaion/STATUS.md`**.
 
 ---
 
-## 🏁 Roadmap & Status
+## Documentation
 
-- [x] **Phase 1**: Core Auth & Student Discovery
-- [x] **Phase 2**: Attendance & Skill Logging
-- [/] **Phase 3**: Advanced Analytics & Career Tracking (In Progress)
-- [ ] **Phase 4**: PWA Support (Manifest, Service Workers, Offline Sync)
-- [ ] **Phase 5**: Document Uploads & Field Mode
+| File | Contents |
+|------|----------|
+| `documentaion/STATUS.md` | Progress report and module checklist |
+| `documentaion/APIs.md` | API notes (verify against live routes) |
+| `documentaion/frontend.md` | Frontend architecture notes |
+| `documentaion/backend.md` | Backend architecture notes |
+| `SPARSHA_Cursor_Prompt.md` | Original phased specification |
+
+---
+
+## Repository layout
+
+```
+backend/     Express API, Prisma, migrations, seed
+frontend/    Vite + React app
+documentaion/  Extra docs (folder name as in repo)
+```
 
 ---
 
-## 🤝 Contributing & Support
+## License
 
-This project is currently in a **Working Phase**. For support or contributions, please contact the development team at Sparsha NGO.
-
----
-*© 2026 Sparsha NGO Operations Platform. Built with transparency and passion.*
+See `package.json` files in each package. SPARSHA NGO internal use unless stated otherwise.

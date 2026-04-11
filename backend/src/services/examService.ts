@@ -227,36 +227,30 @@ export async function upsertExamScores(
   await prisma.$transaction(async (tx) => {
     for (const score of payload.scores) {
       const maxMarks = score.maxMarks ?? 50;
-      const existing = await tx.examScore.findFirst({
+      const subjectKey = score.subject.toLowerCase();
+      await tx.examScore.upsert({
         where: {
-          examId,
-          studentId: score.studentId,
-          subject: score.subject.toLowerCase(),
-        },
-      });
-
-      if (existing) {
-        await tx.examScore.update({
-          where: { id: existing.id },
-          data: {
-            marks: new Prisma.Decimal(score.marks),
-            maxMarks: new Prisma.Decimal(maxMarks),
-            remarks: score.remarks ?? null,
-          },
-        });
-      } else {
-        await tx.examScore.create({
-          data: {
+          examId_studentId_subject: {
             examId,
             studentId: score.studentId,
-            centerId: exam.centerId,
-            subject: score.subject.toLowerCase(),
-            marks: new Prisma.Decimal(score.marks),
-            maxMarks: new Prisma.Decimal(maxMarks),
-            remarks: score.remarks ?? null,
+            subject: subjectKey,
           },
-        });
-      }
+        },
+        update: {
+          marks: new Prisma.Decimal(score.marks),
+          maxMarks: new Prisma.Decimal(maxMarks),
+          remarks: score.remarks ?? null,
+        },
+        create: {
+          examId,
+          studentId: score.studentId,
+          centerId: exam.centerId,
+          subject: subjectKey,
+          marks: new Prisma.Decimal(score.marks),
+          maxMarks: new Prisma.Decimal(maxMarks),
+          remarks: score.remarks ?? null,
+        },
+      });
     }
   });
 

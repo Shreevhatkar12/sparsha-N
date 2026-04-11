@@ -4,6 +4,7 @@ import type {
   AttendanceRecordPayload,
   Student,
   StudentCreatePayload,
+  StudentProfilePayload,
   StudentUpdatePayload,
   StudentsListResult,
 } from '../types';
@@ -35,6 +36,9 @@ export const getStudentById = (id: string) =>
 
 export const getStudentSummary = (id: string) =>
   api.get<Record<string, unknown>>(`/students/${id}/summary`).then((r) => r.data);
+
+export const getStudentProfile = (id: string) =>
+  api.get<StudentProfilePayload>(`/students/${id}/profile`).then((r) => r.data);
 
 export const createStudent = (payload: StudentCreatePayload) =>
   api.post<ApiEnvelope<Student>>('/students', payload).then((r) => r.data.data);

@@ -1,24 +1,48 @@
-# KittyKat Backend Architecture & Implementation Details
+# Backend — architecture notes (SPARSHA)
 
-## State of the Backend & Technical Foundations
+**Stack:** Node.js, Express 5, Prisma 7, PostgreSQL, Zod validation on selected routes, JWT auth.
 
-### 1. Framework Implementation logic
-- The core router logic delegates everything rapidly to the layer in `src/controllers/`, which primarily parses HTTP components (extracting `req.body`, `req.query`, `req.user`, `req.cookies`). 
-- Actual data mutation lives strictly within `src/services/` (such as `auth.service.js` and `student.service.js`). This makes unit testing services easy without spinning up an Express server wrapper.
+**Entry:** `src/server.ts` loads `src/app.ts`, which registers routes under `/api`.
 
-### 2. Authorization Design (Dual Token Strategy)
-- The app implements a **Cookie-based Refresh Architecture**, prioritizing security.
-- On `/login` or `/register`, the backend sends down a short-lived `accessToken` locally parsed by the frontend, AND attaches a 7-day `refreshToken` inside a `SameSite=Strict, HttpOnly` cookie.
-- The `auth.middleware.js` currently requires the frontend to manually attach `Authorization: Bearer <accessToken>` to headers for any protected routes. If the `accessToken` expires, the frontend hits `/api/auth/refresh` sending that HttpOnly cookie implicitly, fetching a new `accessToken`.
+## Request flow
 
-### 3. Database Abstraction via Prisma
-- The Prisma schema tracks relational bindings.
-- Deletions are mapped strictly. If you delete a `Student`, refer to the Prisma schema (`database.md` layout) `relation(..., onDelete: CASCADE/RESTRICT)` config. Currently, constraints require attendance and skills to be managed directly unless explicit cascade deletes are run.
-- Complex data extraction happens in queries like `getDashboardStats`, where Prisma's `.aggregate()` function retrieves system-wide averages effortlessly.
+1. **CORS / JSON / security** middleware on the app.
+2. **Route modules** (`src/routes/*.ts` and `*.js`) map paths to controllers.
+3. **Controllers** parse `req`, call **services** (`src/services/`).
+4. **Prisma** access is centralized per module; some services use a dedicated Prisma client instance pattern — follow existing files when adding code.
+5. **Errors** go through `middleware/errorHandler.ts`.
 
-### 4. Search and Pagination Logic
-- Real-time search is embedded into the `/api/students` `GET` route. The DB queries check constraints against: `name`, `schoolName`, `location`, or `phone` returning case-insensitive matching fields seamlessly.
-- Returned metadata uniformly responds with `.total`, `.page`, `.limit` and `.totalPages` for grid alignments on the frontend. 
+## Auth and centers
 
-### 5. Error Pipeline
-- Handled via `next(err)` passed from controllers, captured globally at the bottom of `app.js`. When `err.statusCode` is omitted, it defaults to a generic 500 format avoiding stack-trace dumps into client responses inside production environments.
+- JWT payload includes **`userId`**, **`email`**, **`role`**, **`centerIds`**.
+- **`centerIds`** are built from `UserCenterAssignment` rows where **`validUntil` is `null`** (`src/lib/auth.ts`).
+- **Non-admins** are restricted with helpers such as **`centerScope`** in `src/lib/centerScope.ts` (and similar patterns in TS services) so queries filter by allowed centers.
+- Optional middleware **`attachAllowedCenters`** (`src/middleware/centerAccess.ts`) can attach `allowedCenterIds`; route handlers still rely on services for enforcement.
+
+## Main API groups
+
+| Prefix | Notes |
+|--------|--------|
+| `/api/auth` | Login, register, refresh, logout, me |
+| `/api/students` | CRUD, nested attendance/skills/careers routes (mixed legacy JS), **`/:id/profile`** |
+| `/api/attendance` | Sessions and student attendance |
+| `/api/exams` | CRUD, scores, comparison, **`/:examId/scores`** |
+| `/api/forms` | Templates and submissions |
+| `/api/centers`, `/api/programs` | Directory data |
+| `/api/users`, `/api/activities` | Users and activities |
+| `/api/reports` | Dashboard, analytics, pending lists, export |
+| `/api/dashboard` | **`GET /pending`** — compact pending counts for UI |
+
+## Database
+
+- **Schema:** `prisma/schema.prisma`
+- **Migrations:** `prisma/migrations/`
+- **Seed:** `prisma/seed.ts` — run with `npx prisma db seed`
+
+## Environment
+
+See **`backend/.env.example`**. Required: **`DATABASE_URL`**, **`JWT_ACCESS_SECRET`**, **`JWT_REFRESH_SECRET`**. **`CLIENT_URL`** should match the frontend origin (e.g. `http://localhost:5173` in dev).
+
+## Run commands
+
+Documented in **`backend/README.md`** (`npm install`, `npx prisma generate`, migrate, `npm run dev`).

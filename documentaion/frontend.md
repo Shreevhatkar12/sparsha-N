@@ -1,90 +1,52 @@
-# Frontend Plan and Current Status (Sparsha NGO)
+# Frontend — architecture notes (SPARSHA)
 
-## What is implemented now
+**Stack:** React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, Axios, Recharts, React Hook Form (forms module).
 
-- `frontend/` initialized with React + TypeScript + Vite.
-- Corporate-style responsive UI shell is in place and usable on desktop and Android browsers.
-- PWA baseline is active:
-  - `frontend/public/manifest.webmanifest`
-  - `frontend/public/sw.js`
-  - service worker registration in `frontend/src/main.tsx`
-- Actual integration foundation added:
-  - Auth provider with in-memory access token state.
-  - Axios interceptor pipeline with automatic token refresh and request queue.
-  - Public routes (`/login`, `/register`) and protected routes (`/`, `/students`).
-  - Dashboard + students list connected to backend APIs.
-- Frontend README updated with run/build instructions.
+## HTTP client
 
-## Testing Intro (Dummy Auth Data)
+- **`src/services/api.ts`:** `baseURL` = `import.meta.env.VITE_API_URL` or **`/api`**.
+- **Development:** Vite **`server.proxy`** forwards `/api` → `http://localhost:5000` (`vite.config.ts`), so the browser can use relative `/api` without CORS issues.
+- **Production build:** set **`VITE_API_URL`** to the full API base (including `/api` if the backend is mounted there).
+- **Credentials:** `withCredentials: true` for cookies where the backend sets them.
+- **Auth header:** `Authorization: Bearer <token>` from `localStorage` key `token` (project convention).
 
-Use these values for first local auth testing:
+## Routing and layout
 
-- Register request shape:
-  - `phone` (required)
-  - `email` (optional but recommended for login in current backend)
-  - `password` (minimum 8 chars)
-- Login request shape in current backend:
-  - `identifier` field in UI is sent as backend `email`
-  - `password`
+- **`App.tsx`:** Public `/login`; protected routes under **`ProtectedRoute`** (sidebar + top bar + `<Outlet />`).
+- **Auth gate:** Redirects to `/login` if no access token; optional bootstraps session from `/api/auth/me` when only `localStorage` has a token.
 
-Suggested dummy data:
+## State
 
-- Register:
-  - `phone`: `9999999999`
-  - `email`: `dev1@sparsha.local`
-  - `password`: `Test@1234`
-- Login:
-  - `identifier`: `dev1@sparsha.local`
-  - `password`: `Test@1234`
+- **`useAuthStore`:** `currentUser` (includes **`centerIds`**), `accessToken`, **`selectedCenterId`** (defaults to first center for staff).
 
-Note: current backend login is email-based. Phone-only login can be enabled later without changing frontend form UX.
+## Feature areas
 
-## New Developer First Run (Local PWA)
+| Area | Paths / notes |
+|------|----------------|
+| Dashboard | `/dashboard` — stats + **pending tasks** card (`/api/dashboard/pending`) |
+| Students | `/students`, `/students/new`, `/students/:id`, `/students/:id/edit` — detail uses **`/api/students/:id/profile`** |
+| Attendance | `/attendance` |
+| Skills / Careers | `/skills`, `/careers` |
+| Exams | `/exams` — bulk grid + **`POST /api/exams/:examId/scores`** |
+| Forms | `/forms`, `/forms/new`, `/forms/:templateId/edit`, `/forms/:templateId/fill`, `/forms/:templateId/submissions` |
+| Reports / Settings | `/reports`, `/settings` (admin-gated where applicable) |
 
-1. Start backend first:
-   - `cd backend`
-   - `npm install`
-   - `cp .env.example .env`
-   - fill required values (`DATABASE_URL`, `JWT_SECRET`, `PORT`)
-   - `npm run dev`
-2. Start frontend:
-   - `cd frontend`
-   - `npm install`
-   - `cp .env.example .env`
-   - keep `VITE_API_BASE_URL=http://localhost:5000`
-   - `npm run dev`
-3. Open the Vite URL in browser (usually `http://localhost:5173`).
-4. Register with dummy values above, then login.
-5. Optional PWA install test:
-   - open in Android Chrome or desktop Chrome
-   - use browser "Install app" action
-   - confirm standalone launch works.
+## UI system
 
-## UX direction
+- **Brand:** CSS variables `brand-50` … `brand-900` in `src/index.css`; primary actions use **brand-700/600**.
+- **Typography:** **Sora** for headings, **DM Sans** for body (loaded in `index.html`).
+- **Layout:** **`PageWrapper`** uses max width **1280px** and horizontal padding.
 
-- Design language: clean, enterprise, trust-focused.
-- Color profile: teal accent + neutral surfaces to align with NGO professionalism.
-- Layout behavior:
-  - desktop: multi-column dashboard layout.
-  - mobile: stacked cards and touch-friendly spacing.
+## PWA
 
-## Pending frontend work (critical)
+- Manual **`manifest.webmanifest`** and **`sw.js`**; service worker registration in bootstrap. Full `vite-plugin-pwa` is optional and not required for core flows.
 
-1. Student detail workflows
-   - Student profile screen with tabs:
-     - Profile Info
-     - Attendance
-     - Skills Summary
-     - Career Paths
-2. Stronger domain typing
-   - Replace permissive frontend response types with finalized backend DTO contracts
-3. Auth hardening follow-ups
-   - Add change-password UX
-   - Add refresh-token cookie alignment when backend refresh-cookie flow is finalized
-4. Form validation expansion
-   - Numeric validation for age and skills
-   - Boolean binding for scholarship
+## Gaps
 
-## Important note
+- Tighter TypeScript types for API responses.
+- Optional migration to TanStack Query for caching and loading/error consistency.
+- Token storage strategy vs XSS (currently `localStorage`).
 
-`vite-plugin-pwa` currently conflicts with Vite 8 peer requirements, so PWA support is implemented via manual manifest + service worker for now.
+## Run commands
+
+See **`frontend/README.md`** (`npm install`, `npm run dev`, `npm run build`).

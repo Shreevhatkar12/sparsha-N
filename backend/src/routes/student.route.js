@@ -5,6 +5,7 @@ import {
   filterStudents,
   getStudentById,
   getStudentSummary,
+  getStudentProfile,
   updateStudent,
   deleteStudent,
   addAttendance,
@@ -37,6 +38,7 @@ router.get("/dashboard", getDashboardStats);
 router.post("/", requireRole("admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
 router.get("/", getAllStudents);
 router.get("/:id/summary", getStudentSummary);
+router.get("/:id/profile", getStudentProfile);
 router.get("/:id", getStudentById);
 router.put("/:id", requireRole("admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
 router.delete("/:id", requireRole("admin", "teacher"), deleteStudent);

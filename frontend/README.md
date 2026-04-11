@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# SPARSHA web app (frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React 19 + TypeScript + Vite + Tailwind CSS 4. Communicates with the backend over **`/api`** (proxied in development).
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Node.js** 20+
+- **npm**
+- Backend running (default `http://localhost:5000`) when you use the dev proxy — see below.
 
-## React Compiler
+## Environment (optional)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+| Variable | When to set |
+|----------|-------------|
+| `VITE_API_URL` | **Production builds** — full base URL to the API, including `/api` if that is your mount path (e.g. `https://api.example.com/api`). |
+| *(omit)* | **Local dev** — Axios defaults to `baseURL: '/api'`; Vite proxies `/api` → `http://localhost:5000` (`vite.config.ts`). |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Install
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
+
+## Run (development)
+
+Start the **backend first** (port 5000), then:
+
+```bash
+npm run dev
+```
+
+Open the printed URL (typically **`http://localhost:5173`**). Login uses the backend’s `/api/auth` routes.
+
+## Build and preview
+
+```bash
+npm run build
+npm run preview
+```
+
+For production, set `VITE_API_URL` to your deployed API base so the built static files call the correct host.
+
+## Lint
+
+```bash
+npm run lint
+```
+
+## What is implemented
+
+- **Auth:** Login; token in `localStorage` + Zustand; protected layout with sidebar and top bar.
+- **Pages:** Dashboard, students (list, registration, **detail with charts**), attendance, skills, careers, **exams (bulk score grid)**, **forms** (list, builder, fill, submissions), reports (admin), settings.
+- **API client:** `src/services/api.ts` — Axios with `withCredentials`, Bearer token, 401 → logout.
+- **UI:** Brand palette (`brand-*`), Sora + DM Sans, shared components under `src/components/ui/`.
+- **Charts:** Recharts on student profile and exam-related views.
+- **PWA:** Manual manifest + service worker (see `public/`, `main.tsx`).
+
+## What is not / gaps
+
+- Access token is stored in **`localStorage`** (project convention); stricter XSS hygiene would use memory-only + refresh cookie flow end-to-end.
+- Some list endpoints still use loose `Record<string, unknown>` types; DTOs could be tightened.
+- `vite-plugin-pwa` is not the primary path; PWA is manual.
+
+## Project layout
+
+| Path | Role |
+|------|------|
+| `src/App.tsx` | Routes |
+| `src/services/` | API modules (`api.ts`, `students.service.ts`, …) |
+| `src/pages/` | Screens |
+| `src/components/` | Layout and UI |
+| `src/store/` | Zustand (`useAuthStore`) |
+| `vite.config.ts` | Dev proxy for `/api` |

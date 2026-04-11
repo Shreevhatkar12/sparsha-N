@@ -1,5 +1,14 @@
 import api from './api';
 
+export type DashboardPendingCounts = {
+  missingAttendance: number;
+  incompleteExams: number;
+  pendingForms: number;
+};
+
+export const getDashboardPending = () =>
+  api.get<DashboardPendingCounts>('/dashboard/pending').then((r) => r.data);
+
 export const getReportsDashboard = () =>
   api.get<Record<string, unknown>>('/reports/dashboard').then((r) => r.data);
 

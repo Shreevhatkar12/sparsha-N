@@ -76,6 +76,15 @@ export const getStudentSummary = async (req, res, next) => {
   }
 };
 
+export const getStudentProfile = async (req, res, next) => {
+  try {
+    const profile = await studentService.getStudentProfile(req.user, req.params.id);
+    return res.status(200).json(profile);
+  } catch (err) {
+    next(err);
+  }
+};
+
 /* ─────────────────────────────────────────
    ATTENDANCE
 ───────────────────────────────────────── */

@@ -313,6 +313,30 @@ async function main() {
     });
   }
 
+  const extraForms: Array<[string, string]> = [
+    ["parent_meeting", "Parent Meeting Form"],
+    ["activity_form", "Activity Form"],
+  ];
+  for (const [formType, name] of extraForms) {
+    const existing = await prisma.formTemplate.findFirst({ where: { formType } });
+    if (!existing) {
+      await prisma.formTemplate.create({
+        data: {
+          formType,
+          name,
+          isActive: true,
+          schema: {
+            fields: [
+              { name: "title", label: "Title", type: "text", required: true },
+              { name: "details", label: "Details", type: "textarea", required: true },
+              { name: "date", label: "Date", type: "date", required: false },
+            ],
+          },
+        },
+      });
+    }
+  }
+
   // Summary
   const tCenters = await prisma.center.count();
   const tPrograms = await prisma.program.count();

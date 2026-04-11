@@ -1,5 +1,7 @@
 **SPARSHA**
 
+> **Project status / runbook:** see `documentaion/STATUS.md` and the root `README.md`. This file is a prompt pack for future testing and TS migration work.
+
 Backend Testing + TypeScript Migration
 
 *Cursor AI Prompts --- Part 2*

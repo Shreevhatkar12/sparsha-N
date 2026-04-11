@@ -557,6 +557,25 @@ export async function getPendingItemsData(user: JwtPayload) {
   return { incompleteSessions, missingExamScores, pendingFormSubmissions };
 }
 
+/** Compact counts for `GET /api/dashboard/pending` (attendance = incomplete sessions in last 7 days). */
+export async function getDashboardPendingCounts(user: JwtPayload) {
+  const data = await getPendingItemsData(user);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  const missingAttendance = data.incompleteSessions.filter((s) => {
+    const d = new Date(s.date);
+    return d >= sevenDaysAgo;
+  }).length;
+
+  return {
+    missingAttendance,
+    incompleteExams: data.missingExamScores.length,
+    pendingForms: data.pendingFormSubmissions.length,
+  };
+}
+
 
 // ----------------------------------------------------------------------
 // EXPORT (CSV)

@@ -69,3 +69,26 @@ export interface ApiEnvelope<T> {
 export type SkillRecord = Record<string, unknown>;
 export type CareerRecord = Record<string, unknown>;
 export type AttendanceRecordPayload = Record<string, unknown>;
+
+/** `GET /api/students/:id/profile` — aggregated charts and relations */
+export interface StudentProfilePayload {
+  student: Student & { parents?: unknown[] };
+  stats: {
+    attendancePct: number;
+    avgExamPct: number | null;
+    skillScore: number | null;
+  };
+  attendanceTrend: { date: string; present: number }[];
+  examComparison: { subject: string; baseline: number | null; endline: number | null }[];
+  skillRadar: { skill: string; score: number }[];
+  formSubmissions: Array<{
+    id: string;
+    createdAt: string;
+    data: unknown;
+    template?: { id: string; name: string; formType: string };
+    templateId?: string;
+  }>;
+  parents: Array<{
+    parent?: { fullName?: string | null; email?: string | null; phone?: string | null };
+  }>;
+}

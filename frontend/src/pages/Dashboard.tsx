@@ -7,7 +7,7 @@ import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Users, BookOpen, Star, AlertCircle, PlusCircle } from 'lucide-react';
-import { getReportsDashboard } from '../services/reports.service';
+import { getDashboardPending, getReportsDashboard, type DashboardPendingCounts } from '../services/reports.service';
 
 export const Dashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -15,6 +15,7 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [pendingDetail, setPendingDetail] = useState<DashboardPendingCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +25,11 @@ export const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const d = await getReportsDashboard();
-        if (alive) setData(d);
+        const [d, p] = await Promise.all([getReportsDashboard(), getDashboardPending()]);
+        if (alive) {
+          setData(d);
+          setPendingDetail(p);
+        }
       } catch {
         if (alive) setError('Failed to load dashboard.');
       } finally {
@@ -107,6 +111,43 @@ export const Dashboard: React.FC = () => {
           </p>
         </Card>
       </div>
+
+      {pendingDetail && (
+        <Card className="mb-6 border-brand-100 bg-brand-50/40">
+          <h3 className="font-semibold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-heading)' }}>
+            Pending tasks
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+            <button
+              type="button"
+              className="text-left rounded-lg border border-neutral-200 bg-white p-4 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+              onClick={() => navigate('/attendance')}
+            >
+              <p className="text-neutral-500 text-xs uppercase tracking-wide">Attendance (7d)</p>
+              <p className="text-2xl font-bold text-brand-800">{pendingDetail.missingAttendance}</p>
+              <p className="text-neutral-600 mt-1">Sessions with incomplete rolls</p>
+            </button>
+            <button
+              type="button"
+              className="text-left rounded-lg border border-neutral-200 bg-white p-4 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+              onClick={() => navigate('/exams')}
+            >
+              <p className="text-neutral-500 text-xs uppercase tracking-wide">Exams</p>
+              <p className="text-2xl font-bold text-brand-800">{pendingDetail.incompleteExams}</p>
+              <p className="text-neutral-600 mt-1">Exams missing scores</p>
+            </button>
+            <button
+              type="button"
+              className="text-left rounded-lg border border-neutral-200 bg-white p-4 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+              onClick={() => navigate('/forms')}
+            >
+              <p className="text-neutral-500 text-xs uppercase tracking-wide">Forms</p>
+              <p className="text-2xl font-bold text-brand-800">{pendingDetail.pendingForms}</p>
+              <p className="text-neutral-600 mt-1">Template gaps by center</p>
+            </button>
+          </div>
+        </Card>
+      )}
 
       {isAdmin && (
         <Card>

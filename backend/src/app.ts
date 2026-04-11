@@ -13,6 +13,7 @@ import activityRoutes from "./routes/activityRoutes.js";
 // @ts-expect-error JavaScript route module
 import authRoutes from "./routes/auth.route.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 // @ts-expect-error JavaScript route module
 import studentRoutes from "./routes/student.route.js";
 
@@ -48,6 +49,7 @@ app.use("/api/programs", programRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.use(errorHandler);
 

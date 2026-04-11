@@ -41,6 +41,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
       email: true,
       role: true,
       centerAssignments: {
+        where: { validUntil: null },
         select: { centerId: true },
       },
     },

@@ -289,6 +289,7 @@ model ExamScore {
   student Student @relation(fields: [studentId], references: [id])
   center  Center  @relation(fields: [centerId], references: [id])
 
+  @@unique([examId, studentId, subject])
   @@map("exam_scores")
 }
 

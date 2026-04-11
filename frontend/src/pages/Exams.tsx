@@ -1,118 +1,433 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
-import { listExams, getExamComparison, type ListExamsQuery } from '../services/exams.service';
+import {
+  createExam,
+  getExamById,
+  getExamComparison,
+  listExams,
+  upsertExamScores,
+  type ListExamsQuery,
+} from '../services/exams.service';
+import { listCenters, listPrograms } from '../services/centers.service';
 import { useAuthStore } from '../store/useAuthStore';
+import type { CenterSummary, ProgramSummary } from '../types';
+import type { ExamType } from '../types';
 
-type ExamRow = Record<string, unknown>;
+const SUBJECTS = ['english', 'science', 'maths'] as const;
+type SubjectKey = (typeof SUBJECTS)[number];
+
+type GridRow = Record<SubjectKey, string> & { remarks: string };
 
 export const Exams: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const isAdmin = useAuthStore((s) => s.currentUser?.role === 'admin');
 
-  const [exams, setExams] = useState<ExamRow[]>([]);
-  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear()));
+  const [centers, setCenters] = useState<CenterSummary[]>([]);
+  const [programs, setPrograms] = useState<ProgramSummary[]>([]);
+  const [centerId, setCenterId] = useState('');
+  const [programId, setProgramId] = useState('');
+  const [examType, setExamType] = useState<ExamType>('baseline');
+  const [academicYear, setAcademicYear] = useState(`${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`);
+  const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
+
+  const [examId, setExamId] = useState<string | null>(null);
+  const [examLabel, setExamLabel] = useState('');
+  const [grid, setGrid] = useState<Record<string, GridRow>>({});
+  const [studentOrder, setStudentOrder] = useState<Array<{ id: string; fullName: string }>>([]);
+
   const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadExams = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: ListExamsQuery = {
-        academicYear,
-        ...(!isAdmin && selectedCenterId ? { centerId: selectedCenterId } : {}),
-      };
-      const res = (await listExams(params)) as { exams?: ExamRow[] };
-      setExams(res.exams ?? []);
-    } catch {
-      setError('Failed to load exams.');
-      setExams([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setListLoading(true);
+      try {
+        const [c, p] = await Promise.all([listCenters(), listPrograms()]);
+        if (!alive) return;
+        setCenters(c);
+        setPrograms(Array.isArray(p) ? p : []);
+        const firstCenter = (!isAdmin && selectedCenterId ? selectedCenterId : c[0]?.id) ?? '';
+        setCenterId(firstCenter);
+        setProgramId(p[0]?.id ?? '');
+      } catch {
+        if (alive) setError('Failed to load centers or programs.');
+      } finally {
+        if (alive) setListLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [isAdmin, selectedCenterId]);
 
   useEffect(() => {
-    void loadExams();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when year / scope changes
-  }, [academicYear, selectedCenterId, isAdmin]);
+    if (programs.length > 0 && !programs.some((p) => p.id === programId)) {
+      setProgramId(programs[0].id);
+    }
+  }, [programs, programId]);
 
-  const loadComparison = async () => {
+  const loadComparison = useCallback(async () => {
     setError(null);
     try {
       const q: Record<string, string | undefined> = { academicYear };
-      if (!isAdmin && selectedCenterId) q.centerId = selectedCenterId;
+      if (!isAdmin && centerId) q.centerId = centerId;
+      if (programId) q.programId = programId;
       const c = await getExamComparison(q);
       setComparison(c as Record<string, unknown>);
     } catch {
-      setError('Could not load exam comparison (academic year may be missing data).');
+      setError('Could not load exam comparison.');
     }
-  };
+  }, [academicYear, centerId, programId, isAdmin]);
 
   useEffect(() => {
     void loadComparison();
-  }, [academicYear, selectedCenterId, isAdmin]);
+  }, [loadComparison]);
+
+  const hydrateGrid = useCallback(
+    (rows: Array<{ student: { id: string; fullName: string }; scores: Array<{ subject: string; marks: unknown; remarks?: string | null }> }>) => {
+      const next: Record<string, GridRow> = {};
+      const order: Array<{ id: string; fullName: string }> = [];
+      for (const row of rows) {
+        order.push({ id: row.student.id, fullName: row.student.fullName });
+        const g: GridRow = {
+          english: '',
+          science: '',
+          maths: '',
+          remarks: '',
+        };
+        for (const sc of row.scores) {
+          const sub = sc.subject.toLowerCase() as SubjectKey;
+          if (sub === 'english' || sub === 'science' || sub === 'maths') {
+            g[sub] = sc.marks != null && sc.marks !== '' ? String(sc.marks) : '';
+          }
+          if (sc.remarks && !g.remarks) g.remarks = sc.remarks;
+        }
+        next[row.student.id] = g;
+      }
+      setStudentOrder(order);
+      setGrid(next);
+    },
+    [],
+  );
+
+  const loadWorkspace = async (id: string) => {
+    setWorkspaceLoading(true);
+    setError(null);
+    try {
+      const res = (await getExamById(id)) as {
+        exam: { id: string; academicYear?: string; examType?: string };
+        students: Array<{
+          student: { id: string; fullName: string };
+          scores: Array<{ subject: string; marks: unknown; remarks?: string | null }>;
+        }>;
+      };
+      setExamId(res.exam.id);
+      setExamLabel(`${res.exam.examType ?? ''} · ${res.exam.academicYear ?? ''}`);
+      hydrateGrid(res.students);
+    } catch {
+      setError('Could not load exam workspace.');
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  };
+
+  const prepareExam = async () => {
+    if (!centerId || !programId) {
+      setError('Select center and program.');
+      return;
+    }
+    setError(null);
+    const body = {
+      centerId,
+      programId,
+      examType,
+      academicYear,
+      examDate,
+    };
+    try {
+      try {
+        const res = (await createExam(body)) as {
+          exam?: { id: string; examType?: string; academicYear?: string };
+        };
+        if (res.exam?.id) {
+          setExamLabel(`${res.exam.examType ?? examType} · ${res.exam.academicYear ?? academicYear}`);
+          await loadWorkspace(res.exam.id);
+        }
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err) && err.response?.status === 409) {
+          const d = err.response.data as { exam?: { id: string; examType?: string; academicYear?: string } };
+          if (d.exam?.id) {
+            setExamLabel(`${d.exam.examType ?? examType} · ${d.exam.academicYear ?? academicYear}`);
+            await loadWorkspace(d.exam.id);
+            return;
+          }
+        }
+        throw err;
+      }
+    } catch {
+      setError('Could not open exam. Check permissions and inputs.');
+    }
+  };
+
+  const pickFromList = async () => {
+    if (!centerId || !programId) return;
+    setWorkspaceLoading(true);
+    setError(null);
+    try {
+      const params: ListExamsQuery = {
+        centerId,
+        programId,
+        examType,
+        academicYear,
+      };
+      const res = (await listExams(params)) as { exams?: Array<{ id: string }> };
+      const first = res.exams?.[0];
+      if (first?.id) await loadWorkspace(first.id);
+      else setError('No exam found for these filters. Use Prepare exam to create one.');
+    } catch {
+      setError('Failed to list exams.');
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  };
+
+  const updateCell = (studentId: string, key: keyof GridRow, value: string) => {
+    setGrid((prev) => ({
+      ...prev,
+      [studentId]: {
+        ...(prev[studentId] ?? {
+          english: '',
+          science: '',
+          maths: '',
+          remarks: '',
+        }),
+        [key]: value,
+      },
+    }));
+  };
+
+  const submitScores = async () => {
+    if (!examId) return;
+    const scores: Array<{
+      studentId: string;
+      subject: string;
+      marks: number;
+      maxMarks: number;
+      remarks?: string;
+    }> = [];
+
+    for (const { id: studentId } of studentOrder) {
+      const g = grid[studentId];
+      if (!g) continue;
+      for (const sub of SUBJECTS) {
+        const raw = (g[sub] ?? '').trim();
+        if (raw === '') continue;
+        const n = Number(raw);
+        if (Number.isNaN(n) || n < 0 || n > 50) {
+          setError(`Marks must be 0–50 for ${sub}.`);
+          return;
+        }
+        scores.push({
+          studentId,
+          subject: sub,
+          marks: n,
+          maxMarks: 50,
+          ...(sub === 'english' && g.remarks.trim() ? { remarks: g.remarks.trim() } : {}),
+        });
+      }
+    }
+
+    if (scores.length === 0) {
+      setError('Enter at least one score.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await upsertExamScores(examId, { scores });
+      await loadWorkspace(examId);
+      await loadComparison();
+    } catch {
+      setError('Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rowIncomplete = (studentId: string) => {
+    const g = grid[studentId];
+    if (!g) return true;
+    return SUBJECTS.some((s) => (g[s] ?? '').trim() === '');
+  };
+
+  if (listLoading) {
+    return (
+      <PageWrapper title="Exams">
+        <LoadingSpinner />
+      </PageWrapper>
+    );
+  }
 
   return (
-    <PageWrapper title="Exam Tracker">
+    <PageWrapper title="Exams">
       {error && (
         <div className="mb-4">
           <ErrorMessage message={error} />
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3 mb-6 items-end">
-        <div>
-          <label className="text-xs font-medium text-neutral-600">Academic year</label>
-          <input
-            className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-            value={academicYear}
-            onChange={(e) => setAcademicYear(e.target.value)}
-          />
-        </div>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void loadExams()}>
-          Refresh list
-        </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void loadComparison()}>
-          Refresh comparison
-        </Button>
-      </div>
-
-      {loading ? (
-        <LoadingSpinner />
-      ) : exams.length === 0 ? (
-        <EmptyState title="No exams" description="Create exams for this academic year in the backend or admin tools." />
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <Card>
-            <h2 className="text-lg font-semibold mb-4">Exams</h2>
-            <ul className="space-y-2 text-sm">
-              {exams.map((ex) => (
-                <li key={String(ex.id)} className="flex justify-between border-b border-neutral-100 py-2">
-                  <span>
-                    {String(ex.examType ?? '')} · {String(ex.academicYear ?? '')}
-                  </span>
-                  <span className="text-neutral-500">
-                    {String((ex as { completionPercentage?: number }).completionPercentage ?? 0)}% complete
-                  </span>
-                </li>
+      <Card className="mb-6">
+        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Exam setup</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="text-xs font-medium text-neutral-600">Center</label>
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+              value={centerId}
+              onChange={(e) => setCenterId(e.target.value)}
+            >
+              {centers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
-            </ul>
-          </Card>
-          <Card>
-            <h2 className="text-lg font-semibold mb-2">Baseline vs endline (API)</h2>
-            <pre className="text-xs overflow-auto max-h-[360px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-              {JSON.stringify(comparison, null, 2)}
-            </pre>
-          </Card>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600">Program</label>
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+              value={programId}
+              onChange={(e) => setProgramId(e.target.value)}
+            >
+              {programs.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-600">Exam type</label>
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+              value={examType}
+              onChange={(e) => setExamType(e.target.value as ExamType)}
+            >
+              <option value="baseline">Baseline</option>
+              <option value="endline">Endline</option>
+            </select>
+          </div>
+          <Input label="Academic year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} />
+          <Input label="Exam date" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="primary" onClick={() => void prepareExam()} disabled={workspaceLoading}>
+            {workspaceLoading ? 'Loading…' : 'Prepare exam'}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => void pickFromList()} disabled={workspaceLoading}>
+            Load from list
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void loadComparison()}>
+            Refresh comparison
+          </Button>
+        </div>
+        {examId && (
+          <p className="text-sm text-neutral-600 mt-3">
+            Active: <span className="font-medium text-neutral-900">{examLabel}</span> ({examId.slice(0, 8)}…)
+          </p>
+        )}
+      </Card>
+
+      {workspaceLoading ? (
+        <LoadingSpinner />
+      ) : !examId ? (
+        <EmptyState
+          title="No exam workspace"
+          description="Choose center, program, and type, then click Prepare exam (or Load from list)."
+        />
+      ) : (
+        <Card className="mb-6 overflow-x-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-neutral-900">Marks (0–50)</h2>
+            <Button type="button" variant="primary" isLoading={saving} onClick={() => void submitScores()}>
+              Save all scores
+            </Button>
+          </div>
+          <table className="w-full text-sm min-w-[720px]">
+            <thead className="sticky top-0 bg-white z-10 shadow-sm">
+              <tr className="border-b border-neutral-200 text-left text-neutral-600">
+                <th className="py-2 pr-3 font-medium">Student</th>
+                <th className="py-2 pr-2 font-medium">English</th>
+                <th className="py-2 pr-2 font-medium">Science</th>
+                <th className="py-2 pr-2 font-medium">Maths</th>
+                <th className="py-2 pr-2 font-medium min-w-[140px]">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {studentOrder.map((s, idx) => {
+                const g = grid[s.id] ?? {
+                  english: '',
+                  science: '',
+                  maths: '',
+                  remarks: '',
+                };
+                const incomplete = rowIncomplete(s.id);
+                return (
+                  <tr
+                    key={s.id}
+                    className={`border-b border-neutral-100 ${idx % 2 === 1 ? 'bg-neutral-50/80' : ''} ${
+                      incomplete ? 'bg-amber-50' : ''
+                    } hover:bg-brand-50/60`}
+                  >
+                    <td className="py-2 pr-3 font-medium text-neutral-900 whitespace-nowrap">{s.fullName}</td>
+                    {SUBJECTS.map((sub) => (
+                      <td key={sub} className="py-1 pr-1">
+                        <input
+                          className="w-20 rounded border border-neutral-300 px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          inputMode="numeric"
+                          value={g[sub]}
+                          onChange={(e) => updateCell(s.id, sub, e.target.value)}
+                        />
+                      </td>
+                    ))}
+                    <td className="py-1 pr-1">
+                      <input
+                        className="w-full min-w-[120px] rounded border border-neutral-300 px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500"
+                        value={g.remarks}
+                        onChange={(e) => updateCell(s.id, 'remarks', e.target.value)}
+                        placeholder="Optional"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="text-xs text-neutral-500 mt-3">
+            Rows with any empty subject are highlighted. Remarks are stored on the English score row.
+          </p>
+        </Card>
       )}
+
+      <Card>
+        <h2 className="text-lg font-semibold mb-2">Baseline vs endline (summary)</h2>
+        <pre className="text-xs overflow-auto max-h-[280px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
+          {JSON.stringify(comparison, null, 2)}
+        </pre>
+      </Card>
     </PageWrapper>
   );
 };

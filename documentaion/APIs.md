@@ -1,7 +1,10 @@
-# KittyKat API Protocol Specification
+# SPARSHA API notes (`/api`)
 
-Base URL: `/api`
-Format: All requests and responses are strictly JSON.
+**Note:** This file is descriptive; route behavior can differ slightly by module (some endpoints return raw JSON, others wrap `{ success, data }`). Verify against `backend/src/app.ts` and route handlers. **Current overview:** `documentaion/STATUS.md`.
+
+Base URL: **`/api`** (served by the Express app; default origin `http://localhost:5000` in development).
+
+Format: JSON. Not every handler uses the same envelope — check the controller for each area.
 
 ## Global Response Structure
 * **Success:** `{ "success": true, "message"?: "...", "data"?: { ... } }`
@@ -10,6 +13,21 @@ Format: All requests and responses are strictly JSON.
 **Authorization:**
 Protected routes expect an `Authorization` header formatted as: `Bearer <accessToken>`
 The `refreshToken` is handled automatically via HttpOnly cookies.
+
+---
+
+## Dashboard pending (`/api/dashboard`)
+
+### `GET /pending` (Protected)
+Returns numeric counts for alerts:
+```json
+{
+  "missingAttendance": 0,
+  "incompleteExams": 0,
+  "pendingForms": 0
+}
+```
+Attendance counts incomplete **attendance sessions** in the **last 7 days** (expected records vs enrolled students). Exam and form counts follow the same heuristics as `GET /api/reports/pending` detail lists.
 
 ---
 
@@ -128,6 +146,17 @@ The `refreshToken` is handled automatically via HttpOnly cookies.
 
 ### `GET /:id`
 * **Returns:** Complete student record including nested arrays for `attendance`, `skills`, and `careers`.
+
+### `GET /:id/profile`
+* **Purpose:** Single aggregated payload for the student detail UI (charts, submissions table, linked parents).
+* **Returns:** Flat JSON (not wrapped in `{ success, data }`) with:
+  * `student` — Prisma student with `center`, `program` (no raw attendance/exam rows on this object).
+  * `stats` — `{ attendancePct, avgExamPct, skillScore }` (`skillScore` may be `null` until wired).
+  * `attendanceTrend` — up to 10 points: `{ date, present }` where `present` is `1` or `0`.
+  * `examComparison` — per subject: `{ subject, baseline, endline }` percentages when scores exist.
+  * `skillRadar` — optional `{ skill, score }[]` (often empty; UI may fall back to `GET /:id/skills`).
+  * `formSubmissions` — recent rows with `template` metadata.
+  * `parents` — `ParentStudent` rows with linked `parent` user.
 
 ### `PUT /:id`
 * **Body:** Any field from the Student model. Partial updates permitted.

@@ -277,6 +277,105 @@ export const getStudentSummary = async (user, id) => {
   };
 };
 
+/** Aggregated student dashboard payload (charts + tables) for `/students/:id/profile`. */
+export const getStudentProfile = async (user, id) => {
+  const student = await prisma.student.findFirst({
+    where: scopedWhere(user, { id }),
+    include: {
+      center: true,
+      program: true,
+      parents: {
+        include: {
+          parent: {
+            select: { id: true, fullName: true, email: true, phone: true },
+          },
+        },
+      },
+      attendanceRecords: {
+        include: { session: true },
+        orderBy: { session: { sessionDate: "desc" } },
+        take: 10,
+      },
+      examScores: {
+        include: { exam: true },
+      },
+      formSubmissions: {
+        include: {
+          template: { select: { id: true, name: true, formType: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      },
+    },
+  });
+
+  if (!student) {
+    throw new NotFoundError("Student");
+  }
+
+  const records = student.attendanceRecords;
+  const totalSessions = records.length;
+  const presentCount = records.filter((r) => r.status === "present").length;
+  const attendancePct =
+    totalSessions > 0 ? Number(((presentCount / totalSessions) * 100).toFixed(1)) : 0;
+
+  const examScoresList = student.examScores;
+  let sumPct = 0;
+  let n = 0;
+  for (const es of examScoresList) {
+    if (es.marks == null) continue;
+    sumPct += (Number(es.marks) / Number(es.maxMarks)) * 100;
+    n++;
+  }
+  const avgExamPct = n > 0 ? Number((sumPct / n).toFixed(1)) : null;
+
+  const attendanceTrend = [...records]
+    .reverse()
+    .map((r) => ({
+      date: r.session.sessionDate.toISOString().slice(0, 10),
+      present: r.status === "present" ? 1 : 0,
+    }));
+
+  const bySubject = {};
+  for (const es of examScoresList) {
+    const subj = es.subject;
+    if (!bySubject[subj]) {
+      bySubject[subj] = {};
+    }
+    const pct =
+      es.marks == null ? null : (Number(es.marks) / Number(es.maxMarks)) * 100;
+    const type = es.exam?.examType;
+    if (type === "baseline") {
+      bySubject[subj].baseline = pct;
+    }
+    if (type === "endline") {
+      bySubject[subj].endline = pct;
+    }
+  }
+  const examComparison = Object.entries(bySubject).map(([subject, v]) => ({
+    subject,
+    baseline: v.baseline ?? null,
+    endline: v.endline ?? null,
+  }));
+
+  const { attendanceRecords: _ar, examScores: _ex, formSubmissions: _fs, parents, ...studentRest } =
+    student;
+
+  return {
+    student: studentRest,
+    stats: {
+      attendancePct,
+      avgExamPct,
+      skillScore: null,
+    },
+    attendanceTrend,
+    examComparison,
+    skillRadar: [],
+    formSubmissions: student.formSubmissions,
+    parents,
+  };
+};
+
 /* ─────────────────────────────────────────
    ATTENDANCE
 ───────────────────────────────────────── */

@@ -16,6 +16,8 @@ export const FormsListPage: React.FC = () => {
   const isAdmin = useAuthStore((s) => s.currentUser?.role === 'admin');
 
   const [templates, setTemplates] = useState<FormTemplateListItem[]>([]);
+  const [formTypeSlugs, setFormTypeSlugs] = useState<string[]>([]);
+  const [formTypeFilter, setFormTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +25,7 @@ export const FormsListPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listFormTemplates(undefined, isAdmin);
+      const rows = await listFormTemplates(formTypeFilter || undefined, isAdmin);
       setTemplates(rows);
     } catch {
       setError('Failed to load form templates.');
@@ -33,8 +35,26 @@ export const FormsListPage: React.FC = () => {
   };
 
   useEffect(() => {
-    void load();
+    let alive = true;
+    (async () => {
+      try {
+        const all = await listFormTemplates(undefined, isAdmin);
+        if (!alive) return;
+        const slugs = [...new Set(all.map((t) => t.formType).filter(Boolean))] as string[];
+        setFormTypeSlugs(slugs.sort());
+      } catch {
+        if (alive) setFormTypeSlugs([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [isAdmin]);
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, formTypeFilter]);
 
   return (
     <PageWrapper
@@ -52,6 +72,27 @@ export const FormsListPage: React.FC = () => {
           <ErrorMessage message={error} />
         </div>
       )}
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <label className="text-sm text-neutral-600 flex items-center gap-2">
+          <span className="font-medium">Form type</span>
+          <select
+            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+            value={formTypeFilter}
+            onChange={(e) => setFormTypeFilter(e.target.value)}
+          >
+            <option value="">All types</option>
+            {formTypeSlugs.map((ft) => (
+              <option key={ft} value={ft}>
+                {ft}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-neutral-500">
+          Filter by category (e.g. student_meeting). Add types not listed by creating a template first.
+        </p>
+      </div>
 
       <Card>
         {loading ? (
