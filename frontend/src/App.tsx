@@ -11,6 +11,10 @@ import { Careers } from './pages/Careers';
 import { Exams } from './pages/Exams';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { FormsListPage } from './pages/Forms/FormsListPage';
+import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
+import { FormRendererPage } from './pages/Forms/FormRendererPage';
+import { FormSubmissionsPage } from './pages/Forms/FormSubmissionsPage';
 
 function App() {
   return (
@@ -20,7 +24,8 @@ function App() {
 
         {/* Protected Group */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/students" element={<StudentList />} />
           <Route path="/students/new" element={<StudentRegistration />} />
           <Route path="/students/:id" element={<StudentDetails />} />
@@ -31,6 +36,11 @@ function App() {
           <Route path="/exams" element={<Exams />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/forms" element={<FormsListPage />} />
+          <Route path="/forms/new" element={<FormBuilderPage />} />
+          <Route path="/forms/:templateId/edit" element={<FormBuilderPage />} />
+          <Route path="/forms/:templateId/fill" element={<FormRendererPage />} />
+          <Route path="/forms/:templateId/submissions" element={<FormSubmissionsPage />} />
         </Route>
 
         {/* Fallback */}

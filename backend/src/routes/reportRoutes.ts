@@ -4,6 +4,7 @@ import {
   dashboardController,
   attendanceController,
   examsController,
+  skillsReportController,
   studentsFilterController,
   pendingItemsController,
   exportCsvController
@@ -15,6 +16,7 @@ reportRoutes.use(authenticate);
 
 reportRoutes.get("/dashboard", dashboardController);
 reportRoutes.get("/attendance", attendanceController);
+reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);
 reportRoutes.get("/students", studentsFilterController);
 reportRoutes.get("/pending", pendingItemsController);

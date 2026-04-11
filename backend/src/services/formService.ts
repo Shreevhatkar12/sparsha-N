@@ -79,10 +79,13 @@ export async function createTemplate(input: CreateTemplateInput) {
   });
 }
 
-export async function listTemplates(formType?: string) {
+export async function listTemplates(
+  formType?: string,
+  options?: { includeInactive?: boolean },
+) {
   return prisma.formTemplate.findMany({
     where: {
-      isActive: true,
+      ...(options?.includeInactive ? {} : { isActive: true }),
       ...(formType ? { formType } : {}),
     },
     orderBy: { createdAt: "desc" },

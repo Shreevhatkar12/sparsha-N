@@ -6,6 +6,7 @@ import {
   getAttendanceSummary,
   getPendingSessions,
   getSessionById,
+  getSessionRecords,
   getStudentAttendanceHistory,
   listSessions,
   parseHasIncomplete,
@@ -51,6 +52,22 @@ export async function getAttendanceSessions(req: Request, res: Response, next: N
       hasIncomplete: parseHasIncomplete(hasIncomplete),
     });
 
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getAttendanceSessionRecords(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await getSessionRecords(
+      (req as AuthenticatedRequest).user!,
+      req.params.sessionId as string,
+    );
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

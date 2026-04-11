@@ -302,6 +302,111 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
   };
 }
 
+// ----------------------------------------------------------------------
+// SKILLS REPORT (no dedicated Skill model — averages from exam scores + skill-like forms)
+// ----------------------------------------------------------------------
+export async function getSkillsReport(user: JwtPayload, query: { centerId?: string; programId?: string }) {
+  if (query.centerId && user.role !== "admin" && !user.centerIds.includes(query.centerId as string)) {
+    throw new ForbiddenError("No access to requested center");
+  }
+
+  const centerFilter = query.centerId
+    ? query.centerId
+    : user.role === "admin"
+      ? undefined
+      : { in: user.centerIds };
+
+  const studentWhere: Prisma.StudentWhereInput = {
+    isActive: true,
+    ...(centerFilter ? { centerId: centerFilter as string } : user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+    ...(query.programId ? { programId: query.programId as string } : {}),
+  };
+
+  const scores = await prisma.examScore.findMany({
+    where: {
+      student: studentWhere,
+    },
+    select: {
+      subject: true,
+      marks: true,
+    },
+  });
+
+  const bySubject = new Map<string, { sum: number; count: number }>();
+  for (const row of scores) {
+    if (row.marks === null) continue;
+    const key = row.subject.toLowerCase();
+    const prev = bySubject.get(key) ?? { sum: 0, count: 0 };
+    prev.sum += Number(row.marks);
+    prev.count += 1;
+    bySubject.set(key, prev);
+  }
+
+  const fromExamScoresBySubject = [...bySubject.entries()].map(([subject, { sum, count }]) => ({
+    subject,
+    averageMarks: count ? Number((sum / count).toFixed(2)) : 0,
+    sampleSize: count,
+  }));
+
+  const skillTemplates = await prisma.formTemplate.findMany({
+    where: {
+      isActive: true,
+      formType: { contains: "skill", mode: "insensitive" },
+    },
+    select: { id: true, name: true, formType: true },
+  });
+
+  const skillAveragesByTemplate: Array<{
+    templateId: string;
+    name: string;
+    formType: string;
+    fieldAverages: Record<string, number>;
+    submissionCount: number;
+  }> = [];
+
+  for (const tpl of skillTemplates) {
+    const submissions = await prisma.formSubmission.findMany({
+      where: {
+        templateId: tpl.id,
+        student: studentWhere,
+      },
+      select: { data: true },
+    });
+
+    const numericSums = new Map<string, { sum: number; n: number }>();
+    for (const sub of submissions) {
+      const data = sub.data as Record<string, unknown>;
+      if (!data || typeof data !== "object") continue;
+      for (const [k, v] of Object.entries(data)) {
+        if (typeof v === "number" && !Number.isNaN(v)) {
+          const cur = numericSums.get(k) ?? { sum: 0, n: 0 };
+          cur.sum += v;
+          cur.n += 1;
+          numericSums.set(k, cur);
+        }
+      }
+    }
+
+    const fieldAverages: Record<string, number> = {};
+    for (const [k, { sum, n }] of numericSums) {
+      fieldAverages[k] = n ? Number((sum / n).toFixed(2)) : 0;
+    }
+
+    skillAveragesByTemplate.push({
+      templateId: tpl.id,
+      name: tpl.name,
+      formType: tpl.formType,
+      fieldAverages,
+      submissionCount: submissions.length,
+    });
+  }
+
+  return {
+    fromExamScoresBySubject,
+    skillAveragesByTemplate,
+  };
+}
+
 
 // ----------------------------------------------------------------------
 // STUDENTS FILTER

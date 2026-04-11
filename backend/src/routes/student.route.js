@@ -20,6 +20,8 @@ import {
 } from "../controllers/student.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { requireRole } from "../middleware/requireRole.middleware.js";
+import { validate } from "../middleware/validate.js";
+import { createStudentSchema, updateStudentSchema } from "../validation/schemas.js";
 
 const router = Router();
 
@@ -32,11 +34,11 @@ router.get("/filter", filterStudents);
 router.get("/dashboard", getDashboardStats);
 
 // Students CRUD
-router.post("/", requireRole("admin", "teacher", "staff"), createStudent);
+router.post("/", requireRole("admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
 router.get("/", getAllStudents);
 router.get("/:id/summary", getStudentSummary);
 router.get("/:id", getStudentById);
-router.put("/:id", requireRole("admin", "teacher", "staff"), updateStudent);
+router.put("/:id", requireRole("admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
 router.delete("/:id", requireRole("admin", "teacher"), deleteStudent);
 
 // Attendance

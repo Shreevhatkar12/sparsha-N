@@ -6,7 +6,8 @@ import {
   getExamAnalytics,
   getFilteredStudents,
   getPendingItemsData,
-  exportStudentDataCsv
+  exportStudentDataCsv,
+  getSkillsReport,
 } from "../services/reportService.js";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -35,6 +36,19 @@ export async function examsController(req: Request, res: Response, next: NextFun
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getExamAnalytics(user, req.query);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function skillsReportController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const data = await getSkillsReport(user, {
+      centerId: req.query.centerId as string | undefined,
+      programId: req.query.programId as string | undefined,
+    });
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

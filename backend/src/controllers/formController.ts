@@ -27,7 +27,13 @@ export async function createTemplateController(req: Request, res: Response, next
 
 export async function listTemplatesController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await listTemplates(req.query.formType as string | undefined);
+    const user = (req as AuthenticatedRequest).user!;
+    const includeInactive =
+      user.role === "admin" &&
+      (req.query.includeInactive === "true" || req.query.includeInactive === "1");
+    const result = await listTemplates(req.query.formType as string | undefined, {
+      includeInactive,
+    });
     return res.status(200).json({ templates: result });
   } catch (error) {
     return next(error);

@@ -13,18 +13,29 @@ import {
   submitFormController,
   updateTemplateController,
 } from "../controllers/formController.js";
+import { validate } from "../middleware/validate.js";
+import {
+  createFormTemplateSchema,
+  submitFormSchema,
+  updateFormTemplateSchema,
+} from "../validation/schemas.js";
 
 const formRoutes = Router();
 
 formRoutes.use(authenticate);
 
-formRoutes.post("/templates", requireRole("admin"), createTemplateController);
+formRoutes.post("/templates", requireRole("admin"), validate(createFormTemplateSchema), createTemplateController);
 formRoutes.get("/templates", listTemplatesController);
 formRoutes.get("/templates/:templateId", getTemplateController);
-formRoutes.put("/templates/:templateId", requireRole("admin"), updateTemplateController);
+formRoutes.put(
+  "/templates/:templateId",
+  requireRole("admin"),
+  validate(updateFormTemplateSchema),
+  updateTemplateController,
+);
 formRoutes.delete("/templates/:templateId", requireRole("admin"), deleteTemplateController);
 
-formRoutes.post("/submissions", submitFormController);
+formRoutes.post("/submissions", validate(submitFormSchema), submitFormController);
 formRoutes.get("/submissions", listSubmissionsController);
 formRoutes.get("/submissions/:submissionId", getSubmissionController);
 formRoutes.delete("/submissions/:submissionId", requireRole("admin"), deleteSubmissionController);

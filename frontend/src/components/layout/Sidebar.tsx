@@ -11,7 +11,8 @@ import {
   GraduationCap, 
   BarChart3,
   Settings,
-  X
+  X,
+  FileText,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,12 +25,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const isAdmin = currentUser?.role === 'admin';
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Students', path: '/students', icon: <Users size={20} /> },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} /> },
     { name: 'Skills', path: '/skills', icon: <Star size={20} /> },
     { name: 'Careers', path: '/careers', icon: <Briefcase size={20} /> },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} /> },
+    { name: 'Forms', path: '/forms', icon: <FileText size={20} /> },
   ];
 
   if (isAdmin) {

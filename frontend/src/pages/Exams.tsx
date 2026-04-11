@@ -1,139 +1,118 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
-import { CheckCircle, TrendingUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { EmptyState } from '../components/ui/EmptyState';
+import { listExams, getExamComparison, type ListExamsQuery } from '../services/exams.service';
+import { useAuthStore } from '../store/useAuthStore';
 
-const graphData = [
-  { name: 'Priya S.', baseline: 33.6, endline: 42.0 },
-  { name: 'Amit S.', baseline: 37.6, endline: 35.0 },
-  { name: 'Rahul K.', baseline: 28.0, endline: 34.5 },
-  { name: 'Neha G.', baseline: 41.2, endline: 45.0 }
-];
+type ExamRow = Record<string, unknown>;
 
 export const Exams: React.FC = () => {
-  const [isPublished, setIsPublished] = useState(false);
+  const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
+  const isAdmin = useAuthStore((s) => s.currentUser?.role === 'admin');
 
-  const handlePublish = () => {
-    setIsPublished(true);
-    alert('Scores successfully written to Global Database!');
+  const [exams, setExams] = useState<ExamRow[]>([]);
+  const [academicYear, setAcademicYear] = useState(String(new Date().getFullYear()));
+  const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadExams = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params: ListExamsQuery = {
+        academicYear,
+        ...(!isAdmin && selectedCenterId ? { centerId: selectedCenterId } : {}),
+      };
+      const res = (await listExams(params)) as { exams?: ExamRow[] };
+      setExams(res.exams ?? []);
+    } catch {
+      setError('Failed to load exams.');
+      setExams([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    void loadExams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when year / scope changes
+  }, [academicYear, selectedCenterId, isAdmin]);
+
+  const loadComparison = async () => {
+    setError(null);
+    try {
+      const q: Record<string, string | undefined> = { academicYear };
+      if (!isAdmin && selectedCenterId) q.centerId = selectedCenterId;
+      const c = await getExamComparison(q);
+      setComparison(c as Record<string, unknown>);
+    } catch {
+      setError('Could not load exam comparison (academic year may be missing data).');
+    }
+  };
+
+  useEffect(() => {
+    void loadComparison();
+  }, [academicYear, selectedCenterId, isAdmin]);
 
   return (
     <PageWrapper title="Exam Tracker">
-      {isPublished && (
-        <div className="mb-6 p-4 bg-success/10 border border-success/20 rounded-xl flex items-center gap-3 text-success">
-          <CheckCircle size={24} />
-          <div>
-             <h3 className="font-semibold">Scores Published Successfully!</h3>
-             <p className="text-sm">These records are now locked and saved to the respective student profiles.</p>
-          </div>
+      {error && (
+        <div className="mb-4">
+          <ErrorMessage message={error} />
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-        
-        {/* Input Card */}
-        <div className="xl:col-span-1 space-y-6">
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-               <h2 className="text-lg font-semibold">SWAYAM Input</h2>
-               <Badge variant={isPublished ? "success" : "warning"}>
-                  {isPublished ? "Published" : "Ongoing"}
-               </Badge>
-            </div>
-            <p className="text-sm text-neutral-500 mb-6">Enter raw scores for the active batch.</p>
-            
-            <div className="space-y-4">
-               <div className={`p-3 border border-neutral-200 rounded-lg ${isPublished ? 'bg-neutral-100 opacity-70' : 'bg-neutral-50'}`}>
-                  <p className="font-medium mb-2 text-neutral-900">Priya Sharma</p>
-                  <div className="grid grid-cols-3 gap-2">
-                     <Input type="number" placeholder="Math" defaultValue={32} disabled={isPublished} />
-                     <Input type="number" placeholder="Sci" defaultValue={28} disabled={isPublished} />
-                     <Input type="number" placeholder="Eng" defaultValue={41} disabled={isPublished} />
-                  </div>
-               </div>
-               <div className={`p-3 border border-neutral-200 rounded-lg bg-neutral-50 ${!isPublished ? 'border-l-warning' : ''} ${isPublished ? 'bg-neutral-100 opacity-70' : ''}`}>
-                  <div className="flex justify-between items-center mb-2">
-                    <p className={`font-medium ${!isPublished ? 'text-warning' : 'text-neutral-900'}`}>Amit Singh</p>
-                    {!isPublished && <span className="text-xs font-bold text-warning">PENDING</span>}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                     <Input type="number" placeholder="Math" defaultValue={isPublished ? 40 : undefined} disabled={isPublished} />
-                     <Input type="number" placeholder="Sci" defaultValue={isPublished ? 35 : undefined} disabled={isPublished} />
-                     <Input type="number" placeholder="Eng" defaultValue={isPublished ? 38 : undefined} disabled={isPublished} />
-                  </div>
-               </div>
-            </div>
-            
-            {!isPublished && (
-              <Button variant="primary" className="w-full mt-6" onClick={handlePublish}>
-                Publish Baseline Scores
-              </Button>
-            )}
-          </Card>
+      <div className="flex flex-wrap gap-3 mb-6 items-end">
+        <div>
+          <label className="text-xs font-medium text-neutral-600">Academic year</label>
+          <input
+            className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            value={academicYear}
+            onChange={(e) => setAcademicYear(e.target.value)}
+          />
         </div>
-
-        {/* Analytics Card */}
-        <div className="xl:col-span-2 space-y-6">
-          <Card className={!isPublished ? "opacity-30 pointer-events-none filter blur-[1px] transition-all" : "transition-all"}>
-             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center gap-2">
-                  <TrendingUp size={18} className="text-primary"/> Baseline vs. Endline Growth
-                </h2>
-                <Badge variant={isPublished ? "success" : "neutral"}>
-                  {isPublished ? "Live Analytics" : "Awaiting Baseline"}
-                </Badge>
-             </div>
-             
-             <div className="w-full h-[300px] mt-4">
-               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={graphData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                   <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                   <YAxis tickLine={false} axisLine={false} domain={[0, 50]} />
-                   <Tooltip cursor={{ fill: 'transparent' }} />
-                   <Legend />
-                   <Bar dataKey="baseline" name="Baseline Avg (out of 50)" fill="#fbbf24" radius={[4, 4, 0, 0]} />
-                   <Bar dataKey="endline" name="Endline Avg (out of 50)" fill="#10b981" radius={[4, 4, 0, 0]} />
-                 </BarChart>
-               </ResponsiveContainer>
-             </div>
-          </Card>
-
-          <Card className={!isPublished ? "opacity-50 pointer-events-none" : ""}>
-            <Table>
-               <TableHeader>
-                 <TableRow>
-                   <TableHead>Student</TableHead>
-                   <TableHead>Baseline</TableHead>
-                   <TableHead>Endline</TableHead>
-                   <TableHead>Net Growth</TableHead>
-                 </TableRow>
-               </TableHeader>
-               <TableBody>
-                 <TableRow>
-                    <TableCell className="font-medium text-neutral-900">Priya Sharma</TableCell>
-                    <TableCell>33.6</TableCell>
-                    <TableCell>42.0</TableCell>
-                    <TableCell className="text-success font-semibold">+8.4 pts</TableCell>
-                 </TableRow>
-                 <TableRow>
-                    <TableCell className="font-medium text-neutral-900">Amit Singh</TableCell>
-                    <TableCell>37.6</TableCell>
-                    <TableCell>35.0</TableCell>
-                    <TableCell className="text-danger font-semibold">-2.6 pts</TableCell>
-                 </TableRow>
-               </TableBody>
-            </Table>
-          </Card>
-        </div>
-
+        <Button type="button" variant="secondary" size="sm" onClick={() => void loadExams()}>
+          Refresh list
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={() => void loadComparison()}>
+          Refresh comparison
+        </Button>
       </div>
+
+      {loading ? (
+        <LoadingSpinner />
+      ) : exams.length === 0 ? (
+        <EmptyState title="No exams" description="Create exams for this academic year in the backend or admin tools." />
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <Card>
+            <h2 className="text-lg font-semibold mb-4">Exams</h2>
+            <ul className="space-y-2 text-sm">
+              {exams.map((ex) => (
+                <li key={String(ex.id)} className="flex justify-between border-b border-neutral-100 py-2">
+                  <span>
+                    {String(ex.examType ?? '')} · {String(ex.academicYear ?? '')}
+                  </span>
+                  <span className="text-neutral-500">
+                    {String((ex as { completionPercentage?: number }).completionPercentage ?? 0)}% complete
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+          <Card>
+            <h2 className="text-lg font-semibold mb-2">Baseline vs endline (API)</h2>
+            <pre className="text-xs overflow-auto max-h-[360px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
+              {JSON.stringify(comparison, null, 2)}
+            </pre>
+          </Card>
+        </div>
+      )}
     </PageWrapper>
   );
 };

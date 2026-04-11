@@ -205,6 +205,14 @@ export async function listSessions(
   };
 }
 
+export async function getSessionRecords(
+  user: JwtPayload,
+  sessionId: string,
+): Promise<{ records: Array<Record<string, unknown>> }> {
+  const full = await getSessionById(user, sessionId);
+  return { records: (full.records as Array<Record<string, unknown>>) ?? [] };
+}
+
 export async function getSessionById(
   user: JwtPayload,
   sessionId: string,

@@ -4,10 +4,11 @@ import { cn } from './Button';
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helperText?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
+  ({ className, label, error, helperText, id, ...props }, ref) => {
     // Generate a unique ID if none provided but label exists
     const inputId = id || (label ? `input-${label.replace(/\s+/g, '-').toLowerCase()}` : undefined);
     
@@ -29,6 +30,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
           {...props}
         />
+        {helperText && !error && (
+          <p className="text-xs text-neutral-500 mt-0.5">{helperText}</p>
+        )}
         {error && <p className="text-sm text-danger mt-1">{error}</p>}
       </div>
     );
