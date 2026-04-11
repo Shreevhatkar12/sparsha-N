@@ -10,6 +10,7 @@ import {
   Briefcase, 
   GraduationCap, 
   BarChart3,
+  Settings,
   X
 } from 'lucide-react';
 
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   if (isAdmin) {
     navItems.push({ name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> });
+    navItems.push({ name: 'Settings', path: '/settings', icon: <Settings size={20} /> });
   }
 
   return (
