@@ -38,11 +38,20 @@
 - **Schema:** `prisma/schema.prisma`
 - **Migrations:** `prisma/migrations/`
 - **Seed:** `prisma/seed.ts` — run with `npx prisma db seed`
+  > **Note**: Your database user must have `CREATEDB` permissions to allow Prisma to manage its shadow database for migrations. Example: `sudo -u postgres psql -c "ALTER ROLE username CREATEDB;"`
+
+## Architecture & Adapters
+
+As of Prisma 7, the project utilizes the `@prisma/adapter-pg` driver adapter. Database connections are handled using connection pooling (`pg.Pool`) instantiated in `src/lib/prisma.ts`. 
+
+- **Do NOT instantiate local `PrismaClient` instances** in service files.
+- **Always import `prisma`** from `src/lib/prisma.js` to avoid connection limits and constructor errors.
 
 ## Environment
 
-See **`backend/.env.example`**. Required: **`DATABASE_URL`**, **`JWT_ACCESS_SECRET`**, **`JWT_REFRESH_SECRET`**. **`CLIENT_URL`** should match the frontend origin (e.g. `http://localhost:5173` in dev).
+See **`backend/.env.example`**. Required: **`DATABASE_URL`**, **`JWT_ACCESS_SECRET`**, **`JWT_REFRESH_SECRET`**. 
+**`CLIENT_URL`** must match the frontend origin exactly (e.g., `http://localhost:5173`) and is **required for CORS** to successfully authorize and prevent the browser from blocking requests.
 
 ## Run commands
 
-Documented in **`backend/README.md`** (`npm install`, `npx prisma generate`, migrate, `npm run dev`).
+Documented in **`README.md`** (`npm install`, grant DB permissions, `npx prisma generate`, migrate, `npm run dev`).

@@ -14,7 +14,15 @@ Do these steps **in order** on a machine with Node.js 20+ and a running PostgreS
 cd kittykat
 ```
 
-### 2. Backend
+### 2. Backend Setup
+
+First, ensure your PostgreSQL user has the necessary permissions to create databases (required by Prisma for its shadow database during migrations). Run this command in your terminal, replacing `kittykat` with your actual database user if different:
+
+```bash
+sudo -u postgres psql -c "ALTER ROLE kittykat CREATEDB;"
+```
+
+Then, set up the backend:
 
 ```bash
 cd backend
@@ -22,7 +30,7 @@ npm install
 cp .env.example .env
 ```
 
-Edit **`backend/.env`**: set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` to real values. Set `CLIENT_URL=http://localhost:5173` for local CORS.
+Edit **`backend/.env`**: set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` to real values. Set `CLIENT_URL=http://localhost:5173` to allow the frontend to authenticate with the backend without CORS errors.
 
 ```bash
 npx prisma generate
@@ -49,15 +57,18 @@ npm run dev
 
 Confirm **`http://localhost:5000/health`** returns JSON with `"status": "ok"`.
 
-### 3. Frontend
+### 3. Frontend Setup
 
 Open a **second terminal**:
 
 ```bash
 cd frontend
-npm install
+npm install --legacy-peer-deps
+npm install react-is --legacy-peer-deps
 cp .env.example .env
 ```
+
+> **Note**: Due to the bleeding-edge use of Vite 8 mixed with PWA and Recharts plugins, the `--legacy-peer-deps` flag and explicit `react-is` installation are **mandatory** to resolve dependency conflicts.
 
 Leave `VITE_API_URL` commented for local dev (Vite proxies `/api` to port 5000 — see `frontend/vite.config.ts`).
 

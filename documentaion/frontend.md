@@ -47,6 +47,16 @@
 - Optional migration to TanStack Query for caching and loading/error consistency.
 - Token storage strategy vs XSS (currently `localStorage`).
 
+## Install & Dependency Conflicts
+
+- Due to the usage of the brand-new Vite 8 and Tailwind V4 stack, some plugins (like `vite-plugin-pwa` and `recharts`) have strict peer dependency conflicts with Vite 8. 
+- You **MUST** run installation commands with `--legacy-peer-deps`.
+- `react-is` must be explicitly installed for Recharts to function correctly without throwing import resolution errors during dev server boot.
+
 ## Run commands
 
-See **`frontend/README.md`** (`npm install`, `npm run dev`, `npm run build`).
+See the main **`README.md`** at the root of the project.
+Required install sequence:
+`npm install --legacy-peer-deps`
+`npm install react-is --legacy-peer-deps`
+`npm run dev`
