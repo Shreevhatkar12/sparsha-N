@@ -1,9 +1,11 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL,
-});
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 import bcrypt from "bcryptjs";
 
 async function main() {
@@ -85,7 +87,7 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@sparsha.org" },
-    update: {},
+    update: { passwordHash: adminHash },
     create: {
       email: "admin@sparsha.org",
       passwordHash: adminHash,
@@ -96,7 +98,7 @@ async function main() {
 
   const teacher1 = await prisma.user.upsert({
     where: { email: "teacher1@sparsha.org" },
-    update: {},
+    update: { passwordHash: teacherHash },
     create: {
       email: "teacher1@sparsha.org",
       passwordHash: teacherHash,
@@ -107,7 +109,7 @@ async function main() {
 
   const teacher2 = await prisma.user.upsert({
     where: { email: "teacher2@sparsha.org" },
-    update: {},
+    update: { passwordHash: teacherHash },
     create: {
       email: "teacher2@sparsha.org",
       passwordHash: teacherHash,
@@ -118,7 +120,7 @@ async function main() {
 
   const staff1 = await prisma.user.upsert({
     where: { email: "staff1@sparsha.org" },
-    update: {},
+    update: { passwordHash: staffHash },
     create: {
       email: "staff1@sparsha.org",
       passwordHash: staffHash,

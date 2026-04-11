@@ -1,14 +1,7 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import prisma from "../lib/prisma.js";
 import { z } from "zod";
 import { centerScope } from "../lib/centerScope.js";
 import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.js";
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? "" });
-const prisma = globalThis.__prismaStudentService ?? new PrismaClient({ adapter });
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__prismaStudentService = prisma;
-}
 
 const studentCreateSchema = z.object({
   fullName: z.string().min(1),
@@ -382,111 +375,59 @@ export const getStudentProfile = async (user, id) => {
 
 export const addAttendance = async (user, studentId, data) => {
   await getStudentById(user, studentId);
-  return prisma.attendance.create({ data: { ...data, studentId } });
+  return prisma.attendanceRecord.create({ data: { ...data, studentId } });
 };
 
 export const getAttendanceByStudent = async (user, studentId) => {
   await getStudentById(user, studentId);
-  return prisma.attendance.findMany({
+  return prisma.attendanceRecord.findMany({
     where: { studentId },
-    orderBy: { date: "desc" },
+    orderBy: { session: { sessionDate: "desc" } },
   });
 };
 
 export const updateAttendance = async (id, data) => {
-  const record = await prisma.attendance.findUnique({ where: { id } });
+  const record = await prisma.attendanceRecord.findUnique({ where: { id } });
   if (!record) {
     const error = new Error("Attendance record not found");
     error.statusCode = 404;
     throw error;
   }
-  return prisma.attendance.update({ where: { id }, data });
+  return prisma.attendanceRecord.update({ where: { id }, data });
 };
 
 /* ─────────────────────────────────────────
-   SKILLS
+   SKILLS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
 export const addSkill = async (user, studentId, data) => {
-  await getStudentById(user, studentId);
-  return prisma.skill.create({ data: { ...data, studentId } });
+  throw new Error("Skill model not implemented in schema yet");
 };
 
 export const getSkillsByStudent = async (user, studentId) => {
-  await getStudentById(user, studentId);
-  return prisma.skill.findMany({
-    where: { studentId },
-    orderBy: { createdAt: "desc" },
-  });
+  return [];
 };
 
 export const updateSkill = async (id, data) => {
-  const record = await prisma.skill.findUnique({ where: { id } });
-  if (!record) {
-    const error = new Error("Skill record not found");
-    error.statusCode = 404;
-    throw error;
-  }
-  return prisma.skill.update({ where: { id }, data });
+  throw new Error("Skill model not implemented in schema yet");
 };
 
 /* ─────────────────────────────────────────
-   CAREERS
+   CAREERS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
 export const addCareer = async (user, studentId, data) => {
-  await getStudentById(user, studentId);
-  return prisma.career.create({ data: { ...data, studentId } });
+  throw new Error("Career model not implemented in schema yet");
 };
 
 export const getCareersByStudent = async (user, studentId) => {
-  await getStudentById(user, studentId);
-  return prisma.career.findMany({
-    where: { studentId },
-    orderBy: { createdAt: "desc" },
-  });
+  return [];
 };
 
 export const updateCareer = async (id, data) => {
-  const record = await prisma.career.findUnique({ where: { id } });
-  if (!record) {
-    const error = new Error("Career record not found");
-    error.statusCode = 404;
-    throw error;
-  }
-  return prisma.career.update({ where: { id }, data });
+  throw new Error("Career model not implemented in schema yet");
 };
 
 /* ─────────────────────────────────────────
    DASHBOARD SUMMARY
 ───────────────────────────────────────── */
-
-export const getDashboardStats = async () => {
-  const [totalStudents, totalAttendance, presentCount, skillAggregates] =
-    await Promise.all([
-      prisma.student.count(),
-      prisma.attendance.count(),
-      prisma.attendance.count({ where: { status: "present" } }),
-      prisma.skill.aggregate({
-        _avg: {
-          communication: true,
-          confidence: true,
-          computerSkill: true,
-          problemSolving: true,
-          languageSkill: true,
-        },
-      }),
-    ]);
-
-  const attendanceRate =
-    totalAttendance > 0
-      ? ((presentCount / totalAttendance) * 100).toFixed(1)
-      : 0;
-
-  return {
-    totalStudents,
-    totalSessions: totalAttendance,
-    attendanceRate: `${attendanceRate}%`,
-    avgSkills: skillAggregates._avg,
-  };
-};
