@@ -1,13 +1,14 @@
+import type { AuthUser } from '../types/index.ts';
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
-import prisma from "./prisma.js";
+import prisma from "./prisma.ts";
 import {
   ForbiddenError,
   UnauthorizedError,
   ValidationError,
-} from "./errors.js";
+} from "./errors.ts";
 
 export type JwtPayload = {
   userId: string;
@@ -67,7 +68,7 @@ export function signToken(payload: JwtPayload): string {
 
 export function verifyToken(token: string): JwtPayload {
   try {
-    const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as unknown as JwtPayload;
+    const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as JwtPayload;
     return decoded;
   } catch {
     throw new UnauthorizedError("Invalid or expired token");
@@ -86,7 +87,7 @@ export function requireAuth(
 
   const token = authHeader.split(" ")[1];
   try {
-    (req as AuthenticatedRequest).user = verifyToken(token);
+    req.user = verifyToken(token) as unknown as AuthUser;
     return next();
   } catch (error) {
     return next(error);
@@ -95,7 +96,7 @@ export function requireAuth(
 
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    const user = (req as AuthenticatedRequest).user;
+    const user = req.user as unknown as JwtPayload;
 
     if (!user) {
       return next(new UnauthorizedError("Authentication is required"));

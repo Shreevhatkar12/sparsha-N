@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.js";
+import type { JwtPayload } from "../lib/auth.ts";
 import {
   getDashboardSummary,
   getAttendanceAnalytics,
@@ -8,7 +8,7 @@ import {
   getPendingItemsData,
   exportStudentDataCsv,
   getSkillsReport,
-} from "../services/reportService.js";
+} from "../services/reportService.ts";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 

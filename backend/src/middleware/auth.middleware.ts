@@ -1,10 +1,12 @@
-import { verifyToken } from "../utils/jwt.js";
+import { verifyToken } from "../utils/jwt.ts";
+import { Request, Response, NextFunction } from "express";
+import type { AuthUser } from "../types/index.ts";
 
 /**
  * Middleware to protect routes.
  * Expects:  Authorization: Bearer <accessToken>
  */
-export const authenticate = (req, res, next) => {
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -17,7 +19,7 @@ export const authenticate = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = verifyToken(token);
+    const decoded = verifyToken(token) as unknown as AuthUser;
     req.user = decoded;
     next();
   } catch (err) {

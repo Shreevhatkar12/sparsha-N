@@ -7,19 +7,12 @@ export class AppError extends Error {
     this.name = this.constructor.name;
     this.statusCode = statusCode;
     this.details = details;
-    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
 export class NotFoundError extends AppError {
   constructor(resource: string) {
     super(`${resource} not found`, 404);
-  }
-}
-
-export class UnauthorizedError extends AppError {
-  constructor(message = "Unauthorized") {
-    super(message, 401);
   }
 }
 
@@ -32,5 +25,11 @@ export class ForbiddenError extends AppError {
 export class ValidationError extends AppError {
   constructor(message = "Validation failed", details?: unknown) {
     super(message, 422, details);
+  }
+}
+
+export class UnauthorizedError extends AppError {
+  constructor(message = "Unauthorized") {
+    super(message, 401);
   }
 }

@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
-import prisma from "../lib/prisma.js";
-import type { JwtPayload } from "../lib/auth.js";
-import { ForbiddenError } from "../lib/errors.js";
+import prisma from "../lib/prisma.ts";
+import type { JwtPayload } from "../lib/auth.ts";
+import { ForbiddenError } from "../lib/errors.ts";
 
 // Helper to apply center scope safely
 function getCenterScope(user: JwtPayload) {

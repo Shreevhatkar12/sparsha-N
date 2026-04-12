@@ -3,19 +3,17 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
-import { errorHandler } from "./middleware/errorHandler.js";
-import attendanceRoutes from "./routes/attendanceRoutes.js";
-import examRoutes from "./routes/examRoutes.js";
-import formRoutes from "./routes/formRoutes.js";
-import centerRoutes, { programRoutes } from "./routes/centerRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import activityRoutes from "./routes/activityRoutes.js";
-// @ts-expect-error JavaScript route module
-import authRoutes from "./routes/auth.route.js";
-import reportRoutes from "./routes/reportRoutes.js";
-import dashboardRoutes from "./routes/dashboardRoutes.js";
-// @ts-expect-error JavaScript route module
-import studentRoutes from "./routes/student.route.js";
+import { errorHandler } from "./middleware/errorHandler.ts";
+import attendanceRoutes from "./routes/attendanceRoutes.ts";
+import examRoutes from "./routes/examRoutes.ts";
+import formRoutes from "./routes/formRoutes.ts";
+import centerRoutes, { programRoutes } from "./routes/centerRoutes.ts";
+import userRoutes from "./routes/userRoutes.ts";
+import activityRoutes from "./routes/activityRoutes.ts";
+import authRoutes from "./routes/auth.route.ts";
+import reportRoutes from "./routes/reportRoutes.ts";
+import dashboardRoutes from "./routes/dashboardRoutes.ts";
+import studentRoutes from "./routes/student.route.ts";
 
 const app = express();
 

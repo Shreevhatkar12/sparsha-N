@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.js";
+import type { JwtPayload } from "../lib/auth.ts";
 import {
   createTemplate,
   deleteSubmission,
@@ -12,7 +12,7 @@ import {
   softDeleteTemplate,
   submitForm,
   updateTemplate,
-} from "../services/formService.js";
+} from "../services/formService.ts";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 

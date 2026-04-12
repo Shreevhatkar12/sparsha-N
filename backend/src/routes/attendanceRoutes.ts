@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate } from "../lib/auth.js";
+import { requireAuth as authenticate } from "../lib/auth.ts";
 import {
   createAttendanceSession,
   getAttendanceSessionById,
@@ -9,12 +9,12 @@ import {
   getPendingSessionsController,
   getStudentAttendance,
   updateAttendanceSessionRecords,
-} from "../controllers/attendanceController.js";
-import { validate } from "../middleware/validate.js";
+} from "../controllers/attendanceController.ts";
+import { validate } from "../middleware/validate.ts";
 import {
   createAttendanceSessionSchema,
   updateAttendanceSessionRecordsSchema,
-} from "../validation/schemas.js";
+} from "../validation/schemas.ts";
 
 const attendanceRoutes = Router();
 

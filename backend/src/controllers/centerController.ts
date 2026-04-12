@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.js";
+import type { JwtPayload } from "../lib/auth.ts";
 import {
   assignProgramToCenter,
   assignUserToCenter,
@@ -13,7 +13,7 @@ import {
   removeUserFromCenter,
   updateCenter,
   updateProgram,
-} from "../services/centerService.js";
+} from "../services/centerService.ts";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 

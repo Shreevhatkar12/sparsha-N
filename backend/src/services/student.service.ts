@@ -1,7 +1,8 @@
-import prisma from "../lib/prisma.js";
+import prisma from "../lib/prisma.ts";
 import { z } from "zod";
-import { centerScope } from "../lib/centerScope.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.js";
+import type { AuthUser } from "../types/index.ts";
+import { centerScope } from "../lib/centerScope.ts";
+import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.ts";
 
 const studentCreateSchema = z.object({
   fullName: z.string().min(1),
@@ -27,7 +28,7 @@ const studentUpdateSchema = z.object({
   guardianPhone: z.string().optional(),
 });
 
-const scopedWhere = (user, otherConditions = {}) => ({
+const scopedWhere = (user: AuthUser, otherConditions: Record<string, unknown> = {}) => ({
   ...centerScope(user),
   ...otherConditions,
 });
@@ -36,7 +37,7 @@ const scopedWhere = (user, otherConditions = {}) => ({
    STUDENTS
 ───────────────────────────────────────── */
 
-export const createStudent = async (user, data) => {
+export const createStudent = async (user: AuthUser, data: any) => {
   const parsed = studentCreateSchema.safeParse(data);
   if (!parsed.success) {
     throw new ValidationError("Invalid student payload", parsed.error.flatten());
@@ -44,7 +45,7 @@ export const createStudent = async (user, data) => {
 
   const payload = parsed.data;
 
-  if (user.role === "teacher" && !user.centerIds.includes(payload.centerId)) {
+  if (user?.role === "teacher" && !user.centerIds?.includes(payload.centerId as string)) {
     throw new ForbiddenError("Teachers can only create students in assigned centers");
   }
 
@@ -60,10 +61,7 @@ export const createStudent = async (user, data) => {
   });
 };
 
-export const getAllStudents = async (
-  user,
-  { page = 1, limit = 50, centerId, programId, isActive, search } = {},
-) => {
+export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, centerId, programId, isActive, search }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
   const where = scopedWhere(user, {
@@ -97,7 +95,7 @@ export const getAllStudents = async (
   return { students, total, page, totalPages: Math.ceil(total / safeLimit) };
 };
 
-export const getStudentById = async (user, id) => {
+export const getStudentById = async (user: AuthUser, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
@@ -118,8 +116,8 @@ export const getStudentById = async (user, id) => {
   return student;
 };
 
-export const updateStudent = async (user, id, data) => {
-  if ("centerId" in data || "programId" in data) {
+export const updateStudent = async (user: AuthUser, id: string, data: any) => {
+  if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
     throw new ValidationError("centerId and programId cannot be changed after creation");
   }
 
@@ -150,7 +148,7 @@ export const updateStudent = async (user, id, data) => {
   });
 };
 
-export const deleteStudent = async (user, id) => {
+export const deleteStudent = async (user: AuthUser, id: string) => {
   const result = await prisma.student.updateMany({
     where: scopedWhere(user, { id }),
     data: { isActive: false },
@@ -161,12 +159,12 @@ export const deleteStudent = async (user, id) => {
   return { message: "Student deactivated successfully" };
 };
 
-export const filterStudents = async (user, query = {}) => {
+export const filterStudents = async (user: AuthUser, query: Record<string, any> = {}) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
   const safeLimit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
 
-  const dobFilter = {};
+  const dobFilter: { lte?: Date; gte?: Date } = {};
   const today = new Date();
   if (query.ageMin) {
     const maxDob = new Date(today);
@@ -182,7 +180,7 @@ export const filterStudents = async (user, query = {}) => {
   const where = scopedWhere(user, {
     ...(query.gender ? { gender: query.gender } : {}),
     ...(query.programId ? { programId: query.programId } : {}),
-    ...(user.role === "admin" && query.centerId ? { centerId: query.centerId } : {}),
+    ...(user?.role === "admin" && query.centerId ? { centerId: query.centerId } : {}),
     ...(Object.keys(dobFilter).length ? { dob: dobFilter } : {}),
     ...((query.enrolledAfter || query.enrolledBefore)
       ? {
@@ -208,7 +206,7 @@ export const filterStudents = async (user, query = {}) => {
   return { students, total, page, totalPages: Math.ceil(total / safeLimit) };
 };
 
-export const getStudentSummary = async (user, id) => {
+export const getStudentSummary = async (user: AuthUser, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
@@ -236,8 +234,7 @@ export const getStudentSummary = async (user, id) => {
   const attendancePercentage =
     totalSessions > 0 ? Number(((presentCount / totalSessions) * 100).toFixed(2)) : 0;
 
-  const examScoresByType = student.examScores.reduce(
-    (acc, score) => {
+  const examScoresByType = student.examScores.reduce((acc: Record<string, any[]>, score) => {
       const examType = score.exam?.examType || "unknown";
       if (!acc[examType]) {
         acc[examType] = [];
@@ -272,7 +269,7 @@ export const getStudentSummary = async (user, id) => {
 };
 
 /** Aggregated student dashboard payload (charts + tables) for `/students/:id/profile`. */
-export const getStudentProfile = async (user, id) => {
+export const getStudentProfile = async (user: AuthUser, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
@@ -330,7 +327,7 @@ export const getStudentProfile = async (user, id) => {
       present: r.status === "present" ? 1 : 0,
     }));
 
-  const bySubject = {};
+  const bySubject: Record<string, any> = {};
   for (const es of examScoresList) {
     const subj = es.subject;
     if (!bySubject[subj]) {
@@ -374,12 +371,12 @@ export const getStudentProfile = async (user, id) => {
    ATTENDANCE
 ───────────────────────────────────────── */
 
-export const addAttendance = async (user, studentId, data) => {
+export const addAttendance = async (user: AuthUser, studentId: string, data: any) => {
   await getStudentById(user, studentId);
   return prisma.attendanceRecord.create({ data: { ...data, studentId } });
 };
 
-export const getAttendanceByStudent = async (user, studentId) => {
+export const getAttendanceByStudent = async (user: AuthUser, studentId: string) => {
   await getStudentById(user, studentId);
   return prisma.attendanceRecord.findMany({
     where: { studentId },
@@ -387,12 +384,10 @@ export const getAttendanceByStudent = async (user, studentId) => {
   });
 };
 
-export const updateAttendance = async (id, data) => {
+export const updateAttendance = async (id: string, data: any) => {
   const record = await prisma.attendanceRecord.findUnique({ where: { id } });
   if (!record) {
-    const error = new Error("Attendance record not found");
-    error.statusCode = 404;
-    throw error;
+    throw new NotFoundError("Attendance record");
   }
   return prisma.attendanceRecord.update({ where: { id }, data });
 };
@@ -401,15 +396,15 @@ export const updateAttendance = async (id, data) => {
    SKILLS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
-export const addSkill = async (user, studentId, data) => {
+export const addSkill = async (user: AuthUser, studentId: string, data: any) => {
   throw new Error("Skill model not implemented in schema yet");
 };
 
-export const getSkillsByStudent = async (user, studentId) => {
+export const getSkillsByStudent = async (user: AuthUser, studentId: string) => {
   return [];
 };
 
-export const updateSkill = async (id, data) => {
+export const updateSkill = async (id: string, data: any) => {
   throw new Error("Skill model not implemented in schema yet");
 };
 
@@ -417,15 +412,15 @@ export const updateSkill = async (id, data) => {
    CAREERS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
-export const addCareer = async (user, studentId, data) => {
+export const addCareer = async (user: AuthUser, studentId: string, data: any) => {
   throw new Error("Career model not implemented in schema yet");
 };
 
-export const getCareersByStudent = async (user, studentId) => {
+export const getCareersByStudent = async (user: AuthUser, studentId: string) => {
   return [];
 };
 
-export const updateCareer = async (id, data) => {
+export const updateCareer = async (id: string, data: any) => {
   throw new Error("Career model not implemented in schema yet");
 };
 

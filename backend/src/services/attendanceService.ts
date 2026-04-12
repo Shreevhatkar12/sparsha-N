@@ -1,7 +1,7 @@
 import { AttendanceStatus } from "@prisma/client";
-import type { JwtPayload } from "../lib/auth.js";
-import { ForbiddenError, NotFoundError, ValidationError, AppError } from "../lib/errors.js";
-import prisma from "../lib/prisma.js";
+import type { JwtPayload } from "../lib/auth.ts";
+import { ForbiddenError, NotFoundError, ValidationError, AppError } from "../lib/errors.ts";
+import prisma from "../lib/prisma.ts";
 
 type SessionCreateInput = {
   centerId: string;

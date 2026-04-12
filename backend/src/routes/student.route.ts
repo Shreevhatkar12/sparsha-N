@@ -18,11 +18,11 @@ import {
   getCareersByStudent,
   updateCareer,
   getDashboardStats,
-} from "../controllers/student.controller.js";
-import { authenticate } from "../middleware/auth.middleware.js";
-import { requireRole } from "../middleware/requireRole.middleware.js";
-import { validate } from "../middleware/validate.js";
-import { createStudentSchema, updateStudentSchema } from "../validation/schemas.js";
+} from "../controllers/student.controller.ts";
+import { authenticate } from "../middleware/auth.middleware.ts";
+import { requireRole } from "../middleware/requireRole.middleware.ts";
+import { validate } from "../middleware/validate.ts";
+import { createStudentSchema, updateStudentSchema } from "../validation/schemas.ts";
 
 const router = Router();
 

@@ -1,14 +1,13 @@
-import type { Prisma } from "@prisma/client";
-import type { JwtPayload } from "./auth.js";
+import type { AuthUser } from "../types/index.ts";
 
-export function centerScope(user: JwtPayload): Prisma.StudentWhereInput {
-  if (user.role === "admin") {
+export const centerScope = (user: AuthUser | undefined) => {
+  if (user?.role === "admin") {
     return {};
   }
 
   return {
     centerId: {
-      in: user.centerIds,
+      in: Array.isArray(user?.centerIds) ? user.centerIds : user?.allowedCenterIds || [],
     },
   };
-}
+};

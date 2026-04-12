@@ -1,8 +1,8 @@
 import type { Prisma, UserActivityAssignment } from "@prisma/client";
-import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.js";
-import prisma from "../lib/prisma.js";
-import type { JwtPayload } from "../lib/auth.js";
-import { centerScope } from "../lib/centerScope.js";
+import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.ts";
+import prisma from "../lib/prisma.ts";
+import type { JwtPayload } from "../lib/auth.ts";
+import { centerScope } from "../lib/centerScope.ts";
 
 type ListActivitiesParams = {
   centerId?: string;

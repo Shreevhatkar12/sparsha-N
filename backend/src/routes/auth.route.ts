@@ -6,8 +6,8 @@ import {
   logout,
   getMe,
   changePassword,
-} from "../controllers/auth.controller.js";
-import { authenticate } from "../middleware/auth.middleware.js";
+} from "../controllers/auth.controller.ts";
+import { authenticate } from "../middleware/auth.middleware.ts";
 
 const router = Router();
 

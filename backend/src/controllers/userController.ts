@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.js";
+import type { JwtPayload } from "../lib/auth.ts";
 import type { UserRole } from "@prisma/client";
 import {
   createUser,
@@ -9,7 +9,7 @@ import {
   resetUserPassword,
   softDeleteUser,
   updateUser,
-} from "../services/userService.js";
+} from "../services/userService.ts";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 

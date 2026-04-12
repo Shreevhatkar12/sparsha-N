@@ -1,11 +1,21 @@
-import * as authService from "../services/auth.service.js";
+import { Request, Response, NextFunction } from "express";
+import * as authService from "@/services/auth.service.ts"
+// Extend Request to include user (from auth middleware)
 
 /**
  * POST /api/auth/register
  */
-export const register = async (req, res, next) => {
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
-    const { phone, email, password } = req.body;
+    const { phone, email, password } = req.body as {
+      phone?: string;
+      email?: string;
+      password?: string;
+    };
 
     if (!phone || !password) {
       return res.status(400).json({
@@ -33,6 +43,7 @@ export const register = async (req, res, next) => {
       data: { user, token },
     });
   } catch (err) {
+    console.error("Register Error:", err);
     next(err);
   }
 };
@@ -40,9 +51,16 @@ export const register = async (req, res, next) => {
 /**
  * POST /api/auth/login
  */
-export const login = async (req, res, next) => {
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body as {
+      email?: string;
+      password?: string;
+    };
 
     if (!email || !password) {
       return res.status(400).json({
@@ -61,6 +79,7 @@ export const login = async (req, res, next) => {
       user,
     });
   } catch (err) {
+    console.error("Login Error:", err);
     next(err);
   }
 };
@@ -69,9 +88,14 @@ export const login = async (req, res, next) => {
  * POST /api/auth/refresh
  * Accepts token in request body
  */
-export const refresh = async (req, res, next) => {
+export const refresh = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
-    const { token } = req.body;
+    const { token } = req.body as { token?: string };
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -83,6 +107,7 @@ export const refresh = async (req, res, next) => {
 
     return res.status(200).json(refreshed);
   } catch (err) {
+    console.error("Refresh Token Error:", err);
     next(err);
   }
 };
@@ -90,7 +115,10 @@ export const refresh = async (req, res, next) => {
 /**
  * POST /api/auth/logout
  */
-export const logout = (_req, res) => {
+export const logout = (
+  _req: Request,
+  res: Response
+): Response => {
   res.clearCookie("refreshToken", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -106,14 +134,26 @@ export const logout = (_req, res) => {
 /**
  * GET /api/auth/me  (protected)
  */
-export const getMe = async (req, res, next) => {
+export const getMe = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
-    const user = await authService.getMe(req.user.userId);
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const user = await authService.getMe(req.user.id);
 
     return res.status(200).json({
       user,
     });
   } catch (err) {
+    console.error("GetMe Error:", err);
     next(err);
   }
 };
@@ -121,9 +161,23 @@ export const getMe = async (req, res, next) => {
 /**
  * PUT /api/auth/change-password  (protected)
  */
-export const changePassword = async (req, res, next) => {
+export const changePassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    if (!req.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
@@ -139,13 +193,17 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    await authService.changePassword(req.user.userId, {
+    await authService.changePassword(req.user.id, {
       currentPassword,
       newPassword,
     });
 
-    return res.status(200).json({ success: true, message: "Password updated successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
   } catch (err) {
+    console.error("Change Password Error:", err);
     next(err);
   }
 };

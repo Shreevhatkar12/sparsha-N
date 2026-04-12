@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from "../lib/auth.js";
+import { requireAuth as authenticate, requireRole } from "../lib/auth.ts";
 import {
   dashboardController,
   attendanceController,
@@ -8,7 +8,7 @@ import {
   studentsFilterController,
   pendingItemsController,
   exportCsvController
-} from "../controllers/reportController.js";
+} from "../controllers/reportController.ts";
 
 const reportRoutes = Router();
 
