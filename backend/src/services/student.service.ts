@@ -1,8 +1,8 @@
-import prisma from "../lib/prisma.ts";
+import prisma from '../lib/prisma.js';
 import { z } from "zod";
-import type { AuthUser } from "../types/index.ts";
-import { centerScope } from "../lib/centerScope.ts";
-import { ForbiddenError, NotFoundError, ValidationError } from "../lib/errors.ts";
+import type { AuthUser } from '../types/index.js';
+import { centerScope } from '../lib/centerScope.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 
 const studentCreateSchema = z.object({
   fullName: z.string().min(1),

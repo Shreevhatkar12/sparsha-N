@@ -1,8 +1,8 @@
 import { Router } from "express";
 import type { NextFunction, Request, Response } from "express";
-import { requireAuth as authenticate } from "../lib/auth.ts";
-import type { JwtPayload } from "../lib/auth.ts";
-import { getDashboardPendingCounts } from "../services/reportService.ts";
+import { requireAuth as authenticate } from '../lib/auth.js';
+import type { JwtPayload } from '../lib/auth.js';
+import { getDashboardPendingCounts } from '../services/reportService.js';
 
 const dashboardRoutes = Router();
 

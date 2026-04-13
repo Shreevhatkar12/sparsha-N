@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from "../lib/auth.ts";
+import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
 import {
   createExamController,
   getExamByIdController,
@@ -8,9 +8,9 @@ import {
   getStudentExamScoresController,
   listExamsController,
   upsertExamScoresController,
-} from "../controllers/examController.ts";
-import { validate } from "../middleware/validate.ts";
-import { createExamSchema, upsertExamScoresSchema } from "../validation/schemas.ts";
+} from '../controllers/examController.js';
+import { validate } from '../middleware/validate.js';
+import { createExamSchema, upsertExamScoresSchema } from '../validation/schemas.js';
 
 const examRoutes = Router();
 

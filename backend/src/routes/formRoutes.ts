@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from "../lib/auth.ts";
+import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
 import {
   createTemplateController,
   deleteSubmissionController,
@@ -12,13 +12,13 @@ import {
   listTemplatesController,
   submitFormController,
   updateTemplateController,
-} from "../controllers/formController.ts";
-import { validate } from "../middleware/validate.ts";
+} from '../controllers/formController.js';
+import { validate } from '../middleware/validate.js';
 import {
   createFormTemplateSchema,
   submitFormSchema,
   updateFormTemplateSchema,
-} from "../validation/schemas.ts";
+} from '../validation/schemas.js';
 
 const formRoutes = Router();
 

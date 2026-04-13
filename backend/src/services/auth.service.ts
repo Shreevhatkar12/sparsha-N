@@ -1,11 +1,11 @@
 import bcrypt from "bcryptjs";
-import prisma from "../lib/prisma.ts";
+import prisma from '../lib/prisma.js';
 import {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-} from "@/utils/jwt.ts";
-import { AppError } from "@/lib/errors.ts";
+} from '@/utils/jwt.js';
+import { AppError } from '@/lib/errors.js';
 
 const SALT_ROUNDS = 10;
 

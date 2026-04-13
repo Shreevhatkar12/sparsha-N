@@ -31,7 +31,10 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      const { token, user } = await login(email, password);
+      const { token, accessToken, user } = await login(email, password);
+      const authToken = token || accessToken;
+      if (!authToken) throw new Error('No access token received');
+      
       setAuth(
         {
           id: user.id,
@@ -40,7 +43,7 @@ export const Login: React.FC = () => {
           role: user.role,
           centerIds: user.centerIds ?? [],
         },
-        token,
+        authToken,
       );
       navigate('/dashboard');
     } catch (err: unknown) {

@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
 import { Prisma } from "@prisma/client";
-import type { JwtPayload } from "../lib/auth.ts";
-import prisma from "../lib/prisma.ts";
-import { AppError, NotFoundError, ValidationError } from "../lib/errors.ts";
+import type { JwtPayload } from '../lib/auth.js';
+import prisma from '../lib/prisma.js';
+import { AppError, NotFoundError, ValidationError } from '../lib/errors.js';
 
 const SALT_ROUNDS = 10;
 

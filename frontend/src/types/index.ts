@@ -143,3 +143,81 @@ export interface AuthResponse {
   token: string;
   user: AuthUser;
 }
+
+export interface CenterSummary {
+  id: string;
+  name: string;
+}
+
+export interface ProgramSummary {
+  id: string;
+  name: string;
+  code?: string;
+}
+
+export interface SkillRecord {
+  id: string;
+  studentId: string;
+  skillName: string;
+  proficiencyLevel: string;
+  createdAt?: string | Date;
+}
+
+export interface CareerRecord {
+  id: string;
+  studentId: string;
+  careerInterest: string;
+  counselingNotes?: string;
+  notes?: string;
+  createdAt?: string | Date;
+}
+
+export interface StudentProfilePayload {
+  student: Student;
+  stats?: Record<string, any>;
+  attendanceTrend?: any[];
+  examComparison?: any[];
+  formSubmissions?: any[];
+  parents?: any[];
+  skillRadar?: any[];
+  skills?: SkillRecord[];
+  careerRecords?: CareerRecord[];
+  attendance?: AttendanceRecord[];
+  examScores?: ExamScore[];
+}
+
+export interface StudentCreatePayload {
+    centerId: string;
+    programId: string;
+    fullName: string;
+    dob?: string | Date;
+    gender?: Gender;
+    guardianName?: string;
+    guardianPhone?: string;
+    enrollmentDate?: string | Date;
+    isActive?: boolean;
+}
+
+export interface StudentUpdatePayload extends Partial<StudentCreatePayload> {}
+
+export interface StudentsListResult {
+  students: Student[];
+  total: number;
+  page: number;
+  totalPages: number;
+  limit: number;
+}
+
+export interface AttendanceRecordPayload {
+  sessionId?: string;
+  studentId: string;
+  centerId: string;
+  status: AttendanceStatus;
+  remarks?: string;
+}
+
+export interface ApiEnvelope<T> {
+  data: T;
+  message?: string;
+  status?: string;
+}

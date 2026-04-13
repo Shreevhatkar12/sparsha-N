@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.ts";
+import type { JwtPayload } from '../lib/auth.js';
 import {
   listActivities,
   getActivity,
@@ -9,7 +9,7 @@ import {
   assignVolunteer,
   removeVolunteerAssignment,
   getEligibleStudents,
-} from "../services/activityService.ts";
+} from '../services/activityService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 
