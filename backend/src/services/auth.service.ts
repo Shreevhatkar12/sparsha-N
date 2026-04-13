@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import prisma from "../lib/prisma.ts";
 import { generateToken, verifyToken } from "@/utils/jwt.ts";
+import { AppError } from "@/lib/errors.ts";
 
 const SALT_ROUNDS = 10;
 
@@ -77,11 +78,7 @@ export const registerUser = async ({
 
     if (existing) {
       const field = existing.phone === phone ? "phone" : "email";
-      const error: CustomError = new Error(
-        `User with this ${field} already exists`
-      );
-      error.statusCode = 409;
-      throw error;
+      throw new AppError(`User with this ${field} already exists`, 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -125,8 +122,13 @@ export const registerUser = async ({
  */
 export const loginUser = async ({ email, password }: LoginInput) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { email: `${email}@internal.local` }, // treat input as phone
+        ],
+      },
       select: {
         id: true,
         email: true,
@@ -137,20 +139,13 @@ export const loginUser = async ({ email, password }: LoginInput) => {
     });
 
     if (!user) {
-      const error: CustomError = new Error("Invalid credentials");
-      error.statusCode = 401;
-      throw error;
+      throw new AppError("Invalid credentials", 401);
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      user.passwordHash
-    );
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-      const error: CustomError = new Error("Invalid credentials");
-      error.statusCode = 401;
-      throw error;
+      throw new AppError("Invalid credentials", 401);
     }
 
     const centerIds = await getCenterIdsByUserId(user.id);
@@ -186,9 +181,7 @@ export const loginUser = async ({ email, password }: LoginInput) => {
 export const refreshAccessToken = async (token: string) => {
   try {
     if (!token) {
-      const error: CustomError = new Error("Refresh token required");
-      error.statusCode = 401;
-      throw error;
+      throw new AppError("Refresh token is required", 400);
     }
 
     let decoded: any;
@@ -196,9 +189,7 @@ export const refreshAccessToken = async (token: string) => {
     try {
       decoded = verifyToken(token);
     } catch {
-      const error: CustomError = new Error("Invalid or expired token");
-      error.statusCode = 401;
-      throw error;
+      throw new AppError("Invalid refresh token", 401);
     }
 
     const user = await prisma.user.findUnique({
@@ -207,9 +198,7 @@ export const refreshAccessToken = async (token: string) => {
     });
 
     if (!user) {
-      const error: CustomError = new Error("User no longer exists");
-      error.statusCode = 401;
-      throw error;
+      throw new AppError("User not found", 404);
     }
 
     const centerIds = await getCenterIdsByUserId(user.id);
@@ -248,9 +237,7 @@ export const getMe = async (userId: string) => {
     });
 
     if (!user) {
-      const error: CustomError = new Error("User not found");
-      error.statusCode = 404;
-      throw error;
+      throw new AppError("User not found", 404);
     }
 
     const centerIds = await getCenterIdsByUserId(userId);
@@ -267,7 +254,7 @@ export const getMe = async (userId: string) => {
  */
 export const changePassword = async (
   userId: string,
-  { currentPassword, newPassword }: ChangePasswordInput
+  { currentPassword, newPassword }: ChangePasswordInput,
 ) => {
   try {
     const user = await prisma.user.findUnique({
@@ -275,22 +262,13 @@ export const changePassword = async (
     });
 
     if (!user) {
-      const error: CustomError = new Error("User not found");
-      error.statusCode = 404;
-      throw error;
+      throw new AppError("User not found", 404);
     }
 
-    const isValid = await bcrypt.compare(
-      currentPassword,
-      user.passwordHash
-    );
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
     if (!isValid) {
-      const error: CustomError = new Error(
-        "Current password is incorrect"
-      );
-      error.statusCode = 400;
-      throw error;
+      throw new AppError("Current password is incorrect", 400);
     }
 
     const hashedNew = await bcrypt.hash(newPassword, SALT_ROUNDS);
