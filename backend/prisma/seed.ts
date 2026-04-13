@@ -2,11 +2,11 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import bcrypt from "bcryptjs";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
-import bcrypt from "bcryptjs";
 
 async function main() {
   console.log("Starting DB seeding...");
@@ -51,8 +51,6 @@ async function main() {
 
   // 2. Centers
   console.log("Upserting Centers...");
-  // Since centers usually don't have a unique string field other than ID in the schema (name is not marked @unique),
-  // we will check by name manually or use findFirst.
   async function upsertCenter(name: string, location: string) {
     let center = await prisma.center.findFirst({ where: { name } });
     if (!center) {
@@ -139,59 +137,43 @@ async function main() {
     });
   }
 
+  await assignUserCenter(admin.id, andheriCenter.id);
+  await assignUserCenter(admin.id, dharaviCenter.id);
   await assignUserCenter(teacher1.id, andheriCenter.id);
   await assignUserCenter(teacher2.id, dharaviCenter.id);
   await assignUserCenter(staff1.id, andheriCenter.id);
 
   // 6. Students
-  console.log("Creating Students...");
-  const indianNames = [
-    "Aarav Patel",
-    "Diya Sharma",
-    "Vihaan Kumar",
-    "Ananya Singh",
-    "Kabir Das",
-    "Isha Gupta",
-    "Vivaan Joshi",
-    "Neha Verma",
-    "Arjun Yadav",
-    "Riya Menon",
-    "Ayaan Reddy",
-    "Sara Nair",
-    "Krishna Iyer",
-    "Pooja Pillai",
-    "Rohan Bhat",
-    "Anjali Shah",
-    "Aditya Chokshi",
-    "Kriti Deshmukh",
-    "Aryan Kulkarni",
-    "Sneha Patil",
+  console.log("Creating 60 Students...");
+  const baseNames = [
+    "Aarav", "Diya", "Vihaan", "Ananya", "Kabir", "Isha", "Vivaan", "Neha", "Arjun", "Riya",
+    "Ayaan", "Sara", "Krishna", "Pooja", "Rohan", "Anjali", "Aditya", "Kriti", "Aryan", "Sneha"
   ];
-
+  const surnames = ["Patel", "Sharma", "Kumar", "Singh", "Das", "Gupta", "Joshi", "Verma", "Yadav", "Menon"];
   const studentsDetails = [];
-  for (let i = 0; i < indianNames.length; i++) {
-    const center = i < 10 ? andheriCenter : dharaviCenter;
+  
+  for (let i = 0; i < 60; i++) {
+    const fullName = `${baseNames[i % baseNames.length]} ${surnames[i % surnames.length]} ${i}`;
+    const center = i < 30 ? andheriCenter : dharaviCenter;
     const gType = Math.random() > 0.5 ? "male" : "female";
-    // Age 15-18 between 2006 and 2009
     const year = 2006 + Math.floor(Math.random() * 4);
     const month = Math.floor(Math.random() * 12);
     const day = Math.floor(Math.random() * 28) + 1;
     const dob = new Date(year, month, day);
 
-    // Guard up against duplicate runs
     let existing = await prisma.student.findFirst({
-      where: { fullName: indianNames[i], centerId: center.id },
+      where: { fullName, centerId: center.id },
     });
 
     if (!existing) {
       existing = await prisma.student.create({
         data: {
-          fullName: indianNames[i],
+          fullName,
           centerId: center.id,
           programId: pSwayam.id,
           dob,
           gender: gType as any,
-          guardianName: `${indianNames[i].split(" ")[0]}'s Parent`,
+          guardianName: `${fullName.split(" ")[0]}'s Parent`,
           guardianPhone: `98${Math.floor(10000000 + Math.random() * 90000000)}`,
         },
       });
@@ -199,110 +181,119 @@ async function main() {
     studentsDetails.push(existing);
   }
 
-  // 7. Attendance Sessions
-  console.log("Creating Attendance Sessions...");
+  // 7. Attendance Sessions (4 Weeks)
+  console.log("Creating 4 Weeks of Attendance Sessions...");
   async function createAttendanceForCenter(centerId: string, students: any[]) {
-    const lastWeek = new Date();
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    
-    // Convert to simple date string to check existence if needed, or just find by center/program/date
-    let session = await prisma.attendanceSession.findFirst({
-      where: { centerId, programId: pSwayam.id, sessionDate: lastWeek },
-    });
-
-    if (!session) {
-      session = await prisma.attendanceSession.create({
-        data: {
-          centerId,
-          programId: pSwayam.id,
-          sessionDate: lastWeek,
-          createdBy: admin.id,
-        },
-      });
-    }
-    
-    // Check if records exist
-    const recordsCount = await prisma.attendanceRecord.count({
-      where: { sessionId: session.id }
-    });
-    
-    if (recordsCount === 0) {
-      // 8 present, 1 absent, 1 late (assuming exactly 10 students passed)
-      const data = students.map((s, idx) => {
-        let status = "present";
-        if (idx === 8) status = "absent";
-        else if (idx === 9) status = "late";
-        return {
-          sessionId: session!.id,
-          studentId: s.id,
-          centerId,
-          status: status as any,
-        };
+    // Generate 20 days (4 weeks * 5 days)
+    for (let dayOffset = 28; dayOffset > 0; dayOffset--) {
+      // Skip weekends implicitly by just acting like it's a weekday for simplicity
+      if (dayOffset % 7 === 0 || dayOffset % 7 === 1) continue; 
+      
+      const sessionDate = new Date();
+      sessionDate.setDate(sessionDate.getDate() - dayOffset);
+      
+      let session = await prisma.attendanceSession.findFirst({
+        where: { centerId, programId: pSwayam.id, sessionDate: sessionDate },
       });
 
-      await prisma.attendanceRecord.createMany({ data });
+      if (!session) {
+        session = await prisma.attendanceSession.create({
+          data: {
+            centerId,
+            programId: pSwayam.id,
+            sessionDate,
+            createdBy: admin.id,
+          },
+        });
+      }
+      
+      const recordsCount = await prisma.attendanceRecord.count({ where: { sessionId: session.id } });
+      if (recordsCount === 0) {
+        const data = students.map((s) => {
+          let status = "present";
+          const roll = Math.random();
+          if (roll > 0.85) status = "absent";
+          else if (roll > 0.75) status = "late";
+          return {
+            sessionId: session!.id,
+            studentId: s.id,
+            centerId,
+            status: status as any,
+          };
+        });
+        await prisma.attendanceRecord.createMany({ data });
+      }
     }
   }
 
-  await createAttendanceForCenter(andheriCenter.id, studentsDetails.slice(0, 10));
-  await createAttendanceForCenter(dharaviCenter.id, studentsDetails.slice(10, 20));
+  await createAttendanceForCenter(andheriCenter.id, studentsDetails.slice(0, 30));
+  await createAttendanceForCenter(dharaviCenter.id, studentsDetails.slice(30, 60));
 
-  // 8. Exam (Baseline)
-  console.log("Creating Baseline Exams...");
+  // 8. Exams (Baseline and Endline)
+  console.log("Creating Baseline and Endline Exams...");
   async function createExamsForCenter(centerId: string, students: any[]) {
-    let exam = await prisma.exam.findFirst({
+    const subjects = ["english", "maths", "science"];
+    
+    // Baseline
+    let baselineExam = await prisma.exam.findFirst({
       where: { centerId, programId: pSwayam.id, examType: "baseline", academicYear: "2024-25" },
     });
-
-    if (!exam) {
-      exam = await prisma.exam.create({
-        data: {
-          centerId,
-          programId: pSwayam.id,
-          examType: "baseline",
-          academicYear: "2024-25",
-          createdBy: admin.id,
-        },
+    if (!baselineExam) {
+      baselineExam = await prisma.exam.create({
+        data: { centerId, programId: pSwayam.id, examType: "baseline", academicYear: "2024-25", createdBy: admin.id },
       });
     }
 
-    const scoresCount = await prisma.examScore.count({ where: { examId: exam.id }});
-    if (scoresCount === 0) {
-      const data: any[] = [];
-      const subjects = ["english", "maths", "science"];
-      
+    const baselineCount = await prisma.examScore.count({ where: { examId: baselineExam.id }});
+    if (baselineCount === 0) {
+      const bData: any[] = [];
       students.forEach(s => {
         subjects.forEach(sub => {
-          data.push({
-            examId: exam!.id,
-            studentId: s.id,
-            centerId,
-            subject: sub,
-            marks: 20 + Math.random() * 20, // 20 to 40
-            maxMarks: 50
+          bData.push({
+            examId: baselineExam!.id, studentId: s.id, centerId, subject: sub,
+            marks: 15 + Math.random() * 15, maxMarks: 50 // 30-60%
           });
         });
       });
+      await prisma.examScore.createMany({ data: bData });
+    }
 
-      await prisma.examScore.createMany({ data });
+    // Endline
+    let endlineExam = await prisma.exam.findFirst({
+      where: { centerId, programId: pSwayam.id, examType: "endline", academicYear: "2024-25" },
+    });
+    if (!endlineExam) {
+      endlineExam = await prisma.exam.create({
+        data: { centerId, programId: pSwayam.id, examType: "endline", academicYear: "2024-25", createdBy: admin.id },
+      });
+    }
+
+    const endlineCount = await prisma.examScore.count({ where: { examId: endlineExam.id }});
+    if (endlineCount === 0) {
+      const eData: any[] = [];
+      students.forEach(s => {
+        subjects.forEach(sub => {
+          eData.push({
+            examId: endlineExam!.id, studentId: s.id, centerId, subject: sub,
+            marks: 35 + Math.random() * 15, maxMarks: 50 // 70-100%
+          });
+        });
+      });
+      await prisma.examScore.createMany({ data: eData });
     }
   }
 
-  await createExamsForCenter(andheriCenter.id, studentsDetails.slice(0, 10));
-  await createExamsForCenter(dharaviCenter.id, studentsDetails.slice(10, 20));
+  await createExamsForCenter(andheriCenter.id, studentsDetails.slice(0, 30));
+  await createExamsForCenter(dharaviCenter.id, studentsDetails.slice(30, 60));
 
-  // 9. Form Template
-  console.log("Upserting Form Template...");
-  let formTpl = await prisma.formTemplate.findFirst({
-    where: { formType: "student_meeting" }
-  });
-
-  if (!formTpl) {
-    await prisma.formTemplate.create({
+  // 9. Form Template + Submissions
+  console.log("Upserting Form Templates & Fake Submissions...");
+  
+  let smFormTpl = await prisma.formTemplate.findFirst({ where: { formType: "student_meeting" } });
+  if (!smFormTpl) {
+    smFormTpl = await prisma.formTemplate.create({
       data: {
-        formType: "student_meeting",
-        name: "Student Meeting Form",
-        isActive: true,
+        formType: "student_meeting", name: "Student Meeting Form", isActive: true,
         schema: {
           fields: [
              { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
@@ -324,9 +315,7 @@ async function main() {
     if (!existing) {
       await prisma.formTemplate.create({
         data: {
-          formType,
-          name,
-          isActive: true,
+          formType, name, isActive: true,
           schema: {
             fields: [
               { name: "title", label: "Title", type: "text", required: true },
@@ -339,14 +328,40 @@ async function main() {
     }
   }
 
+  // Create some submissions for the first 5 students
+  for (let i = 0; i < 5; i++) {
+    const stud = studentsDetails[i];
+    const exists = await prisma.formSubmission.count({ where: { studentId: stud.id } });
+    if (exists === 0) {
+      await prisma.formSubmission.create({
+        data: {
+          templateId: smFormTpl.id,
+          studentId: stud.id,
+          centerId: stud.centerId,
+          submittedBy: admin.id,
+          data: {
+            meetingDate: new Date().toISOString().split('T')[0],
+            agenda: "Regular monthly review to discuss academic progress and Swayam activities.",
+            outcome: "Student is actively participating but needs more help in English.",
+            followUp: true
+          }
+        }
+      });
+    }
+  }
+
   // Summary
   const tCenters = await prisma.center.count();
   const tPrograms = await prisma.program.count();
   const tUsers = await prisma.user.count();
   const tStudents = await prisma.student.count();
+  const tAttendance = await prisma.attendanceRecord.count();
+  const tScores = await prisma.examScore.count();
+  const tForms = await prisma.formSubmission.count();
 
   console.log("\n--- SEEDING COMPLETE ---");
-  console.log(`Summary: ${tCenters} centers, ${tPrograms} programs, ${tUsers} users, ${tStudents} students in the database.`);
+  console.log(`Summary: ${tCenters} centers, ${tPrograms} programs, ${tUsers} users`);
+  console.log(`Payload: ${tStudents} students, ${tAttendance} attendances, ${tScores} exam scores, ${tForms} form submissions.`);
 }
 
 main()
