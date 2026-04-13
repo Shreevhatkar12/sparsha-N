@@ -1,10 +1,9 @@
-import type { AuthUser } from './index.ts';
+import { AuthUser } from "@/types";
 
 declare global {
   namespace Express {
     interface Request {
-      user?: AuthUser;
-      allowedCenterIds?: string[];
+      user: AuthUser; // ✅ NOT optional
     }
   }
 }
