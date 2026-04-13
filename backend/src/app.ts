@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import { errorHandler } from "./middleware/errorHandler.ts";
@@ -33,6 +34,7 @@ app.use(
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
+app.use(cookieParser());
 app.use(limiter);
 
 app.get("/health", (_req, res) => {

@@ -1,4 +1,4 @@
-import { verifyToken } from "../utils/jwt.ts";
+import { verifyAccessToken } from "../utils/jwt.ts";
 import { Request, Response, NextFunction } from "express";
 import type { AuthUser } from "../types/index.ts";
 
@@ -19,7 +19,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = verifyToken(token) as unknown as AuthUser;
+    const decoded = verifyAccessToken(token) as unknown as AuthUser;
     req.user = decoded;
     next();
   } catch (err) {

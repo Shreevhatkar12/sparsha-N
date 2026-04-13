@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import * as authService from "@/services/auth.service.ts"
+import * as authService from "@/services/auth.service.ts";
+import { verifyRefreshToken, generateAccessToken } from "@/utils/jwt.ts";
+import { AppError } from "@/lib/errors.ts";
 // Extend Request to include user (from auth middleware)
 
 /**
@@ -8,7 +10,7 @@ import * as authService from "@/services/auth.service.ts"
 export const register = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<Response | void> => {
   try {
     const { phone, email, password } = req.body as {
@@ -31,16 +33,24 @@ export const register = async (
       });
     }
 
-    const { user, token } = await authService.registerUser({
+    const { accessToken, refreshToken, user } = await authService.registerUser({
       phone,
       email,
       password,
     });
 
+    // set refresh token cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     return res.status(201).json({
       success: true,
       message: "Registration successful",
-      data: { user, token },
+      data: { user, accessToken },
     });
   } catch (err) {
     console.error("Register Error:", err);
@@ -54,28 +64,26 @@ export const register = async (
 export const login = async (
   req: Request,
   res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
+  next: NextFunction,
+) => {
   try {
-    const { email, password } = req.body as {
-      email?: string;
-      password?: string;
-    };
+    const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "email and password are required",
-      });
-    }
-
-    const { user, token } = await authService.loginUser({
+    const { accessToken, refreshToken, user } = await authService.loginUser({
       email,
       password,
     });
 
-    return res.status(200).json({
-      token,
+    // 🔥 store refresh token in cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.json({
+      accessToken,
       user,
     });
   } catch (err) {
@@ -91,21 +99,18 @@ export const login = async (
 export const refresh = async (
   req: Request,
   res: Response,
-  next: NextFunction
-): Promise<Response | void> => {
+  next: NextFunction,
+) => {
   try {
-    const { token } = req.body as { token?: string };
+    const token = req.cookies.refreshToken;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "token is required",
-      });
-    }
+    if (!token) throw new AppError("Unauthorized", 401);
 
-    const refreshed = await authService.refreshAccessToken(token);
+    const decoded = verifyRefreshToken(token);
 
-    return res.status(200).json(refreshed);
+    const newAccessToken = generateAccessToken(decoded);
+
+    return res.json({ accessToken: newAccessToken });
   } catch (err) {
     console.error("Refresh Token Error:", err);
     next(err);
@@ -115,19 +120,12 @@ export const refresh = async (
 /**
  * POST /api/auth/logout
  */
-export const logout = (
-  _req: Request,
-  res: Response
-): Response => {
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
+export const logout = (_req: Request, res: Response) => {
+  res.clearCookie("refreshToken");
 
-  return res.status(200).json({
+  return res.json({
     success: true,
-    message: "Logged out successfully",
+    message: "Logged out",
   });
 };
 
@@ -137,17 +135,17 @@ export const logout = (
 export const getMe = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<Response | void> => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.userId) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    const user = await authService.getMe(req.user.id);
+    const user = await authService.getMe(req.user.userId);
 
     return res.status(200).json({
       user,
@@ -164,10 +162,10 @@ export const getMe = async (
 export const changePassword = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<Response | void> => {
   try {
-    if (!req.user?.id) {
+    if (!req.user?.userId) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
@@ -193,7 +191,7 @@ export const changePassword = async (
       });
     }
 
-    await authService.changePassword(req.user.id, {
+    await authService.changePassword(req.user.userId, {
       currentPassword,
       newPassword,
     });

@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs";
 import prisma from "../lib/prisma.ts";
-import { generateToken, verifyToken } from "@/utils/jwt.ts";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "@/utils/jwt.ts";
 import { AppError } from "@/lib/errors.ts";
 
 const SALT_ROUNDS = 10;
@@ -32,10 +36,6 @@ type TokenPayload = {
   centerIds: string[];
 };
 
-interface CustomError extends Error {
-  statusCode?: number;
-}
-
 // ----------------------
 // Helpers
 // ----------------------
@@ -61,9 +61,6 @@ const getCenterIdsByUserId = async (userId: string): Promise<string[]> => {
 // Services
 // ----------------------
 
-/**
- * Register a new user
- */
 export const registerUser = async ({
   phone,
   email,
@@ -77,8 +74,7 @@ export const registerUser = async ({
     });
 
     if (existing) {
-      const field = existing.phone === phone ? "phone" : "email";
-      throw new AppError(`User with this ${field} already exists`, 400);
+      throw new AppError("User already exists", 400);
     }
 
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -90,81 +86,55 @@ export const registerUser = async ({
         fullName: phone || "User",
         role: "staff",
       },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        createdAt: true,
-      },
     });
 
     const centerIds = await getCenterIdsByUserId(user.id);
 
-    const tokenPayload: TokenPayload = {
+    const payload: TokenPayload = {
       userId: user.id,
       email: user.email,
       role: user.role,
       centerIds,
     };
 
-    const token = generateToken(tokenPayload);
-
-    return { user: { ...user, centerIds }, token };
+    return {
+      accessToken: generateAccessToken(payload),
+      refreshToken: generateRefreshToken(payload),
+      user: { ...user, centerIds },
+    };
   } catch (err) {
     console.error("Register Service Error:", err);
     throw err;
   }
 };
 
-/**
- * Login with email + password
- */
+// ----------------------
+
 export const loginUser = async ({ email, password }: LoginInput) => {
   try {
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email },
-          { email: `${email}@internal.local` }, // treat input as phone
-        ],
-      },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        passwordHash: true,
-      },
-    });
+    const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
-      throw new AppError("Invalid credentials", 401);
-    }
+    if (!user) throw new AppError("Invalid credentials", 401);
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    const isValid = await bcrypt.compare(password, user.passwordHash);
 
-    if (!isPasswordValid) {
-      throw new AppError("Invalid credentials", 401);
-    }
+    if (!isValid) throw new AppError("Invalid credentials", 401);
 
     const centerIds = await getCenterIdsByUserId(user.id);
 
-    const tokenPayload: TokenPayload = {
+    const payload: TokenPayload = {
       userId: user.id,
       email: user.email,
       role: user.role,
       centerIds,
     };
 
-    const token = generateToken(tokenPayload);
-
     return {
-      token,
+      accessToken: generateAccessToken(payload),
+      refreshToken: generateRefreshToken(payload),
       user: {
         id: user.id,
         email: user.email,
-        fullName: user.fullName,
         role: user.role,
         centerIds,
       },
@@ -175,26 +145,18 @@ export const loginUser = async ({ email, password }: LoginInput) => {
   }
 };
 
-/**
- * Refresh access token using refresh token
- */
+// ----------------------
+
 export const refreshAccessToken = async (token: string) => {
   try {
     if (!token) {
-      throw new AppError("Refresh token is required", 400);
+      throw new AppError("Refresh token required", 401);
     }
 
-    let decoded: any;
-
-    try {
-      decoded = verifyToken(token);
-    } catch {
-      throw new AppError("Invalid refresh token", 401);
-    }
+    const decoded = verifyRefreshToken(token);
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, role: true },
     });
 
     if (!user) {
@@ -203,42 +165,31 @@ export const refreshAccessToken = async (token: string) => {
 
     const centerIds = await getCenterIdsByUserId(user.id);
 
-    const tokenPayload: TokenPayload = {
+    const payload: TokenPayload = {
       userId: user.id,
       email: user.email,
       role: user.role,
       centerIds,
     };
 
-    const refreshedToken = generateToken(tokenPayload);
-
-    return { token: refreshedToken };
+    return {
+      accessToken: generateAccessToken(payload),
+    };
   } catch (err) {
     console.error("Refresh Token Service Error:", err);
     throw err;
   }
 };
 
-/**
- * Get current user
- */
+// ----------------------
+
 export const getMe = async (userId: string) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-      },
     });
 
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
+    if (!user) throw new AppError("User not found", 404);
 
     const centerIds = await getCenterIdsByUserId(userId);
 
@@ -249,9 +200,8 @@ export const getMe = async (userId: string) => {
   }
 };
 
-/**
- * Change password
- */
+// ----------------------
+
 export const changePassword = async (
   userId: string,
   { currentPassword, newPassword }: ChangePasswordInput,
@@ -261,14 +211,12 @@ export const changePassword = async (
       where: { id: userId },
     });
 
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
+    if (!user) throw new AppError("User not found", 404);
 
     const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
     if (!isValid) {
-      throw new AppError("Current password is incorrect", 400);
+      throw new AppError("Current password incorrect", 400);
     }
 
     const hashedNew = await bcrypt.hash(newPassword, SALT_ROUNDS);
