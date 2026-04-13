@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.ts";
+import type { JwtPayload } from '../lib/auth.js';
 import {
   createExam,
   getExamById,
@@ -8,7 +8,7 @@ import {
   getStudentExamScores,
   listExams,
   upsertExamScores,
-} from "../services/examService.ts";
+} from '../services/examService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 

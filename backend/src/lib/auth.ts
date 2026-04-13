@@ -1,14 +1,14 @@
-import type { AuthUser } from '../types/index.ts';
+import type { AuthUser } from '../types/index.js';
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
-import prisma from "./prisma.ts";
+import prisma from './prisma.js';
 import {
   ForbiddenError,
   UnauthorizedError,
   ValidationError,
-} from "./errors.ts";
+} from './errors.js';
 
 export type JwtPayload = {
   userId: string;

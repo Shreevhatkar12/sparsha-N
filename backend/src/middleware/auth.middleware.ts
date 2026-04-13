@@ -1,6 +1,6 @@
-import { verifyAccessToken } from "../utils/jwt.ts";
+import { verifyAccessToken } from '../utils/jwt.js';
 import { Request, Response, NextFunction } from "express";
-import type { AuthUser } from "../types/index.ts";
+import type { AuthUser } from '../types/index.js';
 
 /**
  * Middleware to protect routes.

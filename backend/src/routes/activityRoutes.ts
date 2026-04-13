@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from "../lib/auth.ts";
+import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
 import {
   listActivitiesController,
   getActivityController,
@@ -9,7 +9,7 @@ import {
   assignVolunteerController,
   removeVolunteerAssignmentController,
   getEligibleStudentsController
-} from "../controllers/activityController.ts";
+} from '../controllers/activityController.js';
 
 const activityRoutes = Router();
 

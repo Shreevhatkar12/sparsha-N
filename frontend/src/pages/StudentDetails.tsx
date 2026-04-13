@@ -32,7 +32,7 @@ const CHART_RED_SOFT = '#fca5a5';
 
 function radarFromSkills(skills: SkillRecord[] | null): { skill: string; score: number }[] {
   if (!skills?.length) return [];
-  const row = skills[0] as Record<string, unknown>;
+  const row = skills[0] as unknown as Record<string, unknown>;
   const keys = ['communication', 'confidence', 'computerSkill', 'problemSolving', 'languageSkill'];
   return keys
     .filter((k) => typeof row[k] === 'number')
@@ -172,18 +172,18 @@ export const StudentDetails: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <Card className="text-center py-6">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Attendance</p>
-          <p className="text-3xl font-bold text-neutral-900">{stats.attendancePct}%</p>
+          <p className="text-3xl font-bold text-neutral-900">{stats?.attendancePct ?? 0}%</p>
           <p className="text-xs text-neutral-500 mt-1">Across recorded sessions</p>
         </Card>
         <Card className="text-center py-6">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Avg exam %</p>
-          <p className="text-3xl font-bold text-neutral-900">{stats.avgExamPct ?? '—'}</p>
+          <p className="text-3xl font-bold text-neutral-900">{stats?.avgExamPct ?? '—'}</p>
           <p className="text-xs text-neutral-500 mt-1">From entered scores</p>
         </Card>
         <Card className="text-center py-6">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Skill score</p>
           <p className="text-3xl font-bold text-neutral-900">
-            {stats.skillScore != null ? stats.skillScore : '—'}
+            {stats?.skillScore != null ? stats.skillScore : '—'}
           </p>
           <p className="text-xs text-neutral-500 mt-1">Latest assessment</p>
         </Card>
@@ -192,7 +192,7 @@ export const StudentDetails: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">Attendance trend</h2>
-          {attendanceTrend.length === 0 ? (
+          {!attendanceTrend?.length ? (
             <EmptyState title="No attendance yet" description="Records will appear after sessions are saved." />
           ) : (
             <div className="h-64 w-full">
@@ -210,7 +210,7 @@ export const StudentDetails: React.FC = () => {
 
         <Card>
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">Exam scores (baseline vs endline)</h2>
-          {examComparison.length === 0 ? (
+          {!examComparison?.length ? (
             <EmptyState title="No exam data" description="Scores show when baseline and endline exams are recorded." />
           ) : (
             <div className="h-64 w-full">
@@ -218,7 +218,7 @@ export const StudentDetails: React.FC = () => {
                 <BarChart data={examComparison} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <XAxis dataKey="subject" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                  <Tooltip formatter={(v: number) => (v == null ? '—' : `${Number(v).toFixed(0)}%`)} />
+                  <Tooltip formatter={(v: any) => (v == null ? '—' : `${Number(v).toFixed(0)}%`)} />
                   <Legend />
                   <Bar dataKey="baseline" fill={CHART_RED_SOFT} name="Baseline" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="endline" fill={CHART_RED} name="Endline" radius={[4, 4, 0, 0]} />
@@ -277,7 +277,7 @@ export const StudentDetails: React.FC = () => {
         <Card className="mb-6">
           <h2 className="text-lg font-semibold text-neutral-900 mb-3">Linked parents</h2>
           <ul className="text-sm text-neutral-700 space-y-2">
-            {parents!.map((ps, i) => (
+            {parents!.map((ps: any, i: number) => (
               <li key={i}>
                 {ps.parent?.fullName ?? 'Parent'} — {ps.parent?.email ?? ps.parent?.phone ?? '—'}
               </li>
@@ -288,7 +288,7 @@ export const StudentDetails: React.FC = () => {
 
       <Card>
         <h2 className="text-lg font-semibold text-neutral-900 mb-4">Form submissions</h2>
-        {formSubmissions.length === 0 ? (
+        {!formSubmissions?.length ? (
           <EmptyState title="No submissions" description="Responses appear when forms are submitted for this student." />
         ) : (
           <div className="overflow-x-auto">
@@ -302,7 +302,7 @@ export const StudentDetails: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {formSubmissions.map((row) => {
+                {formSubmissions.map((row: any) => {
                   const tpl = row.template;
                   const tid = tpl?.id ?? row.templateId;
                   return (

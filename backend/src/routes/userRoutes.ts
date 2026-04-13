@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from "../lib/auth.ts";
+import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
 import {
   createUserController,
   deleteUserController,
@@ -8,7 +8,7 @@ import {
   myCentersController,
   resetPasswordController,
   updateUserController,
-} from "../controllers/userController.ts";
+} from '../controllers/userController.js';
 
 const userRoutes = Router();
 

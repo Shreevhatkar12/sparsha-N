@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from "../lib/auth.ts";
+import type { JwtPayload } from '../lib/auth.js';
 
 /**
  * Attaches `allowedCenterIds` for non-admin users (from JWT — refreshed at login with active assignments).

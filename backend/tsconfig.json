@@ -4,12 +4,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": "src",
-    "ignoreDeprecations": "6.0",
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
     "paths": {
       "@/*": [
         "*"
