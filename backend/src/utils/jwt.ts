@@ -1,73 +1,38 @@
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
-// ----------------------
-// Config
-// ----------------------
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.JWT_ACCESS_SECRET;
+const ACCESS_EXPIRY = "15m";
+const REFRESH_EXPIRY = "7d";
 
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET or JWT_ACCESS_SECRET must be defined");
-}
-
-const ACCESS_TOKEN_EXPIRY = "15m";
-
-// ----------------------
-// Types
-// ----------------------
-
-export interface TokenPayload extends JwtPayload {
+export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
   centerIds: string[];
 }
 
-// ----------------------
-// Token Generators
-// ----------------------
+/* -------- ACCESS TOKEN -------- */
 
-/**
- * Generate an access token (short-lived)
- */
-export const generateToken = (payload: TokenPayload): string => {
-  try {
-    return jwt.sign(payload, JWT_SECRET as string, {
-      expiresIn: ACCESS_TOKEN_EXPIRY,
-    });
-  } catch (err) {
-    console.error("Generate Token Error:", err);
-    throw err;
-  }
+export const generateAccessToken = (payload: TokenPayload) => {
+  return jwt.sign(payload, ACCESS_SECRET, {
+    expiresIn: ACCESS_EXPIRY,
+  });
 };
 
-/**
- * Verify an access token
- */
-export const verifyAccessToken = (token: string): TokenPayload => {
-  try {
-    return jwt.verify(token, JWT_SECRET as string) as TokenPayload;
-  } catch (err) {
-    console.error("Verify Access Token Error:", err);
-    throw err;
-  }
+export const verifyAccessToken = (token: string) => {
+  return jwt.verify(token, ACCESS_SECRET) as TokenPayload;
 };
 
-/**
- * Verify a refresh token
- */
-export const verifyToken = (token: string): TokenPayload => {
-  try {
-    return jwt.verify(token, JWT_SECRET as string) as TokenPayload;
-  } catch (err) {
-    console.error("Verify Refresh Token Error:", err);
-    throw err;
-  }
+/* -------- REFRESH TOKEN -------- */
+
+export const generateRefreshToken = (payload: TokenPayload) => {
+  return jwt.sign(payload, REFRESH_SECRET, {
+    expiresIn: REFRESH_EXPIRY,
+  });
 };
 
-// ----------------------
-// Backward-compatible aliases
-// ----------------------
-
-export const generateAccessToken = generateToken;
-export const verifyRefreshToken = verifyToken;
+export const verifyRefreshToken = (token: string) => {
+  return jwt.verify(token, REFRESH_SECRET) as TokenPayload;
+};
