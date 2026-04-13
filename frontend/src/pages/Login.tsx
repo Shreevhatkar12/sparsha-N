@@ -31,7 +31,7 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      const { token, user } = await login(email, password);
+      const { accessToken , user } = await login(email, password);
       setAuth(
         {
           id: user.id,
@@ -40,7 +40,7 @@ export const Login: React.FC = () => {
           role: user.role,
           centerIds: user.centerIds ?? [],
         },
-        token,
+        accessToken,
       );
       navigate('/dashboard');
     } catch (err: unknown) {
