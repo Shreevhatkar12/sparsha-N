@@ -112,3 +112,19 @@ npx prisma migrate deploy    # CI/prod: apply existing migrations
 npx prisma db seed           # Run seed
 npx prisma studio            # GUI for data (optional)
 ```
+
+## SQL backup and restore
+
+With `DATABASE_URL` configured, run:
+
+```bash
+npm run db:backup
+```
+
+This creates a timestamped `.sql` file in `backend/backups/`.
+
+Restore from a backup file:
+
+```bash
+npm run db:restore -- ./backups/<backup-file>.sql
+```

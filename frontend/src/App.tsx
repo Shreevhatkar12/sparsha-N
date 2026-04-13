@@ -11,6 +11,7 @@ import { Careers } from './pages/Careers';
 import { Exams } from './pages/Exams';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { UsersAdmin } from './pages/UsersAdmin';
 import { FormsListPage } from './pages/Forms/FormsListPage';
 import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
 import { FormRendererPage } from './pages/Forms/FormRendererPage';
@@ -76,6 +77,7 @@ function App() {
           <Route path="/careers" element={<Careers />} />
           <Route path="/exams" element={<Exams />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/users" element={<UsersAdmin />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/forms" element={<FormsListPage />} />
           <Route path="/forms/new" element={<FormBuilderPage />} />

@@ -13,6 +13,7 @@ import {
   Settings,
   X,
   FileText,
+  UserCog,
 } from 'lucide-react';
 import { getDashboardPending, type DashboardPendingCounts } from '../../services/reports.service';
 
@@ -89,6 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   if (isAdmin) {
     navItems.push({ name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> });
+    navItems.push({ name: 'Users', path: '/users', icon: <UserCog size={20} /> });
     navItems.push({ name: 'Settings', path: '/settings', icon: <Settings size={20} /> });
   }
 

@@ -11,7 +11,7 @@ const api = axios.create({
 // ----------------------
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken"); // 🔥 renamed
+  const token = useAuthStore.getState().accessToken; // 🔥 pull from Zustand (persisted)
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -66,8 +66,8 @@ api.interceptors.response.use(
 
         const newToken = res.data.accessToken;
 
-        // Save new token
-        localStorage.setItem("accessToken", newToken);
+        // Save new token to Zustand
+        useAuthStore.getState().setAccessToken(newToken);
 
         // Update header
         api.defaults.headers.Authorization = `Bearer ${newToken}`;
