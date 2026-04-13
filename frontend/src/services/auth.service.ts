@@ -9,7 +9,7 @@ export type AuthUser = {
 };
 
 export type LoginResponse = {
-  token: string;
+  accessToken: string;
   user: AuthUser;
 };
 

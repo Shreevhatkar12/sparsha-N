@@ -16,7 +16,48 @@ import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
 import { FormRendererPage } from './pages/Forms/FormRendererPage';
 import { FormSubmissionsPage } from './pages/Forms/FormSubmissionsPage';
 
+import { useEffect, useState } from "react";
+import { useAuthStore } from "./store/useAuthStore";
+
 function App() {
+  const initializeAuth = useAuthStore((s) => s.initializeAuth);
+  const setAccessToken = useAuthStore((s) => s.setAccessToken);
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        // Step 1: restore token from localStorage
+        initializeAuth();
+
+        // Step 2: try refresh (cookie-based)
+        const res = await fetch("/api/auth/refresh", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+
+          // IMPORTANT: update Zustand + localStorage
+          setAccessToken(data.accessToken);
+        }
+      } catch (err) {
+        console.log("No active session");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  // prevent rendering before auth ready
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
