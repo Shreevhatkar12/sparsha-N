@@ -20,7 +20,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (accessToken || localStorage.getItem('token')) {
+    if (accessToken || localStorage.getItem('accessToken')) {
       navigate('/dashboard', { replace: true });
     }
   }, [accessToken, navigate]);
@@ -34,7 +34,6 @@ export const Login: React.FC = () => {
       const { token, accessToken, user } = await login(email, password);
       const authToken = token || accessToken;
       if (!authToken) throw new Error('No access token received');
-      
       setAuth(
         {
           id: user.id,

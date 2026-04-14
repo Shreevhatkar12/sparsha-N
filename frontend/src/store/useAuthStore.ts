@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export interface User {
   id: string;
@@ -12,33 +13,54 @@ interface AuthState {
   currentUser: User | null;
   accessToken: string | null;
   selectedCenterId: string | null;
-  
+
   setAuth: (user: User, token: string) => void;
   setAccessToken: (token: string) => void;
   setSelectedCenterId: (id: string | null) => void;
+  initializeAuth: () => void;
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  currentUser: null,
-  accessToken: null,
-  selectedCenterId: null,
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      currentUser: null,
+      accessToken: null,
+      selectedCenterId: null,
 
-  setAuth: (user, token) => {
-    localStorage.setItem('token', token);
-    return set({
-      currentUser: user,
-      accessToken: token,
-      selectedCenterId: user.centerIds.length > 0 ? user.centerIds[0] : null,
-    });
-  },
-  
-  setAccessToken: (token) => set({ accessToken: token }),
-  
-  setSelectedCenterId: (id) => set({ selectedCenterId: id }),
+      setAuth: (user, token) => {
+        set({
+          currentUser: user,
+          accessToken: token,
+          selectedCenterId: user.centerIds.length > 0 ? user.centerIds[0] : null,
+        });
+      },
 
-  logout: () => {
-    localStorage.removeItem('token');
-    return set({ currentUser: null, accessToken: null, selectedCenterId: null });
-  },
-}));
+      setAccessToken: (token) => {
+        set({ accessToken: token });
+      },
+
+      setSelectedCenterId: (id) => set({ selectedCenterId: id }),
+
+      initializeAuth: () => {
+        // Hydration via persist happens automatically.
+      },
+
+      logout: () => {
+        fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include",
+        });
+
+        set({
+          currentUser: null,
+          accessToken: null,
+          selectedCenterId: null,
+        });
+      },
+    }),
+    {
+      name: "auth-storage",
+    }
+  )
+);

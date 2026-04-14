@@ -113,6 +113,7 @@ Details: **`documentaion/STATUS.md`**.
 | `documentaion/APIs.md` | API notes (verify against live routes) |
 | `documentaion/frontend.md` | Frontend architecture notes |
 | `documentaion/backend.md` | Backend architecture notes |
+| `documentaion/MEETING_DEMO_GUIDE.md` | Presentation-ready workflow, test cases, backup/import/export steps |
 | `SPARSHA_Cursor_Prompt.md` | Original phased specification |
 
 ---
