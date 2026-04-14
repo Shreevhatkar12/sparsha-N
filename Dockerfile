@@ -1,23 +1,23 @@
 # Multi-stage build for backend and frontend
 
 # --- Backend Build Stage ---
-FROM node:20 AS backend-build
+FROM node:22 AS backend-build
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 COPY backend/ ./
-RUN npm run build || true
+RUN npm run build
 
 # --- Frontend Build Stage ---
-FROM node:20 AS frontend-build
+FROM node:22 AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 COPY frontend/ ./
 RUN npm run build
 
 # --- Production Image ---
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 WORKDIR /app
 
 # Copy backend build
