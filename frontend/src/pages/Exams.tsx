@@ -423,10 +423,40 @@ export const Exams: React.FC = () => {
       )}
 
       <Card>
-        <h2 className="text-lg font-semibold mb-2">Baseline vs endline (summary)</h2>
-        <pre className="text-xs overflow-auto max-h-[280px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-          {JSON.stringify(comparison, null, 2)}
-        </pre>
+        <h2 className="text-lg font-semibold mb-4">Baseline vs Endline Comparison</h2>
+        {!comparison || (!(comparison as any).perSubject?.length && !(comparison as any).perStudent?.length) ? (
+          <div className="p-8 text-center border border-dashed border-neutral-200 rounded-xl bg-neutral-50">
+            <p className="text-neutral-500 font-medium">No comparison data available.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm border-b pb-2 mb-3 font-semibold text-neutral-800">Subject Performance Flow</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {((comparison as any).perSubject || []).map((sub: any) => (
+                  <div key={sub.subject} className="bg-white p-4 rounded-xl border border-neutral-100 shadow-sm relative overflow-hidden group">
+                    <div className={`absolute top-0 right-0 w-2 h-full ${sub.growth > 0 ? 'bg-success-400' : sub.growth < 0 ? 'bg-danger-400' : 'bg-neutral-300'}`}></div>
+                    <p className="capitalize font-semibold text-neutral-900 mb-3">{sub.subject}</p>
+                    <div className="flex items-center justify-between text-sm bg-neutral-50 p-2 rounded mb-1">
+                      <span className="text-neutral-600">Baseline Avg:</span>
+                      <span className="font-medium text-neutral-900">{sub.baselineAvg?.toFixed(1) || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm bg-neutral-50 p-2 rounded mb-1">
+                      <span className="text-neutral-600">Endline Avg:</span>
+                      <span className="font-medium text-neutral-900">{sub.endlineAvg?.toFixed(1) || '-'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm font-semibold mt-3 pt-2 border-t border-neutral-100">
+                      <span>Growth:</span>
+                      <span className={sub.growth > 0 ? "text-success-600" : sub.growth < 0 ? "text-danger-600" : "text-neutral-600"}>
+                        {sub.growth > 0 ? '+' : ''}{sub.growth?.toFixed(1) || 0}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     </PageWrapper>
   );

@@ -49,10 +49,15 @@ export const Login: React.FC = () => {
     } catch (err: unknown) {
       const data =
         err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string; error?: string } } }).response?.data
+          ? (err as { response?: { status?: number; data?: { message?: string; error?: string } } }).response
           : undefined;
-      const msg = data?.message || data?.error;
-      setError(msg || 'Login failed. Check your email and password.');
+      const msg = data?.data?.message || data?.data?.error;
+      
+      if (data?.status === 429) {
+        setError('Too many login attempts. Please try again later.');
+      } else {
+        setError(msg || 'Login failed. Check your email and password.');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -104,13 +104,35 @@ export const Skills: React.FC = () => {
             <h2 className="text-lg font-semibold mb-2">Records from API</h2>
             {detailLoading ? (
               <LoadingSpinner label="Loading skills…" />
+            ) : Array.isArray(skillsPayload) && skillsPayload.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-2">
+                {skillsPayload.map((skill: any, i: number) => (
+                  <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:border-primary/50 transition-colors group">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="font-medium text-neutral-800 capitalize">{skill.skillName || skill.name || 'Skill Area'}</span>
+                      <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shadow-sm">{skill.level || skill.score || skill.value || 0}/100</span>
+                    </div>
+                    <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden border border-neutral-200/50">
+                      <div 
+                        className="bg-primary h-2 rounded-full transition-all duration-700 ease-out group-hover:opacity-90" 
+                        style={{ width: `${Math.min(100, Math.max(0, skill.level || skill.score || skill.value || 0))}%` }}
+                      ></div>
+                    </div>
+                    {skill.notes && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-md">{skill.notes}</p>}
+                  </div>
+                ))}
+              </div>
             ) : (
-              <pre className="text-xs overflow-auto max-h-[480px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-                {JSON.stringify(skillsPayload, null, 2)}
-              </pre>
+               <div className="py-10 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-200 rounded-2xl bg-neutral-50 hover:bg-neutral-100/50 transition-colors">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 text-primary">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  </div>
+                  <h3 className="font-medium text-neutral-700">No skill assessments</h3>
+                  <p className="text-sm text-neutral-500 mt-1 max-w-sm">No skill data has been recorded for this student yet.</p>
+               </div>
             )}
-            <p className="text-xs text-neutral-500 mt-3">
-              When the backend exposes a stable skill model, this view can be replaced with sliders and save actions.
+            <p className="text-xs text-neutral-400 mt-4 px-2 italic text-center">
+              * Active editing and saving skills capabilities will be enabled once backend endpoints are finalized.
             </p>
             <Button variant="secondary" className="mt-4" type="button" disabled>
               Save (pending API contract)

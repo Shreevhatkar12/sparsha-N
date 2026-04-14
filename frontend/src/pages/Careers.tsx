@@ -100,10 +100,30 @@ export const Careers: React.FC = () => {
               <h2 className="text-lg font-semibold mb-2">API payload</h2>
               {detailLoading ? (
                 <LoadingSpinner label="Loading careers…" />
+              ) : Array.isArray(careers) && careers.length > 0 ? (
+                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                  {careers.map((career: any, i: number) => (
+                    <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-primary/80 rounded-l-xl group-hover:bg-primary transition-colors"></div>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                          <h3 className="font-semibold text-neutral-900 text-base">{career.stage || career.title || 'Career Update'}</h3>
+                          <p className="text-sm text-neutral-600 mt-1">{career.description || career.notes || 'No detailed description provided.'}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-0 whitespace-nowrap">
+                          <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
+                            {career.date ? new Date(career.date).toLocaleDateString() : 'Recent'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <pre className="text-xs overflow-auto max-h-[400px] bg-neutral-50 p-3 rounded-lg border border-neutral-100">
-                  {JSON.stringify(careers, null, 2)}
-                </pre>
+                <div className="p-8 text-center border-2 border-dashed border-neutral-200 rounded-2xl bg-neutral-50">
+                  <p className="text-neutral-600 font-medium">No career records found.</p>
+                  <p className="text-sm text-neutral-400 mt-1">This student has not started any career tracking yet.</p>
+                </div>
               )}
             </div>
           </div>

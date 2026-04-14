@@ -80,7 +80,8 @@ export const Attendance: React.FC = () => {
         setSessionId(sid);
         await refreshRows(sid);
       } else {
-        setError('Could not create or load session for this date.');
+        const msg = (e as any)?.response?.data?.message;
+        setError(msg || 'Could not create or load session for this date.');
       }
     } finally {
       setLoading(false);
@@ -138,7 +139,7 @@ export const Attendance: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-4">
           <Card>
             <h2 className="text-lg font-semibold mb-4">Session</h2>
