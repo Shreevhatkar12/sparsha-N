@@ -10,7 +10,6 @@
     "db:backup": "./scripts/db-backup.sh",
     "db:restore": "./scripts/db-restore.sh"
   },
-  "postinstall": "prisma generate",
 
   "keywords": [],
   "author": "",

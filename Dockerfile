@@ -4,7 +4,8 @@
 FROM node:22 AS backend-build
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci --legacy-peer-deps
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry $NPM_REGISTRY && npm ci --legacy-peer-deps
 COPY backend/ ./
 RUN npm run build
 
@@ -12,7 +13,8 @@ RUN npm run build
 FROM node:22 AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci --legacy-peer-deps
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry $NPM_REGISTRY && npm ci --legacy-peer-deps
 COPY frontend/ ./
 RUN npm run build
 

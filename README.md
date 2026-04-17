@@ -128,6 +128,51 @@ documentaion/  Extra docs (folder name as in repo)
 
 ---
 
+## Docker runbook (stable)
+
+Use these commands from project root:
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f backend frontend db
+```
+
+App URLs:
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://localhost:5000`
+- Postgres (host): `localhost:5433`
+
+### If build fails at npm ci with "Exit handler never called"
+
+This is usually Docker DNS/network on the machine, not a project code error.
+
+Permanent fix (Linux with systemd):
+
+```bash
+chmod +x scripts/fix-docker-dns.sh
+./scripts/fix-docker-dns.sh
+```
+
+Then rebuild:
+
+```bash
+docker compose build --no-cache
+docker compose up -d
+```
+
+### Windows boss machine
+
+Install Docker Desktop first, then in project folder run:
+
+```powershell
+docker compose build
+docker compose up -d
+```
+
+---
+
 ## License
 
 See `package.json` files in each package. SPARSHA NGO internal use unless stated otherwise.

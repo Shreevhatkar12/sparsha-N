@@ -1,28 +1,21 @@
 
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: backend-build
-      network: host
+    image: sparsha-prod:latest
     working_dir: /app/backend
     command: ["node", "dist/server.js"]
     ports:
-      - "3000:3000"
+      - "5000:5000"
     environment:
       - NODE_ENV=production
+      - PORT=5000
     depends_on:
       - db
 
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: frontend-build
-      network: host
+    image: sparsha-prod:latest
     working_dir: /app/frontend
-    command: ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5173"]
+    command: ["npx", "serve", "-s", "dist", "-l", "5173"]
     ports:
       - "5173:5173"
     environment:
