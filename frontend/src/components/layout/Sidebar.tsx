@@ -63,36 +63,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     path: string;
     icon: React.ReactNode;
     badge?: number;
+    viewRoles: string[];
   }> = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Students', path: '/students', icon: <Users size={20} /> },
-    {
-      name: 'Attendance',
-      path: '/attendance',
-      icon: <ClipboardCheck size={20} />,
-      badge: pending.missingAttendance,
-    },
-    { name: 'Skills', path: '/skills', icon: <Star size={20} /> },
-    { name: 'Careers', path: '/careers', icon: <Briefcase size={20} /> },
-    {
-      name: 'Exams',
-      path: '/exams',
-      icon: <GraduationCap size={20} />,
-      badge: pending.incompleteExams,
-    },
-    {
-      name: 'Forms',
-      path: '/forms',
-      icon: <FileText size={20} />,
-      badge: pending.pendingForms,
-    },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
+    { name: 'Students', path: '/students', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
+    { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, badge: pending.missingAttendance, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer'] },
+    { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, badge: pending.incompleteExams, viewRoles: ['super_admin','center_admin','supervisor','teacher'] },
+    { name: 'Forms', path: '/forms', icon: <FileText size={20} />, badge: pending.pendingForms, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
+    { name: 'Activities', path: '/activities', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
+    { name: 'Skills', path: '/skills', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','student','parent'] },
+    { name: 'Equipment', path: '/equipment', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','supervisor'] },
+    { name: 'Messages', path: '/messages', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
+    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
+    { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, viewRoles: ['super_admin','center_admin','supervisor','shareholder'] },
+    { name: 'Users', path: '/users', icon: <UserCog size={20} />, viewRoles: ['super_admin','center_admin'] },
+    { name: 'Settings', path: '/settings', icon: <Settings size={20} />, viewRoles: ['super_admin','tech_admin'] },
   ];
 
-  if (isAdmin) {
-    navItems.push({ name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> });
-    navItems.push({ name: 'Users', path: '/users', icon: <UserCog size={20} /> });
-    navItems.push({ name: 'Settings', path: '/settings', icon: <Settings size={20} /> });
-  }
+  const visibleItems = navItems.filter(item => currentUser?.role && item.viewRoles.includes(currentUser.role));
 
   return (
     <>
@@ -122,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-          {navItems.map((item) => (
+          {visibleItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}

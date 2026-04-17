@@ -19,8 +19,23 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = verifyAccessToken(token) as unknown as AuthUser;
-    req.user = decoded;
+    const decoded = verifyAccessToken(token) as any;
+    
+    if (decoded.isActive === false) {
+      return res.status(403).json({
+        success: false,
+        message: "Account is inactive.",
+      });
+    }
+
+    if (decoded.role !== 'super_admin' && (!decoded.centerIds || decoded.centerIds.length === 0)) {
+      return res.status(403).json({
+        success: false,
+        message: "No centers assigned to user.",
+      });
+    }
+
+    req.user = decoded as AuthUser;
     next();
   } catch (err) {
     return res.status(401).json({

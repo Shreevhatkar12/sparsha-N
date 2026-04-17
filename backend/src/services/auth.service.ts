@@ -34,6 +34,7 @@ type TokenPayload = {
   email: string;
   role: string;
   centerIds: string[];
+  isActive?: boolean;
 };
 
 // ----------------------
@@ -115,6 +116,7 @@ export const loginUser = async ({ email, password }: LoginInput) => {
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) throw new AppError("Invalid credentials", 401);
+    if (!user.isActive) throw new AppError("Account is inactive", 403);
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
 
@@ -127,10 +129,29 @@ export const loginUser = async ({ email, password }: LoginInput) => {
       email: user.email,
       role: user.role,
       centerIds,
+      isActive: user.isActive,
     };
 
+    let expiresInOverride: string | undefined;
+    if (user.role === 'volunteer') {
+       const assignment = await prisma.userActivityAssignment.findFirst({
+          where: { userId: user.id },
+          orderBy: { validUntil: 'desc' },
+       });
+       if (assignment && assignment.validUntil) {
+           const maxAgeMs = assignment.validUntil.getTime() - Date.now();
+           if (maxAgeMs > 0) expiresInOverride = `${Math.floor(maxAgeMs / 1000)}s`;
+       }
+    } else if (['teacher', 'center_admin', 'staff', 'supervisor'].includes(user.role)) {
+       expiresInOverride = '24h';
+    } else if (user.role === 'super_admin') {
+       expiresInOverride = '8h';
+    } else if (['student', 'parent'].includes(user.role)) {
+       expiresInOverride = '7d';
+    }
+
     return {
-      accessToken: generateAccessToken(payload),
+      accessToken: generateAccessToken(payload, expiresInOverride),
       refreshToken: generateRefreshToken(payload),
       user: {
         id: user.id,
