@@ -117,8 +117,10 @@ CREATE TABLE users (
                   'teacher',
                   'staff',
                   'volunteer',      -- time-bound, activity-scoped
+                  'student',        -- own records
                   'parent',
-                  'shareholder'     -- read-only aggregated dashboards
+                  'shareholder',    -- read-only aggregated dashboards
+                  'tech_admin'      -- system config, logs, zero PII
                 )),
   is_active     BOOLEAN     NOT NULL DEFAULT true,
   last_login_at TIMESTAMPTZ,
@@ -167,8 +169,26 @@ CREATE TABLE activities (
   created_by   UUID        NOT NULL REFERENCES users(id),
   is_active    BOOLEAN     NOT NULL DEFAULT true,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  status       TEXT        NOT NULL DEFAULT 'planned'
+                           CHECK (status IN ('planned','ongoing','completed','cancelled')),
+  completion_notes TEXT,
+  attendance_count INT     -- denormalized for dashboard speed
 );
+
+CREATE TABLE activity_status_log (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activity_id  UUID NOT NULL REFERENCES activities(id),
+  center_id    UUID NOT NULL REFERENCES centers(id),
+  from_status  TEXT,
+  to_status    TEXT NOT NULL,
+  notes        TEXT,
+  changed_by   UUID NOT NULL REFERENCES users(id),
+  changed_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_actstatus_activity ON activity_status_log (activity_id);
+CREATE INDEX idx_actstatus_center   ON activity_status_log (center_id, changed_at DESC);
 
 CREATE INDEX idx_activities_center  ON activities (center_id);
 CREATE INDEX idx_activities_program ON activities (program_id);
@@ -487,7 +507,94 @@ CREATE INDEX idx_form_sub_tmpl_stud  ON form_submissions (template_id, student_i
 
 
 -- =============================================================================
--- 9. ALERTS & SUPERVISOR NOTIFICATIONS
+-- 9. MESSAGING
+-- =============================================================================
+
+CREATE TABLE message_threads (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id    UUID NOT NULL REFERENCES centers(id),
+  subject      TEXT,
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE thread_participants (
+  thread_id  UUID NOT NULL REFERENCES message_threads(id),
+  user_id    UUID NOT NULL REFERENCES users(id),
+  PRIMARY KEY (thread_id, user_id)
+);
+
+CREATE TABLE messages (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id   UUID NOT NULL REFERENCES message_threads(id),
+  sender_id   UUID NOT NULL REFERENCES users(id),
+  body        TEXT NOT NULL,
+  is_read     BOOLEAN NOT NULL DEFAULT false,
+  sent_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_messages_thread ON messages (thread_id, sent_at DESC);
+CREATE INDEX idx_messages_sender ON messages (sender_id);
+CREATE INDEX idx_thread_participants_user ON thread_participants (user_id);
+
+
+-- =============================================================================
+-- 10. EQUIPMENT & RESOURCES
+-- =============================================================================
+
+CREATE TABLE equipment (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id    UUID NOT NULL REFERENCES centers(id),
+  name         TEXT NOT NULL,
+  category     TEXT NOT NULL,     -- 'electronics','furniture','medical','stationery','other'
+  quantity     INT NOT NULL DEFAULT 1,
+  condition    TEXT NOT NULL DEFAULT 'good'
+               CHECK (condition IN ('good','fair','poor','damaged','disposed')),
+  acquired_on  DATE,
+  notes        TEXT,
+  is_active    BOOLEAN NOT NULL DEFAULT true,
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE equipment_logs (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  equipment_id UUID NOT NULL REFERENCES equipment(id),
+  center_id    UUID NOT NULL REFERENCES centers(id),
+  action       TEXT NOT NULL,   -- 'added','updated','repaired','disposed','transferred'
+  notes        TEXT,
+  logged_by    UUID NOT NULL REFERENCES users(id),
+  logged_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_equipment_center   ON equipment (center_id);
+CREATE INDEX idx_equipment_logs_eq  ON equipment_logs (equipment_id);
+
+
+-- =============================================================================
+-- 11. ANNOUNCEMENTS
+-- =============================================================================
+
+CREATE TABLE announcements (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  center_id    UUID REFERENCES centers(id),   -- NULL = NGO-wide
+  program_id   UUID REFERENCES programs(id),  -- NULL = all programs
+  title        TEXT NOT NULL,
+  body         TEXT NOT NULL,
+  target_roles TEXT[] NOT NULL DEFAULT '{}',  -- who sees this
+  is_pinned    BOOLEAN NOT NULL DEFAULT false,
+  expires_at   TIMESTAMPTZ,
+  created_by   UUID NOT NULL REFERENCES users(id),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_announcements_center ON announcements (center_id);
+CREATE INDEX idx_announcements_expiry ON announcements (expires_at) WHERE expires_at IS NOT NULL;
+
+
+-- =============================================================================
+-- 12. ALERTS & SUPERVISOR NOTIFICATIONS
 -- =============================================================================
 
 CREATE TABLE alert_rules (
@@ -529,7 +636,7 @@ CREATE INDEX idx_alerts_unread     ON alerts (recipient_id) WHERE is_read = fals
 
 
 -- =============================================================================
--- 10. AUDIT LOG
+-- 13. AUDIT LOG
 -- =============================================================================
 
 CREATE TABLE audit_log (
@@ -554,7 +661,7 @@ CREATE INDEX idx_audit_newdata ON audit_log USING GIN (new_data);
 
 
 -- =============================================================================
--- 11. PAGINATION SUPPORT
+-- 14. PAGINATION SUPPORT
 -- =============================================================================
 -- Use KEYSET (cursor) pagination, not OFFSET.
 -- OFFSET degrades linearly — at page 500 it scans 500*page_size rows.
@@ -585,7 +692,7 @@ CREATE INDEX idx_audit_page        ON audit_log (created_at DESC, id DESC);
 
 
 -- =============================================================================
--- 12. UPDATED_AT TRIGGER (apply to all tables with updated_at)
+-- 15. UPDATED_AT TRIGGER (apply to all tables with updated_at)
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -604,6 +711,7 @@ CREATE TRIGGER trg_activities_updated      BEFORE UPDATE ON activities      FOR 
 CREATE TRIGGER trg_batches_updated         BEFORE UPDATE ON batches         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_students_updated        BEFORE UPDATE ON students        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_form_templates_updated  BEFORE UPDATE ON form_templates  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_equipment_updated       BEFORE UPDATE ON equipment       FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
 -- =============================================================================

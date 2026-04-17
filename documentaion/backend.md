@@ -1,5 +1,7 @@
 # Backend — architecture notes (SPARSHA)
 
+SPARSHA is a comprehensive **Organization Management System (OMS)**. While it provides deep student tracking (SMS), it is architected as a center-based resource and activity management platform.
+
 **Stack:** Node.js, Express 5, Prisma 7, PostgreSQL, Zod validation on selected routes, JWT auth.
 
 **Entry:** `src/server.ts` loads `src/app.ts`, which registers routes under `/api`.
@@ -12,26 +14,36 @@
 4. **Prisma** access is centralized per module; some services use a dedicated Prisma client instance pattern — follow existing files when adding code.
 5. **Errors** go through `middleware/errorHandler.ts`.
 
-## Auth and centers
+## Auth and RBAC Enforcement
 
-- JWT payload includes **`userId`**, **`email`**, **`role`**, **`centerIds`**.
-- **`centerIds`** are built from `UserCenterAssignment` rows where **`validUntil` is `null`** (`src/lib/auth.ts`).
-- **Non-admins** are restricted with helpers such as **`centerScope`** in `src/lib/centerScope.ts` (and similar patterns in TS services) so queries filter by allowed centers.
-- Optional middleware **`attachAllowedCenters`** (`src/middleware/centerAccess.ts`) can attach `allowedCenterIds`; route handlers still rely on services for enforcement.
+The system uses a **multi-layered enforcement stack** for every request:
+
+1.  **Authentication**: `authenticate` middleware verifies the JWT. Payload includes `userId`, `role`, and `centerIds`.
+2.  **Role Authorization**: `requireRole` middleware checks if the user's role is in the allowed list for the route (as defined in `sparsha_rbac.md`).
+3.  **Center Access**: `centerAccess` middleware ensures non-admins are restricted to their assigned centers.
+    - `super_admin` & `tech_admin`: Bypass center filters (full visibility or system access).
+    - `center_admin` & others: strictly filtered by `user_center_assignments`.
+4.  **Operational Scope**:
+    - `volunteer`: Further restricted via `user_activity_assignments` (checked against `valid_from/until`).
+    - `student/parent`: Scoped to own/child data via `parent_student` or direct ownership.
+5.  **PII Protection**: Aggregated roles like `shareholder` and system roles like `tech_admin` are restricted at the service layer from seeing personal identifiable information (PII).
 
 ## Main API groups
 
 | Prefix | Notes |
 |--------|--------|
 | `/api/auth` | Login, register, refresh, logout, me |
-| `/api/students` | CRUD, nested attendance/skills/careers routes (mixed legacy JS), **`/:id/profile`** |
+| `/api/students` | CRUD, nested attendance/skills/careers routes, **`/:id/profile`** |
 | `/api/attendance` | Sessions and student attendance |
-| `/api/exams` | CRUD, scores, comparison, **`/:examId/scores`** |
+| `/api/exams` | CRUD, scores, comparison |
 | `/api/forms` | Templates and submissions |
-| `/api/centers`, `/api/programs` | Directory data |
-| `/api/users`, `/api/activities` | Users and activities |
-| `/api/reports` | Dashboard, analytics, pending lists, export |
-| `/api/dashboard` | **`GET /pending`** — compact pending counts for UI |
+| `/api/activities` | Event management, **vaccine camps**, distribution tracking |
+| `/api/equipment` | Inventory tracking and logs |
+| `/api/messages` | Internal threaded communications |
+| `/api/announcements`| Role-based broadcasts |
+| `/api/centers`, `/api/programs` | Core meta-data |
+| `/api/users` | User management and assignments |
+| `/api/reports`, `/api/dashboard` | Analytics and pending task heuristics |
 
 ## Database
 

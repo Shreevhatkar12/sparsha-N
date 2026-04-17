@@ -1,6 +1,7 @@
 # SPARSHA API notes (`/api`)
 
-**Note:** This file is descriptive; route behavior can differ slightly by module (some endpoints return raw JSON, others wrap `{ success, data }`). Verify against `backend/src/app.ts` and route handlers. **Current overview:** `documentaion/STATUS.md`.
+**Note:** This file describes the SPARSHA Organization Management System API. It covers core SMS functions plus NGO-wide modules like resource distribution (Equipment), cross-center communication (Messaging), and large-scale Activity tracking.
+Verify against `backend/src/app.ts` and route handlers. **Current overview:** `documentaion/STATUS.md`.
 
 Base URL: **`/api`** (served by the Express app; default origin `http://localhost:5000` in development).
 
@@ -145,24 +146,26 @@ Attendance counts incomplete **attendance sessions** in the **last 7 days** (exp
 * **Returns:** `201 Created` `{ "success": true, "data": { studentObject } }`
 
 ### `GET /:id`
-* **Returns:** Complete student record including nested arrays for `attendance`, `skills`, and `careers`.
+* **Returns:** Complete student record including nested arrays for `attendance`, `skills`, `careers`, and `formSubmissions`.
 
 ### `GET /:id/profile`
 * **Purpose:** Single aggregated payload for the student detail UI (charts, submissions table, linked parents).
 * **Returns:** Flat JSON (not wrapped in `{ success, data }`) with:
   * `student` — Prisma student with `center`, `program` (no raw attendance/exam rows on this object).
-  * `stats` — `{ attendancePct, avgExamPct, skillScore }` (`skillScore` may be `null` until wired).
-  * `attendanceTrend` — up to 10 points: `{ date, present }` where `present` is `1` or `0`.
-  * `examComparison` — per subject: `{ subject, baseline, endline }` percentages when scores exist.
-  * `skillRadar` — optional `{ skill, score }[]` (often empty; UI may fall back to `GET /:id/skills`).
+  * `stats` — `{ attendancePct, avgExamPct, skillScore }`.
+  * `attendanceTrend` — up to 10 points: `{ date, present }`.
+  * `examComparison` — per subject: `{ subject, baseline, endline }` percentages.
+  * `skillRadar` — `{ skill, score }[]`.
   * `formSubmissions` — recent rows with `template` metadata.
   * `parents` — `ParentStudent` rows with linked `parent` user.
 
 ### `PUT /:id`
 * **Body:** Any field from the Student model. Partial updates permitted.
+* **Role Check:** Requires `center_admin`, `super_admin`, or `staff` from the same center.
 
 ### `DELETE /:id`
-* **Returns:** `{ "success": true, "message": "Student deleted successfully" }`
+* **Purpose:** Soft delete (`is_active: false`).
+* **Returns:** `{ "success": true, "message": "Student deactivated successfully" }`
 
 ---
 
@@ -185,3 +188,67 @@ Attendance counts incomplete **attendance sessions** in the **last 7 days** (exp
   * **Body:** `{ "interestedCareer": "string", "courseSelected": "string", "collegeApplied": "string", "scholarship": true/false, "followupStatus": "string" }`
 * `GET /:studentId/careers` 
 * `PUT /careers/:id`
+
+---
+
+## 4. Activities (`/api/activities`)
+*Management of NGO-wide and center-level events (Vaccine camps, distribution, etc.)*
+
+### `GET /`
+* **Query:** `centerId` (optional), `status` (planned|ongoing|completed|cancelled).
+* **Returns:** List of activities with `attendance_count` and `created_by`.
+
+### `POST /`
+* **Purpose:** Create new activity.
+* **Body:** `{ name, description, activity_type, start_date, end_date, center_id, program_id? }`
+
+### `PATCH /:id/status`
+* **Purpose:** Update status (e.g., from `planned` to `ongoing`).
+* **Body:** `{ status, notes }`
+* **Effect:** Logs the change in `activity_status_log`.
+
+---
+
+## 5. Resources & Equipment (`/api/equipment`)
+*Inventory management for centers.*
+
+### `GET /`
+* **Query:** `centerId` (required unless `super_admin`), `category`.
+
+### `POST /`
+* **Purpose:** Add new equipment record.
+* **Body:** `{ name, category, quantity, condition, center_id, notes? }`
+
+### `PUT /:id`
+* **Purpose:** Update quantity or condition.
+* **Returns:** Updated object + `equipment_log` entry.
+
+---
+
+## 6. Messaging (`/api/messages`)
+*Threaded communication between roles.*
+
+### `GET /threads`
+* **Returns:** List of threads the user is a participant in.
+
+### `POST /threads`
+* **Purpose:** Start a new conversation.
+* **Body:** `{ subject, participantIds: [uuid], body, center_id }`
+
+### `POST /threads/:id/messages`
+* **Purpose:** Reply to a thread.
+* **Body:** `{ body }`
+
+---
+
+## 7. Announcements (`/api/announcements`)
+*Broadcasts to specific roles or centers.*
+
+### `GET /`
+* **Purpose:** Fetch valid announcements for the current user's role and center.
+* **Logic:** Checks `expires_at` and `target_roles`.
+
+### `POST /`
+* **Purpose:** Create a broadcast.
+* **Role Check:** `super_admin` or `center_admin`.
+* **Body:** `{ title, body, center_id?, program_id?, target_roles: [], is_pinned, expires_at? }`

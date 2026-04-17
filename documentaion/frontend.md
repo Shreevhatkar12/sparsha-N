@@ -1,5 +1,7 @@
 # Frontend — architecture notes (SPARSHA)
 
+The SPARSHA frontend is a role-adaptive dashboard for NGO-wide organization management. It dynamically reshapes its navigation and data access based on the authenticated user's profile.
+
 **Stack:** React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, Axios, Recharts, React Hook Form (forms module).
 
 ## HTTP client
@@ -17,19 +19,24 @@
 
 ## State
 
-- **`useAuthStore`:** `currentUser` (includes **`centerIds`**), `accessToken`, **`selectedCenterId`** (defaults to first center for staff).
+## State & Permissions
 
-## Feature areas
+- **`useAuthStore`**: `currentUser` (includes `role`, `centerIds`), `accessToken`, `selectedCenterId`.
+- **`usePermission` Hook**: (Planned) Centralized hook to verify if the current user can perform an action (e.g., `can('edit', 'attendance')`). Uses the matrix from `sparsha_rbac.md`.
+- **Role-Based Visibility**: Components use permission checks to hide or disable actions (e.g., "Add Equipment" is hidden for Teachers but visible for Staff/Admins).
 
 | Area | Paths / notes |
 |------|----------------|
-| Dashboard | `/dashboard` — stats + **pending tasks** card (`/api/dashboard/pending`) |
-| Students | `/students`, `/students/new`, `/students/:id`, `/students/:id/edit` — detail uses **`/api/students/:id/profile`** |
-| Attendance | `/attendance` |
-| Skills / Careers | `/skills`, `/careers` |
-| Exams | `/exams` — bulk grid + **`POST /api/exams/:examId/scores`** |
-| Forms | `/forms`, `/forms/new`, `/forms/:templateId/edit`, `/forms/:templateId/fill`, `/forms/:templateId/submissions` |
-| Reports / Settings | `/reports`, `/settings` (admin-gated where applicable) |
+| Dashboard | `/dashboard` — role-specific KPis and pending tasks |
+| Students | `/students` — CRUD for admins/staff; read-only for teachers |
+| Attendance | `/attendance` — marking limited to teachers/volunteers |
+| Activities | `/activities` — **Vaccine camps**, distribution, etc. |
+| Equipment | `/equipment` — inventory tracking per center |
+| Messaging | `/messages` — internal threaded chat |
+| Announcements| `/announcements` — broadcast management |
+| Exams / Skills| `/exams`, `/skills` — academic tracking |
+| Forms | `/forms` — template builder and submission viewer |
+| Users / Admin | `/users`, `/settings` — center assignments and system config |
 
 ## UI system
 
