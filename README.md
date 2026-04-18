@@ -11,7 +11,7 @@ Do these steps **in order** on a machine with Node.js 20+ and a running PostgreS
 ### 1. Clone and open the repo
 
 ```bash
-cd kittykat
+cd sparsha
 ```
 
 ### 2. Backend Setup
