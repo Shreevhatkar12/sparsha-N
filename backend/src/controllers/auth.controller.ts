@@ -106,7 +106,13 @@ export const refresh = async (
 
     if (!token) throw new AppError("Unauthorized", 401);
 
-    const decoded = verifyRefreshToken(token);
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(token);
+    } catch (e) {
+      res.clearCookie("refreshToken");
+      return res.status(401).json({ success: false, message: "Invalid refresh token" });
+    }
 
     const newAccessToken = generateAccessToken(decoded);
 

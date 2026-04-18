@@ -90,7 +90,7 @@ async function main() {
       email: "admin@sparsha.org",
       passwordHash: adminHash,
       fullName: "Admin User",
-      role: "admin",
+      role: "super_admin",
     },
   });
 
@@ -133,7 +133,7 @@ async function main() {
     await prisma.userCenterAssignment.upsert({
       where: { userId_centerId: { userId, centerId } },
       update: {},
-      create: { userId, centerId },
+      create: { userId, centerId, createdBy: admin.id },
     });
   }
 
@@ -231,16 +231,29 @@ async function main() {
 
   // 8. Exams (Baseline and Endline)
   console.log("Creating Baseline and Endline Exams...");
+  const sEnglish = await prisma.programSubject.upsert({
+    where: { programId_name: { programId: pSwayam.id, name: "english" } },
+    update: {}, create: { programId: pSwayam.id, name: "english" }
+  });
+  const sMaths = await prisma.programSubject.upsert({
+    where: { programId_name: { programId: pSwayam.id, name: "maths" } },
+    update: {}, create: { programId: pSwayam.id, name: "maths" }
+  });
+  const sScience = await prisma.programSubject.upsert({
+    where: { programId_name: { programId: pSwayam.id, name: "science" } },
+    update: {}, create: { programId: pSwayam.id, name: "science" }
+  });
+  const subjects = [sEnglish.id, sMaths.id, sScience.id];
+
   async function createExamsForCenter(centerId: string, students: any[]) {
-    const subjects = ["english", "maths", "science"];
     
     // Baseline
     let baselineExam = await prisma.exam.findFirst({
-      where: { centerId, programId: pSwayam.id, examType: "baseline", academicYear: "2024-25" },
+      where: { centerId, programId: pSwayam.id, examType: "baseline", name: "Baseline 2024" },
     });
     if (!baselineExam) {
       baselineExam = await prisma.exam.create({
-        data: { centerId, programId: pSwayam.id, examType: "baseline", academicYear: "2024-25", createdBy: admin.id },
+        data: { centerId, programId: pSwayam.id, examType: "baseline", name: "Baseline 2024", createdBy: admin.id },
       });
     }
 
@@ -250,8 +263,8 @@ async function main() {
       students.forEach(s => {
         subjects.forEach(sub => {
           bData.push({
-            examId: baselineExam!.id, studentId: s.id, centerId, subject: sub,
-            marks: 15 + Math.random() * 15, maxMarks: 50 // 30-60%
+            examId: baselineExam!.id, studentId: s.id, centerId, subjectId: sub, enteredBy: admin.id,
+            marks: 15 + Math.random() * 15 // 30-60%
           });
         });
       });
@@ -260,11 +273,11 @@ async function main() {
 
     // Endline
     let endlineExam = await prisma.exam.findFirst({
-      where: { centerId, programId: pSwayam.id, examType: "endline", academicYear: "2024-25" },
+      where: { centerId, programId: pSwayam.id, examType: "endline", name: "Endline 2024" },
     });
     if (!endlineExam) {
       endlineExam = await prisma.exam.create({
-        data: { centerId, programId: pSwayam.id, examType: "endline", academicYear: "2024-25", createdBy: admin.id },
+        data: { centerId, programId: pSwayam.id, examType: "endline", name: "Endline 2024", createdBy: admin.id },
       });
     }
 
@@ -274,8 +287,8 @@ async function main() {
       students.forEach(s => {
         subjects.forEach(sub => {
           eData.push({
-            examId: endlineExam!.id, studentId: s.id, centerId, subject: sub,
-            marks: 35 + Math.random() * 15, maxMarks: 50 // 70-100%
+            examId: endlineExam!.id, studentId: s.id, centerId, subjectId: sub, enteredBy: admin.id,
+            marks: 35 + Math.random() * 15 // 70-100%
           });
         });
       });
@@ -293,7 +306,7 @@ async function main() {
   if (!smFormTpl) {
     smFormTpl = await prisma.formTemplate.create({
       data: {
-        formType: "student_meeting", name: "Student Meeting Form", isActive: true,
+        formType: "student_meeting", name: "Student Meeting Form", isActive: true, targetEntity: "student", createdBy: admin.id,
         schema: {
           fields: [
              { name: 'meetingDate', label: 'Meeting Date', type: 'date', required: true },
@@ -315,7 +328,7 @@ async function main() {
     if (!existing) {
       await prisma.formTemplate.create({
         data: {
-          formType, name, isActive: true,
+          formType, name, isActive: true, targetEntity: "student", createdBy: admin.id,
           schema: {
             fields: [
               { name: "title", label: "Title", type: "text", required: true },
