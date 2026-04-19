@@ -30,7 +30,7 @@ export async function listExamsController(req: Request, res: Response, next: Nex
       centerId: req.query.centerId as string | undefined,
       programId: req.query.programId as string | undefined,
       examType: req.query.examType as "baseline" | "endline" | undefined,
-      academicYear: req.query.academicYear as string | undefined,
+      academicYearId: req.query.academicYearId as string | undefined,
     });
     return res.status(200).json(result);
   } catch (error) {
@@ -92,7 +92,7 @@ export async function getExamComparisonController(
     const result = await getExamComparison((req as AuthenticatedRequest).user!, {
       centerId: req.query.centerId as string | undefined,
       programId: req.query.programId as string | undefined,
-      academicYear: req.query.academicYear as string | undefined,
+      academicYearId: req.query.academicYearId as string | undefined,
     });
     return res.status(200).json(result);
   } catch (error) {

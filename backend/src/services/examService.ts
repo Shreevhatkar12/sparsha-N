@@ -1,71 +1,62 @@
-import { ExamType, Prisma } from "@prisma/client";
-import type { JwtPayload } from '../lib/auth.js';
-import prisma from '../lib/prisma.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
+import { Prisma, ExamType, UserRole } from "@prisma/client";
+import prisma from "../lib/prisma.js";
+import type { JwtPayload } from "../lib/auth.js";
 
-const SWAYAM_SUBJECTS = ["english", "science", "maths"] as const;
+// ================= TYPES =================
 
 type CreateExamInput = {
   centerId: string;
   programId: string;
-  examType: "baseline" | "endline";
-  academicYear: string;
+  examType: ExamType;
+  academicYear: string; // academicYearId
   examDate?: string;
+};
+
+type ListExamQuery = {
+  centerId?: string;
+  programId?: string;
+  examType?: ExamType;
+  academicYearId?: string; // academicYearId
 };
 
 type ScoreInput = {
   studentId: string;
-  subject: string;
+  subjectId: string;
   marks: number;
-  maxMarks?: number;
   remarks?: string;
 };
 
-function ensureCenterAccess(user: JwtPayload, centerId: string): void {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
-    throw new ForbiddenError("No access to the requested center");
+// ================= HELPERS =================
+
+function enforceCenterAccess(user: JwtPayload, centerId: string) {
+  if (
+    user.role !== UserRole.super_admin &&
+    !user.centerIds.includes(centerId)
+  ) {
+    throw new Error("Unauthorized");
   }
 }
 
-function centerScopedFilter(
-  user: JwtPayload,
-  centerId?: string,
-): string | { in: string[] } | undefined {
-  if (user.role === "admin") {
-    return centerId;
+function applyCenterFilter(user: JwtPayload, where: any) {
+  if (user.role !== UserRole.super_admin) {
+    where.centerId = {
+      in: user.centerIds,
+    };
   }
-  if (centerId) {
-    return user.centerIds.includes(centerId) ? centerId : { in: [] };
-  }
-  return { in: user.centerIds };
 }
 
-function parseDate(value?: string): Date | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new ValidationError("Invalid examDate");
-  }
-  return date;
-}
-
-function completion(totalStudents: number, studentsScored: number): number {
-  if (totalStudents === 0) return 0;
-  return Number(((studentsScored / totalStudents) * 100).toFixed(2));
-}
+// ================= CREATE EXAM =================
 
 export async function createExam(user: JwtPayload, input: CreateExamInput) {
-  ensureCenterAccess(user, input.centerId);
-  const examDate = parseDate(input.examDate);
+  enforceCenterAccess(user, input.centerId);
 
   const existing = await prisma.exam.findFirst({
     where: {
       centerId: input.centerId,
       programId: input.programId,
-      examType: input.examType as ExamType,
-      academicYear: input.academicYear,
+      examType: input.examType,
+      academicYearId: input.academicYear,
     },
-    include: { center: true, program: true },
   });
 
   if (existing) {
@@ -76,367 +67,239 @@ export async function createExam(user: JwtPayload, input: CreateExamInput) {
     data: {
       centerId: input.centerId,
       programId: input.programId,
-      examType: input.examType as ExamType,
-      academicYear: input.academicYear,
-      examDate,
+      examType: input.examType,
+      academicYearId: input.academicYear,
+      examDate: input.examDate ? new Date(input.examDate) : null,
+      name: `${input.examType} exam`,
       createdBy: user.userId,
     },
-    include: { center: true, program: true },
   });
 
   return { created: true, exam };
 }
 
-export async function listExams(
-  user: JwtPayload,
-  query: {
-    centerId?: string;
-    programId?: string;
-    examType?: "baseline" | "endline";
-    academicYear?: string;
-  },
-) {
+// ================= LIST EXAMS =================
+
+export async function listExams(user: JwtPayload, query: ListExamQuery) {
+  const where: any = {};
+
+  applyCenterFilter(user, where);
+
+  if (query.centerId) where.centerId = query.centerId;
+  if (query.programId) where.programId = query.programId;
+  if (query.examType) where.examType = query.examType;
+  if (query.academicYearId) where.academicYearId = query.academicYearId;
+
   const exams = await prisma.exam.findMany({
-    where: {
-      centerId: centerScopedFilter(user, query.centerId),
-      ...(query.programId ? { programId: query.programId } : {}),
-      ...(query.examType ? { examType: query.examType as ExamType } : {}),
-      ...(query.academicYear ? { academicYear: query.academicYear } : {}),
-    },
+    where,
+    orderBy: { createdAt: "desc" },
     include: {
-      center: true,
+      academicYear: true,
       program: true,
     },
-    orderBy: { academicYear: "desc" },
   });
 
-  const examRows = await Promise.all(
-    exams.map(async (exam) => {
-      const [totalStudents, scoreRows] = await Promise.all([
-        prisma.student.count({
-          where: {
-            centerId: exam.centerId,
-            programId: exam.programId,
-            isActive: true,
-          },
-        }),
-        prisma.examScore.findMany({
-          where: { examId: exam.id },
-          select: { studentId: true },
-        }),
-      ]);
-      const studentsScored = new Set(scoreRows.map((score) => score.studentId)).size;
-      return {
-        ...exam,
-        totalStudents,
-        studentsScored,
-        completionPercentage: completion(totalStudents, studentsScored),
-      };
-    }),
-  );
-
-  return { exams: examRows };
+  return exams;
 }
+
+// ================= GET EXAM =================
 
 export async function getExamById(user: JwtPayload, examId: string) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
     include: {
-      center: true,
+      scores: {
+        include: {
+          subject: true,
+          student: true,
+        },
+      },
+      academicYear: true,
       program: true,
-      scores: true,
     },
   });
 
-  if (!exam) throw new NotFoundError("Exam");
-  ensureCenterAccess(user, exam.centerId);
+  if (!exam) throw new Error("Exam not found");
 
-  const students = await prisma.student.findMany({
-    where: {
-      centerId: exam.centerId,
-      programId: exam.programId,
-      isActive: true,
-    },
-    select: {
-      id: true,
-      fullName: true,
-      centerId: true,
-      programId: true,
-      isActive: true,
-    },
-    orderBy: { fullName: "asc" },
-  });
+  enforceCenterAccess(user, exam.centerId);
 
-  const scoresByStudent = new Map<string, Array<{
-    subject: string;
-    marks: Prisma.Decimal | null;
-    maxMarks: Prisma.Decimal;
-    remarks: string | null;
-  }>>();
-
-  for (const score of exam.scores) {
-    const existing = scoresByStudent.get(score.studentId) ?? [];
-    existing.push({
-      subject: score.subject,
-      marks: score.marks,
-      maxMarks: score.maxMarks,
-      remarks: score.remarks,
-    });
-    scoresByStudent.set(score.studentId, existing);
-  }
-
-  return {
-    exam: {
-      id: exam.id,
-      center: exam.center,
-      program: exam.program,
-      examType: exam.examType,
-      academicYear: exam.academicYear,
-      examDate: exam.examDate,
-    },
-    students: students.map((student) => ({
-      student,
-      scores: scoresByStudent.get(student.id) ?? [],
-    })),
-  };
+  return exam;
 }
+
+// ================= UPSERT SCORES =================
 
 export async function upsertExamScores(
   user: JwtPayload,
   examId: string,
-  payload: { scores: ScoreInput[] },
+  scores: ScoreInput[],
 ) {
-  if (!Array.isArray(payload.scores) || payload.scores.length === 0) {
-    throw new ValidationError("scores array is required");
-  }
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+  });
 
-  const exam = await prisma.exam.findUnique({ where: { id: examId } });
-  if (!exam) throw new NotFoundError("Exam");
-  ensureCenterAccess(user, exam.centerId);
+  if (!exam) throw new Error("Exam not found");
 
-  for (const score of payload.scores) {
-    const maxMarks = score.maxMarks ?? 50;
-    if (score.marks > maxMarks) {
-      throw new ValidationError(`marks cannot exceed maxMarks for ${score.subject}`);
-    }
-    if (!score.subject || typeof score.subject !== "string") {
-      throw new ValidationError("subject is required");
-    }
-  }
+  enforceCenterAccess(user, exam.centerId);
 
-  await prisma.$transaction(async (tx) => {
-    for (const score of payload.scores) {
-      const maxMarks = score.maxMarks ?? 50;
-      const subjectKey = score.subject.toLowerCase();
-      await tx.examScore.upsert({
+  await prisma.$transaction(
+    scores.map((score) =>
+      prisma.examScore.upsert({
         where: {
-          examId_studentId_subject: {
+          examId_studentId_subjectId: {
             examId,
             studentId: score.studentId,
-            subject: subjectKey,
+            subjectId: score.subjectId,
           },
         },
         update: {
           marks: new Prisma.Decimal(score.marks),
-          maxMarks: new Prisma.Decimal(maxMarks),
           remarks: score.remarks ?? null,
         },
         create: {
           examId,
           studentId: score.studentId,
+          subjectId: score.subjectId,
           centerId: exam.centerId,
-          subject: subjectKey,
           marks: new Prisma.Decimal(score.marks),
-          maxMarks: new Prisma.Decimal(maxMarks),
           remarks: score.remarks ?? null,
+          enteredBy: user.userId,
         },
-      });
-    }
-  });
+      }),
+    ),
+  );
 
-  const [totalStudents, scoreRows] = await Promise.all([
-    prisma.student.count({
-      where: { centerId: exam.centerId, programId: exam.programId, isActive: true },
-    }),
-    prisma.examScore.findMany({
-      where: { examId },
-      select: { studentId: true },
-    }),
-  ]);
-
-  const studentsScored = new Set(scoreRows.map((row) => row.studentId)).size;
-  return {
-    examId,
-    totalStudents,
-    studentsScored,
-    completionPercentage: completion(totalStudents, studentsScored),
-  };
+  return { success: true };
 }
 
-export async function getPendingExamScores(user: JwtPayload, examId: string) {
+// ================= PENDING SCORES =================
+
+export async function getPendingExamScores(
+  user: JwtPayload,
+  examId: string,
+) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
-    include: { program: true },
   });
-  if (!exam) throw new NotFoundError("Exam");
-  ensureCenterAccess(user, exam.centerId);
+
+  if (!exam) throw new Error("Exam not found");
+
+  enforceCenterAccess(user, exam.centerId);
 
   const students = await prisma.student.findMany({
-    where: { centerId: exam.centerId, programId: exam.programId, isActive: true },
-    select: { id: true, fullName: true, centerId: true, programId: true },
-    orderBy: { fullName: "asc" },
+    where: {
+      centerId: exam.centerId,
+      programId: exam.programId,
+    },
+  });
+
+  const subjects = await prisma.programSubject.findMany({
+    where: {
+      programId: exam.programId,
+    },
   });
 
   const existingScores = await prisma.examScore.findMany({
     where: { examId },
-    select: { studentId: true, subject: true },
   });
 
-  const subjects = [...SWAYAM_SUBJECTS];
-  const subjectSetByStudent = new Map<string, Set<string>>();
-  for (const row of existingScores) {
-    const set = subjectSetByStudent.get(row.studentId) ?? new Set<string>();
-    set.add(row.subject.toLowerCase());
-    subjectSetByStudent.set(row.studentId, set);
+  const existingSet = new Set(
+    existingScores.map((s) => `${s.studentId}-${s.subjectId}`),
+  );
+
+  const pending: {
+    studentId: string;
+    subjectId: string;
+    subjectName: string;
+  }[] = [];
+
+  for (const student of students) {
+    for (const subject of subjects) {
+      const key = `${student.id}-${subject.id}`;
+      if (!existingSet.has(key)) {
+        pending.push({
+          studentId: student.id,
+          subjectId: subject.id,
+          subjectName: subject.name,
+        });
+      }
+    }
   }
 
-  return students.map((student) => {
-    const studentSubjects = subjectSetByStudent.get(student.id) ?? new Set<string>();
-    const missingSubs = subjects.filter((subject) => !studentSubjects.has(subject));
-    return { student, missingSubs };
-  });
+  return pending;
 }
+
+// ================= EXAM COMPARISON =================
 
 export async function getExamComparison(
   user: JwtPayload,
-  query: { centerId?: string; programId?: string; academicYear?: string },
+  query: ListExamQuery,
 ) {
-  if (!query.academicYear) {
-    throw new ValidationError("academicYear is required");
-  }
+  const where: any = {};
+
+  applyCenterFilter(user, where);
+
+  if (query.centerId) where.centerId = query.centerId;
+  if (query.programId) where.programId = query.programId;
+  if (query.academicYearId) where.academicYearId = query.academicYearId;
 
   const exams = await prisma.exam.findMany({
-    where: {
-      centerId: centerScopedFilter(user, query.centerId),
-      ...(query.programId ? { programId: query.programId } : {}),
-      academicYear: query.academicYear,
-      examType: { in: ["baseline", "endline"] },
-    },
-    select: {
-      id: true,
-      examType: true,
+    where,
+    include: {
+      scores: {
+        include: {
+          subject: true,
+        },
+      },
     },
   });
 
-  const baselineIds = exams.filter((e) => e.examType === "baseline").map((e) => e.id);
-  const endlineIds = exams.filter((e) => e.examType === "endline").map((e) => e.id);
+  const result: Record<
+    string,
+    { examType: string; marks: number }[]
+  > = {};
 
-  if (baselineIds.length === 0 || endlineIds.length === 0) {
-    return { perSubject: [], perStudent: [] };
+  for (const exam of exams) {
+    for (const score of exam.scores) {
+      const subjectKey = score.subject.name.toLowerCase();
+
+      if (!result[subjectKey]) result[subjectKey] = [];
+
+      result[subjectKey].push({
+        examType: exam.examType,
+        marks: score.marks ? score.marks.toNumber() : 0,
+      });
+    }
   }
 
-  const [baselineScores, endlineScores] = await Promise.all([
-    prisma.examScore.findMany({
-      where: { examId: { in: baselineIds } },
-      include: { student: true },
-    }),
-    prisma.examScore.findMany({
-      where: { examId: { in: endlineIds } },
-      include: { student: true },
-    }),
-  ]);
-
-  const baselineBySubject = new Map<string, number[]>();
-  const endlineBySubject = new Map<string, number[]>();
-  const baselineByStudent = new Map<string, number>();
-  const endlineByStudent = new Map<string, number>();
-  const studentInfo = new Map<string, { id: string; fullName: string }>();
-
-  for (const row of baselineScores) {
-    const marks = row.marks ? Number(row.marks) : 0;
-    const key = row.subject.toLowerCase();
-    baselineBySubject.set(key, [...(baselineBySubject.get(key) ?? []), marks]);
-    baselineByStudent.set(row.studentId, (baselineByStudent.get(row.studentId) ?? 0) + marks);
-    studentInfo.set(row.studentId, { id: row.student.id, fullName: row.student.fullName });
-  }
-  for (const row of endlineScores) {
-    const marks = row.marks ? Number(row.marks) : 0;
-    const key = row.subject.toLowerCase();
-    endlineBySubject.set(key, [...(endlineBySubject.get(key) ?? []), marks]);
-    endlineByStudent.set(row.studentId, (endlineByStudent.get(row.studentId) ?? 0) + marks);
-    studentInfo.set(row.studentId, { id: row.student.id, fullName: row.student.fullName });
-  }
-
-  const commonSubjects = [...baselineBySubject.keys()].filter((s) => endlineBySubject.has(s));
-  const perSubject = commonSubjects.map((subject) => {
-    const b = baselineBySubject.get(subject) ?? [];
-    const e = endlineBySubject.get(subject) ?? [];
-    const baselineAvg = b.length ? b.reduce((a, n) => a + n, 0) / b.length : 0;
-    const endlineAvg = e.length ? e.reduce((a, n) => a + n, 0) / e.length : 0;
-    return {
-      subject,
-      baselineAvg: Number(baselineAvg.toFixed(2)),
-      endlineAvg: Number(endlineAvg.toFixed(2)),
-      improvement: Number((endlineAvg - baselineAvg).toFixed(2)),
-    };
-  });
-
-  const perStudent = [...baselineByStudent.keys()]
-    .filter((id) => endlineByStudent.has(id))
-    .map((studentId) => {
-      const baselineTotal = baselineByStudent.get(studentId) ?? 0;
-      const endlineTotal = endlineByStudent.get(studentId) ?? 0;
-      return {
-        student: studentInfo.get(studentId),
-        baselineTotal: Number(baselineTotal.toFixed(2)),
-        endlineTotal: Number(endlineTotal.toFixed(2)),
-        delta: Number((endlineTotal - baselineTotal).toFixed(2)),
-      };
-    });
-
-  return { perSubject, perStudent };
+  return result;
 }
+
+// ================= STUDENT SCORES =================
 
 export async function getStudentExamScores(
   user: JwtPayload,
   studentId: string,
 ) {
-  const student = await prisma.student.findFirst({
-    where: {
-      id: studentId,
-      centerId: centerScopedFilter(user),
-    },
-    select: { id: true, fullName: true },
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
   });
-  if (!student) throw new NotFoundError("Student");
+
+  if (!student) throw new Error("Student not found");
+
+  enforceCenterAccess(user, student.centerId);
 
   const scores = await prisma.examScore.findMany({
     where: { studentId },
     include: {
       exam: true,
+      subject: true,
     },
-    orderBy: [{ exam: { academicYear: "desc" } }, { exam: { examType: "asc" } }],
+    orderBy: {
+      exam: {
+        academicYearId: "desc",
+      },
+    },
   });
 
-  const grouped: Record<string, Record<string, Array<{
-    subject: string;
-    marks: number | null;
-    maxMarks: number;
-    remarks: string | null;
-  }>>> = {};
-
-  for (const score of scores) {
-    const year = score.exam.academicYear;
-    const type = score.exam.examType;
-    if (!grouped[year]) grouped[year] = {};
-    if (!grouped[year][type]) grouped[year][type] = [];
-    grouped[year][type].push({
-      subject: score.subject,
-      marks: score.marks ? Number(score.marks) : null,
-      maxMarks: Number(score.maxMarks),
-      remarks: score.remarks,
-    });
-  }
-
-  return { student, scores: grouped };
+  return scores;
 }

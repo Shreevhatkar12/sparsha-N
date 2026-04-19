@@ -5,7 +5,7 @@ export type ListExamsQuery = {
   centerId?: string;
   programId?: string;
   examType?: ExamType;
-  academicYear?: string;
+  academicYearId?: string;
 };
 
 export const createExam = (body: Record<string, unknown>) =>
