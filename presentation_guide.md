@@ -80,4 +80,5 @@ Your client needs to understand **how everything is stored**:
 > [!IMPORTANT]  
 > All previously identified legacy bugs, missing `--legacy-peer-deps` build flags (`npm i ERESOLVE` error), frontend/backend TypeScript compiling conflicts, and missing `.env` records are fully mitigated. The system is structurally robust.
 >
-> Run `npm run install:all` and `npm run dev` at the root folder to spin up the servers before your meeting. You are completely ready to present.
+> Run `npm run install:all` to fetch all dependencies recursively.
+> Then, run `npm run dev` at the root folder to spin up the servers concurrently before your meeting. You are completely ready to present.

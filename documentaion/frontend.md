@@ -1,69 +1,32 @@
-# Frontend — architecture notes (SPARSHA)
+# 🖥️ SPARSHA OMS - Frontend Architecture
 
-The SPARSHA frontend is a role-adaptive dashboard for NGO-wide organization management. It dynamically reshapes its navigation and data access based on the authenticated user's profile.
+The frontend is a highly reactive, single-page application built on **React 19**, **Vite 8**, and styled with **Tailwind CSS V4**. It is engineered to dynamically morph its interface based on the permissions of the authenticated user.
 
-**Stack:** React 19, TypeScript, Vite 8, Tailwind CSS 4, React Router 7, Zustand, Axios, Recharts, React Hook Form (forms module).
+## 🚀 Core Engine: TanStack React-Query
+We completely avoid raw `useEffect` API fetching. Every external data request is routed through `@tanstack/react-query`.
+-   **Why?** This provides automatic caching, background refetching, and drastically simplifies the "Loading / Error / Success" UI states. 
+-   **Mutations**: Form submissions (Exams, Attendance, Dynamic Forms) utilize `useMutation`, which automatically invalidates the relevant cache queries to instantly update the UI without a page reload.
 
-## HTTP client
+## 🎨 Design System & Tailwind V4
+The application is designed to be a premium, modern dashboard—not a generic admin panel.
+-   **Micro-interactions**: We heavily utilize Tailwind transition utilities (`transition-all duration-300 ease-out`) for hover states on tables, buttons, and cards.
+-   **CSS Variables**: Tailwind V4 natively supports deep CSS variable integration, allowing us to easily swap between organizational themes or dark mode.
 
-- **`src/services/api.ts`:** `baseURL` = `import.meta.env.VITE_API_URL` or **`/api`**.
-- **Development:** Vite **`server.proxy`** forwards `/api` → `http://localhost:5000` (`vite.config.ts`), so the browser can use relative `/api` without CORS issues.
-- **Production build:** set **`VITE_API_URL`** to the full API base (including `/api` if the backend is mounted there).
-- **Credentials:** `withCredentials: true` for cookies where the backend sets them.
-- **Auth header:** `Authorization: Bearer <token>` from `localStorage` key `token` (project convention).
+## 🛡️ Role-Adaptive Interface
 
-## Routing and layout
+The frontend acts as a dynamic mirror to the backend's strict RBAC (Role-Based Access Control) matrix.
 
-- **`App.tsx`:** Public `/login`; protected routes under **`ProtectedRoute`** (sidebar + top bar + `<Outlet />`).
-- **Auth gate:** Redirects to `/login` if no access token; optional bootstraps session from `/api/auth/me` when only `localStorage` has a token.
+### 1. Dynamic Routing & Sidebar
+The Sidebar navigation component is fed a configuration array. If the user's decoded JWT role (e.g., `teacher`) does not intersect with a route's `viewRoles` array (e.g., `["super_admin", "center_admin"]`), that navigation link is entirely stripped from the DOM.
 
-## State
+### 2. The `usePermission` Hook
+We employ a custom `usePermission` hook down to the component level to hide or show specific interaction points.
+```tsx
+const { can } = usePermission();
+// A teacher can view the equipment list, but only an admin sees the 'Order New' button.
+{can('create', 'equipment') && <Button>Order New</Button>}
+```
 
-## State & Permissions
-
-- **`useAuthStore`**: `currentUser` (includes `role`, `centerIds`), `accessToken`, `selectedCenterId`.
-- **`usePermission` Hook**: (Planned) Centralized hook to verify if the current user can perform an action (e.g., `can('edit', 'attendance')`). Uses the matrix from `sparsha_rbac.md`.
-- **Role-Based Visibility**: Components use permission checks to hide or disable actions (e.g., "Add Equipment" is hidden for Teachers but visible for Staff/Admins).
-
-| Area | Paths / notes |
-|------|----------------|
-| Dashboard | `/dashboard` — role-specific KPis and pending tasks |
-| Students | `/students` — CRUD for admins/staff; read-only for teachers |
-| Attendance | `/attendance` — marking limited to teachers/volunteers |
-| Activities | `/activities` — **Vaccine camps**, distribution, etc. |
-| Equipment | `/equipment` — inventory tracking per center |
-| Messaging | `/messages` — internal threaded chat |
-| Announcements| `/announcements` — broadcast management |
-| Exams / Skills| `/exams`, `/skills` — academic tracking |
-| Forms | `/forms` — template builder and submission viewer |
-| Users / Admin | `/users`, `/settings` — center assignments and system config |
-
-## UI system
-
-- **Brand:** CSS variables `brand-50` … `brand-900` in `src/index.css`; primary actions use **brand-700/600**.
-- **Typography:** **Sora** for headings, **DM Sans** for body (loaded in `index.html`).
-- **Layout:** **`PageWrapper`** uses max width **1280px** and horizontal padding.
-
-## PWA
-
-- Manual **`manifest.webmanifest`** and **`sw.js`**; service worker registration in bootstrap. Full `vite-plugin-pwa` is optional and not required for core flows.
-
-## Gaps
-
-- Tighter TypeScript types for API responses.
-- Optional migration to TanStack Query for caching and loading/error consistency.
-- Token storage strategy vs XSS (currently `localStorage`).
-
-## Install & Dependency Conflicts
-
-- Due to the usage of the brand-new Vite 8 and Tailwind V4 stack, some plugins (like `vite-plugin-pwa` and `recharts`) have strict peer dependency conflicts with Vite 8. 
-- You **MUST** run installation commands with `--legacy-peer-deps`.
-- `react-is` must be explicitly installed for Recharts to function correctly without throwing import resolution errors during dev server boot.
-
-## Run commands
-
-See the main **`README.md`** at the root of the project.
-Required install sequence:
-`npm install --legacy-peer-deps`
-`npm install react-is --legacy-peer-deps`
-`npm run dev`
+### 3. Center Switcher Mechanics
+-   **Super Admins**: Have a global dropdown in the Navbar allowing them to pivot the entire application's data context between "All Centers" or a specific target.
+-   **Standard Staff**: If a user is only assigned to a single center in the database, this dropdown vanishes, locking their interface to their localized environment natively.

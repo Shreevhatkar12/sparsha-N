@@ -11,10 +11,29 @@ Do these steps **in order** on a machine with Node.js 20+ and a running PostgreS
 ### 1. Clone and open the repo
 
 ```bash
-cd kittykat
+cd sparsha
 ```
 
-### 2. Backend Setup
+### 2. Install Dependencies
+
+From the **root folder**, run our unified installation script (which handles all complex React/Vite version mismatches automatically):
+
+```bash
+npm run install:all
+```
+
+### 3. Environment Configuration
+
+Copy the example environment files into their respective folders:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+Edit **`backend/.env`**: set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` to real secure values. Set `CLIENT_URL=http://localhost:5173`.
+
+### 4. Database Setup
 
 First, ensure your PostgreSQL user has the necessary permissions to create databases (required by Prisma for its shadow database during migrations). Run this command in your terminal, replacing `kittykat` with your actual database user if different:
 
@@ -22,61 +41,33 @@ First, ensure your PostgreSQL user has the necessary permissions to create datab
 sudo -u postgres psql -c "ALTER ROLE kittykat CREATEDB;"
 ```
 
-Then, set up the backend:
+Apply migrations and populate the database:
 
 ```bash
 cd backend
-npm install
-cp .env.example .env
-```
-
-Edit **`backend/.env`**: set `DATABASE_URL`, `JWT_ACCESS_SECRET`, and `JWT_REFRESH_SECRET` to real values. Set `CLIENT_URL=http://localhost:5173` to allow the frontend to authenticate with the backend without CORS errors.
-
-```bash
 npx prisma generate
-npx prisma migrate deploy
-```
-
-For a **new** local database during development you may use:
-
-```bash
 npx prisma migrate dev
-```
-
-Optional demo data:
-
-```bash
 npx prisma db seed
+cd ..
 ```
 
-Start the API:
+### 5. Start the Application
+
+From the **root folder**, run our unified start script to spin up both the backend and frontend concurrently:
 
 ```bash
 npm run dev
 ```
 
-Confirm **`http://localhost:5000/health`** returns JSON with `"status": "ok"`.
+Open **`http://localhost:5173`**. Log in with the root user generated from your seed: `admin@sparsha.org` / `Admin@123`.
 
-### 3. Frontend Setup
+---
 
-Open a **second terminal**:
+### Alternative: Manual Setup
 
-```bash
-cd frontend
-npm install --legacy-peer-deps
-npm install react-is --legacy-peer-deps
-cp .env.example .env
-```
-
-> **Note**: Due to the bleeding-edge use of Vite 8 mixed with PWA and Recharts plugins, the `--legacy-peer-deps` flag and explicit `react-is` installation are **mandatory** to resolve dependency conflicts.
-
-Leave `VITE_API_URL` commented for local dev (Vite proxies `/api` to port 5000 — see `frontend/vite.config.ts`).
-
-```bash
-npm run dev
-```
-
-Open **`http://localhost:5173`**. Log in with a user from your database (seed creates users such as `admin@sparsha.org` / `Admin@123` if you ran the seed — change passwords in production).
+If you prefer to run things separately:
+1. `cd backend` -> `npm install` -> `npm run dev`
+2. `cd frontend` -> `npm install --legacy-peer-deps` -> `npm install react-is --legacy-peer-deps` -> `npm run dev`
 
 ### 4. Production-style frontend build (optional)
 

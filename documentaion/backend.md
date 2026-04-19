@@ -1,69 +1,40 @@
-# Backend — architecture notes (SPARSHA)
+# ⚙️ SPARSHA OMS - Backend Architecture
 
-SPARSHA is a comprehensive **Organization Management System (OMS)**. While it provides deep student tracking (SMS), it is architected as a center-based resource and activity management platform.
+The backend of SPARSHA is a Node.js + Express API backed by PostgreSQL and managed exclusively via Prisma 7.
 
-**Stack:** Node.js, Express 5, Prisma 7, PostgreSQL, Zod validation on selected routes, JWT auth.
+## 🏗️ Architectural Pattern: Fat Service, Thin Controller
 
-**Entry:** `src/server.ts` loads `src/app.ts`, which registers routes under `/api`.
+To maintain extreme scalability across the various NGO modules, we enforce a strict separation of concerns:
 
-## Request flow
+1.  **Controllers (`src/controllers/`)**:
+    *   Exclusively responsible for HTTP layer interactions.
+    *   They accept the request, extract validated parameters, invoke the corresponding Service, and return the standard JSON envelope.
+    *   **No business logic** or Prisma calls belong here.
+2.  **Services (`src/services/`)**:
+    *   House all business rules, database transactions, and secondary RBAC checks.
+    *   This makes the logic highly testable without needing to mock Express objects.
 
-1. **CORS / JSON / security** middleware on the app.
-2. **Route modules** (`src/routes/*.ts` and `*.js`) map paths to controllers.
-3. **Controllers** parse `req`, call **services** (`src/services/`).
-4. **Prisma** access is centralized per module; some services use a dedicated Prisma client instance pattern — follow existing files when adding code.
-5. **Errors** go through `middleware/errorHandler.ts`.
+## 🗄️ Database Paradigm (Prisma 7)
 
-## Auth and RBAC Enforcement
+-   **UUID Keys**: We migrated away from integer IDs. Every entity uses `String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid`.
+-   **Soft Deletion**: Records are never destroyed (`DELETE`). They are deactivated using the `isActive: Boolean` flag. This preserves referential integrity for audit logs.
+-   **Configuration**: Prisma 7 no longer accepts `url = env("DATABASE_URL")` directly inside `schema.prisma`. All configuration is handled externally in `prisma.config.ts`.
 
-The system uses a **multi-layered enforcement stack** for every request:
+## 🛡️ Organization Management System (OMS) Security
 
-1.  **Authentication**: `authenticate` middleware verifies the JWT. Payload includes `userId`, `role`, and `centerIds`.
-2.  **Role Authorization**: `requireRole` middleware checks if the user's role is in the allowed list for the route (as defined in `sparsha_rbac.md`).
-3.  **Center Access**: `centerAccess` middleware ensures non-admins are restricted to their assigned centers.
-    - `super_admin` & `tech_admin`: Bypass center filters (full visibility or system access).
-    - `center_admin` & others: strictly filtered by `user_center_assignments`.
-4.  **Operational Scope**:
-    - `volunteer`: Further restricted via `user_activity_assignments` (checked against `valid_from/until`).
-    - `student/parent`: Scoped to own/child data via `parent_student` or direct ownership.
-5.  **PII Protection**: Aggregated roles like `shareholder` and system roles like `tech_admin` are restricted at the service layer from seeing personal identifiable information (PII).
+The backend is structurally hardened to support multi-tenant center logic and strict privacy laws.
 
-## Main API groups
+### Center-Scoping
+The core tenet of the backend is that *no staff member* (except a `super_admin`) can view data outside their assigned centers. 
+When a Service executes a Prisma query, it MUST append a `centerScope` derived from the middleware's `req.allowedCenterIds`.
+```typescript
+const centerScope = role === 'super_admin' ? {} : { centerId: { in: allowedCenterIds } };
+// Automatically restricts finding students to the user's localized centers.
+await prisma.student.findMany({ where: { ...centerScope } });
+```
 
-| Prefix | Notes |
-|--------|--------|
-| `/api/auth` | Login, register, refresh, logout, me |
-| `/api/students` | CRUD, nested attendance/skills/careers routes, **`/:id/profile`** |
-| `/api/attendance` | Sessions and student attendance |
-| `/api/exams` | CRUD, scores, comparison |
-| `/api/forms` | Templates and submissions |
-| `/api/activities` | Event management, **vaccine camps**, distribution tracking |
-| `/api/equipment` | Inventory tracking and logs |
-| `/api/messages` | Internal threaded communications |
-| `/api/announcements`| Role-based broadcasts |
-| `/api/centers`, `/api/programs` | Core meta-data |
-| `/api/users` | User management and assignments |
-| `/api/reports`, `/api/dashboard` | Analytics and pending task heuristics |
+### PII Data Stripping
+Volunteers, Shareholders, and Tech Admins do not have clearance to view Personal Identifiable Information (PII) of the students. The Service layer is responsible for detecting these roles and explicitly using Prisma's `omit` operator to strip phone numbers and exact addresses from the returned payload.
 
-## Database
-
-- **Schema:** `prisma/schema.prisma`
-- **Migrations:** `prisma/migrations/`
-- **Seed:** `prisma/seed.ts` — run with `npx prisma db seed`
-  > **Note**: Your database user must have `CREATEDB` permissions to allow Prisma to manage its shadow database for migrations. Example: `sudo -u postgres psql -c "ALTER ROLE username CREATEDB;"`
-
-## Architecture & Adapters
-
-As of Prisma 7, the project utilizes the `@prisma/adapter-pg` driver adapter. Database connections are handled using connection pooling (`pg.Pool`) instantiated in `src/lib/prisma.ts`. 
-
-- **Do NOT instantiate local `PrismaClient` instances** in service files.
-- **Always import `prisma`** from `src/lib/prisma.js` to avoid connection limits and constructor errors.
-
-## Environment
-
-See **`backend/.env.example`**. Required: **`DATABASE_URL`**, **`JWT_ACCESS_SECRET`**, **`JWT_REFRESH_SECRET`**. 
-**`CLIENT_URL`** must match the frontend origin exactly (e.g., `http://localhost:5173`) and is **required for CORS** to successfully authorize and prevent the browser from blocking requests.
-
-## Run commands
-
-Documented in **`README.md`** (`npm install`, grant DB permissions, `npx prisma generate`, migrate, `npm run dev`).
+### Transactional Integrity
+For features that require audit trails (like changing the status of a bulk activity or transferring equipment), the backend utilizes Prisma `$transaction`. If the audit log fails to write, the status change rolls back.
