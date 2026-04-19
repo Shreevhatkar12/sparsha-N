@@ -5,7 +5,7 @@ import { ForbiddenError } from '../lib/errors.js';
 
 // Helper to apply center scope safely
 function getCenterScope(user: JwtPayload) {
-  return user.role === "admin" ? undefined : { in: user.centerIds };
+  return user.role === "super_admin" ? undefined : { in: user.centerIds };
 }
 
 // ----------------------------------------------------------------------
@@ -132,7 +132,7 @@ export async function getAttendanceAnalytics(user: JwtPayload, query: any) {
   if (programId) whereSession.programId = programId;
 
   // Verify access for arbitrary centerId
-  if (centerId && user.role !== "admin" && !user.centerIds.includes(centerId as string)) {
+  if (centerId && user.role !== "super_admin" && !user.centerIds.includes(centerId as string)) {
     throw new ForbiddenError("No access to requested center");
   }
 
@@ -229,7 +229,7 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
     centerId: getCenterScope(user)
   };
   if (centerId) {
-    if (user.role !== "admin" && !user.centerIds.includes(centerId as string)) throw new ForbiddenError("Denied");
+    if (user.role !== "super_admin" && !user.centerIds.includes(centerId as string)) throw new ForbiddenError("Denied");
     whereExam.centerId = centerId;
   }
   if (programId) whereExam.programId = programId;
@@ -238,7 +238,7 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
     where: whereExam,
     include: {
       scores: {
-        include: { student: { select: { fullName: true } } }
+        include: { student: { select: { fullName: true } }, subject: true }
       }
     }
   });
@@ -252,9 +252,9 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
     const targetObj = exam.examType === 'baseline' ? baseline : endline;
     
     for (const score of exam.scores) {
-      if (!score.marks) continue;
+      if (!score.marks || !score.subject) continue;
       const val = Number(score.marks);
-      const sub = score.subject.toLowerCase() as 'english' | 'maths' | 'science';
+      const sub = score.subject.name.toLowerCase() as 'english' | 'maths' | 'science';
 
       if (targetObj[sub]) {
         targetObj[sub].values.push(val);
@@ -306,19 +306,19 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
 // SKILLS REPORT (no dedicated Skill model — averages from exam scores + skill-like forms)
 // ----------------------------------------------------------------------
 export async function getSkillsReport(user: JwtPayload, query: { centerId?: string; programId?: string }) {
-  if (query.centerId && user.role !== "admin" && !user.centerIds.includes(query.centerId as string)) {
+  if (query.centerId && user.role !== "super_admin" && !user.centerIds.includes(query.centerId as string)) {
     throw new ForbiddenError("No access to requested center");
   }
 
   const centerFilter = query.centerId
     ? query.centerId
-    : user.role === "admin"
+    : user.role === "super_admin"
       ? undefined
       : { in: user.centerIds };
 
   const studentWhere: Prisma.StudentWhereInput = {
     isActive: true,
-    ...(centerFilter ? { centerId: centerFilter as string } : user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+    ...(centerFilter ? { centerId: centerFilter as string } : user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
     ...(query.programId ? { programId: query.programId as string } : {}),
   };
 
@@ -334,8 +334,8 @@ export async function getSkillsReport(user: JwtPayload, query: { centerId?: stri
 
   const bySubject = new Map<string, { sum: number; count: number }>();
   for (const row of scores) {
-    if (row.marks === null) continue;
-    const key = row.subject.toLowerCase();
+    if (row.marks === null || !row.subject) continue;
+    const key = row.subject.name.toLowerCase();
     const prev = bySubject.get(key) ?? { sum: 0, count: 0 };
     prev.sum += Number(row.marks);
     prev.count += 1;
@@ -414,7 +414,7 @@ export async function getSkillsReport(user: JwtPayload, query: { centerId?: stri
 export async function getFilteredStudents(user: JwtPayload, query: any) {
   const { centerId, programId, ageMin, ageMax, gender, attendanceRateMin, attendanceRateMax, examScoreMin, examScoreMax } = query;
   
-  if (centerId && user.role !== "admin" && !user.centerIds.includes(centerId as string)) throw new ForbiddenError("Denied");
+  if (centerId && user.role !== "super_admin" && !user.centerIds.includes(centerId as string)) throw new ForbiddenError("Denied");
 
   const whereStudent: Prisma.StudentWhereInput = {
     centerId: centerId ? (centerId as string) : getCenterScope(user),
@@ -528,7 +528,7 @@ export async function getPendingItemsData(user: JwtPayload) {
         examId: e.id,
         centerId: e.centerId,
         examType: e.examType,
-        year: e.academicYear,
+        year: e.academicYearId,
         studentsWithoutScore: expected - e._count.scores // simplified
       });
     }

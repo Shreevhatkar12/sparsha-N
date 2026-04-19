@@ -12,6 +12,6 @@ export function attachAllowedCenters(req: Request, _res: Response, next: NextFun
     return;
   }
   (req as Request & { allowedCenterIds?: string[] | undefined }).allowedCenterIds =
-    user.role === "admin" ? undefined : user.centerIds;
+    user.role === "super_admin" ? undefined : user.centerIds;
   next();
 }

@@ -17,13 +17,13 @@ type RecordUpdateInput = {
 };
 
 function ensureCenterAccess(user: JwtPayload, centerId: string): void {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
     throw new ForbiddenError("No access to the requested center");
   }
 }
 
 function applyCenterScopeToWhere(user: JwtPayload, where: Record<string, unknown>, centerId?: string) {
-  if (user.role === "admin") {
+  if (user.role === "super_admin") {
     if (centerId) {
       where.centerId = centerId;
     }
@@ -325,7 +325,7 @@ export async function getStudentAttendanceHistory(
   const student = await prisma.student.findFirst({
     where: ({
       id: studentId,
-      ...(user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
     } as never),
     select: {
       id: true,
@@ -343,7 +343,7 @@ export async function getStudentAttendanceHistory(
   const records = await prisma.attendanceRecord.findMany({
     where: ({
       studentId,
-      ...(user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
       session: {
         ...(query.programId ? { programId: query.programId } : {}),
         ...((from || to)
@@ -467,7 +467,7 @@ export async function getPendingSessions(userId: string): Promise<Array<Record<s
 
   const sessions = await prisma.attendanceSession.findMany({
     where: {
-      ...(user.role === "admin" ? {} : { centerId: { in: centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: centerIds } }),
       records: {
         some: {
           status: null as unknown as AttendanceStatus,

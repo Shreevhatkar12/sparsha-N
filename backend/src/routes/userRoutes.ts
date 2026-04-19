@@ -16,11 +16,11 @@ userRoutes.use(authenticate);
 
 userRoutes.get("/me/centers", myCentersController);
 
-userRoutes.get("/", requireRole("admin"), listUsersController);
-userRoutes.get("/:userId", requireRole("admin"), getUserController);
-userRoutes.post("/", requireRole("admin"), createUserController);
-userRoutes.put("/:userId", requireRole("admin"), updateUserController);
-userRoutes.post("/:userId/reset-password", requireRole("admin"), resetPasswordController);
-userRoutes.delete("/:userId", requireRole("admin"), deleteUserController);
+userRoutes.get("/", requireRole("super_admin"), listUsersController);
+userRoutes.get("/:userId", requireRole("super_admin"), getUserController);
+userRoutes.post("/", requireRole("super_admin"), createUserController);
+userRoutes.put("/:userId", requireRole("super_admin"), updateUserController);
+userRoutes.post("/:userId/reset-password", requireRole("super_admin"), resetPasswordController);
+userRoutes.delete("/:userId", requireRole("super_admin"), deleteUserController);
 
 export default userRoutes;

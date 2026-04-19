@@ -92,3 +92,16 @@ export const upsertExamScoresSchema = z.object({
     )
     .min(1),
 });
+
+export const createSkillSchema = z.object({
+  skillId: uuid,
+  level: z.number().int().min(1).max(5),
+  remarks: z.string().optional(),
+});
+
+export const createCareerSchema = z.object({
+  careerGoal: z.string().min(2),
+  industry: z.string().min(2),
+  milestones: z.array(z.string()).optional(),
+  notes: z.string().optional(),
+});

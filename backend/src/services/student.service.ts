@@ -288,13 +288,13 @@ export const getStudentProfile = async (user: AuthUser, id: string) => {
         take: 10,
       },
       examScores: {
-        include: { exam: true },
+        include: { exam: true, subject: true },
       },
       formSubmissions: {
         include: {
           template: { select: { id: true, name: true, formType: true } },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { submittedAt: "desc" },
         take: 25,
       },
     },
@@ -314,8 +314,8 @@ export const getStudentProfile = async (user: AuthUser, id: string) => {
   let sumPct = 0;
   let n = 0;
   for (const es of examScoresList) {
-    if (es.marks == null) continue;
-    sumPct += (Number(es.marks) / Number(es.maxMarks)) * 100;
+    if (es.marks == null || !es.subject?.maxMarks) continue;
+    sumPct += (Number(es.marks) / Number(es.subject.maxMarks)) * 100;
     n++;
   }
   const avgExamPct = n > 0 ? Number((sumPct / n).toFixed(1)) : null;
@@ -329,12 +329,13 @@ export const getStudentProfile = async (user: AuthUser, id: string) => {
 
   const bySubject: Record<string, any> = {};
   for (const es of examScoresList) {
-    const subj = es.subject;
+    if (!es.subject) continue;
+    const subj = es.subject.name;
     if (!bySubject[subj]) {
       bySubject[subj] = {};
     }
     const pct =
-      es.marks == null ? null : (Number(es.marks) / Number(es.maxMarks)) * 100;
+      (es.marks == null || !es.subject.maxMarks) ? null : (Number(es.marks) / Number(es.subject.maxMarks)) * 100;
     const type = es.exam?.examType;
     if (type === "baseline") {
       bySubject[subj].baseline = pct;
@@ -397,15 +398,37 @@ export const updateAttendance = async (id: string, data: any) => {
 ───────────────────────────────────────── */
 
 export const addSkill = async (user: AuthUser, studentId: string, data: any) => {
-  throw new Error("Skill model not implemented in schema yet");
+  const student = await getStudentById(user, studentId);
+  return prisma.studentSkillLog.create({
+    data: {
+      studentId: student.id,
+      centerId: student.centerId,
+      skillId: data.skillId,
+      level: data.level,
+      remarks: data.remarks,
+      assessedBy: user.id,
+    },
+    include: { skill: true, assessedByUser: { select: { fullName: true } } },
+  });
 };
 
 export const getSkillsByStudent = async (user: AuthUser, studentId: string) => {
-  return [];
+  const student = await getStudentById(user, studentId);
+  return prisma.studentSkillLog.findMany({
+    where: { studentId: student.id },
+    include: { skill: true, assessedByUser: { select: { fullName: true } } },
+    orderBy: { assessedOn: "desc" },
+  });
 };
 
 export const updateSkill = async (id: string, data: any) => {
-  throw new Error("Skill model not implemented in schema yet");
+  const log = await prisma.studentSkillLog.findUnique({ where: { id } });
+  if (!log) throw new NotFoundError("Skill log");
+  return prisma.studentSkillLog.update({
+    where: { id },
+    data: { level: data.level, remarks: data.remarks },
+    include: { skill: true, assessedByUser: { select: { fullName: true } } },
+  });
 };
 
 /* ─────────────────────────────────────────
@@ -413,15 +436,72 @@ export const updateSkill = async (id: string, data: any) => {
 ───────────────────────────────────────── */
 
 export const addCareer = async (user: AuthUser, studentId: string, data: any) => {
-  throw new Error("Career model not implemented in schema yet");
+  const student = await getStudentById(user, studentId);
+  
+  let template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking", targetEntity: "student" } });
+  if (!template) {
+    template = await prisma.formTemplate.create({
+      data: {
+        name: "Career Tracking",
+        formType: "system",
+        targetEntity: "student",
+        createdBy: user.id,
+        schema: { fields: [] }
+      }
+    });
+  }
+
+  const submission = await prisma.formSubmission.create({
+    data: {
+      templateId: template.id,
+      studentId: student.id,
+      centerId: student.centerId,
+      submittedBy: user.id,
+      data: data
+    }
+  });
+
+  return {
+    id: submission.id,
+    studentId: submission.studentId,
+    createdAt: submission.submittedAt,
+    ...(submission.data as Record<string, unknown>)
+  };
 };
 
 export const getCareersByStudent = async (user: AuthUser, studentId: string) => {
-  return [];
+  const student = await getStudentById(user, studentId);
+  const template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking" } });
+  if (!template) return [];
+
+  const submissions = await prisma.formSubmission.findMany({
+    where: { studentId: student.id, templateId: template.id },
+    orderBy: { submittedAt: 'desc' }
+  });
+  
+  return submissions.map(sub => ({
+    id: sub.id,
+    studentId: sub.studentId,
+    createdAt: sub.submittedAt,
+    ...(sub.data as Record<string, unknown>)
+  }));
 };
 
 export const updateCareer = async (id: string, data: any) => {
-  throw new Error("Career model not implemented in schema yet");
+  const submission = await prisma.formSubmission.findUnique({ where: { id } });
+  if (!submission) throw new NotFoundError("Career record");
+  
+  const updated = await prisma.formSubmission.update({
+    where: { id },
+    data: { data }
+  });
+
+  return {
+    id: updated.id,
+    studentId: updated.studentId,
+    createdAt: updated.submittedAt,
+    ...(updated.data as Record<string, unknown>)
+  };
 };
 
 /* ─────────────────────────────────────────

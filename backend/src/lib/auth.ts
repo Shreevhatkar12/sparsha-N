@@ -117,7 +117,7 @@ export function requireCenterAccess() {
       return next(new UnauthorizedError("Authentication is required"));
     }
 
-    if (user.role === "admin") {
+    if (user.role === "super_admin") {
       return next();
     }
 

@@ -20,6 +20,6 @@ reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);
 reportRoutes.get("/students", studentsFilterController);
 reportRoutes.get("/pending", pendingItemsController);
-reportRoutes.get("/export", requireRole("admin", "staff"), exportCsvController);
+reportRoutes.get("/export", requireRole("super_admin", "staff"), exportCsvController);
 
 export default reportRoutes;

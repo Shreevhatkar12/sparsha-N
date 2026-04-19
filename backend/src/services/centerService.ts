@@ -12,7 +12,7 @@ function activeAssignmentWhere(userId?: string) {
 
 export async function listCenters(user: JwtPayload) {
   const where =
-    user.role === "admin"
+    user.role === "super_admin"
       ? {}
       : {
           users: {
@@ -33,7 +33,7 @@ export async function listCenters(user: JwtPayload) {
 }
 
 export async function getCenterDetails(user: JwtPayload, centerId: string) {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
     throw new NotFoundError("Center");
   }
 
@@ -139,6 +139,7 @@ export async function removeProgramFromCenter(centerId: string, programId: strin
 }
 
 export async function assignUserToCenter(
+  createdBy: string,
   centerId: string,
   input: { userId: string; validFrom?: string; validUntil?: string },
 ) {
@@ -157,6 +158,7 @@ export async function assignUserToCenter(
       data: {
         centerId,
         userId: input.userId,
+        createdBy,
         ...(validFrom ? { validFrom } : {}),
         validUntil,
       },

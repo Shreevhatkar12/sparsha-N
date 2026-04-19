@@ -363,6 +363,66 @@ async function main() {
     }
   }
 
+  // 10. Skills
+  console.log("Upserting Skills...");
+  const skillNames = ["Communication", "Leadership", "Teamwork", "Problem Solving", "Computer Literacy"];
+  const skillDefs = [];
+  for (const name of skillNames) {
+    const s = await prisma.skillDefinition.upsert({
+      where: { programId_name: { programId: pSwayam.id, name } },
+      update: {},
+      create: { programId: pSwayam.id, name, description: `Student's proficiency in ${name}` }
+    });
+    skillDefs.push(s);
+  }
+
+  console.log("Assigning Skills to Students...");
+  for (let i = 0; i < 30; i++) {
+    const stud = studentsDetails[i];
+    for (const skill of skillDefs) {
+      const exists = await prisma.studentSkillLog.count({ where: { studentId: stud.id, skillId: skill.id } });
+      if (exists === 0 && Math.random() > 0.3) {
+        await prisma.studentSkillLog.create({
+          data: {
+            studentId: stud.id, centerId: stud.centerId, skillId: skill.id,
+            level: Math.floor(Math.random() * 5) + 1,
+            assessedBy: admin.id,
+            remarks: "Baseline assessment"
+          }
+        });
+      }
+    }
+  }
+
+  // 11. Career Tracking Forms
+  console.log("Upserting Career Tracking Forms...");
+  let careerTpl = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking", targetEntity: "student" } });
+  if (!careerTpl) {
+    careerTpl = await prisma.formTemplate.create({
+      data: {
+        name: "Career Tracking", formType: "system", targetEntity: "student", createdBy: admin.id,
+        schema: { fields: [] }
+      }
+    });
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const stud = studentsDetails[i];
+    const exists = await prisma.formSubmission.count({ where: { studentId: stud.id, templateId: careerTpl.id } });
+    if (exists === 0 && Math.random() > 0.5) {
+      await prisma.formSubmission.create({
+        data: {
+          templateId: careerTpl.id, studentId: stud.id, centerId: stud.centerId, submittedBy: admin.id,
+          data: {
+            careerGoal: ["Software Engineer", "Doctor", "Teacher", "Artist", "Entrepreneur"][Math.floor(Math.random() * 5)],
+            industry: ["Tech", "Medical", "Education", "Arts", "Business"][Math.floor(Math.random() * 5)],
+            notes: "Initial career counseling session completed."
+          }
+        }
+      });
+    }
+  }
+
   // Summary
   const tCenters = await prisma.center.count();
   const tPrograms = await prisma.program.count();
@@ -371,10 +431,11 @@ async function main() {
   const tAttendance = await prisma.attendanceRecord.count();
   const tScores = await prisma.examScore.count();
   const tForms = await prisma.formSubmission.count();
+  const tSkillLogs = await prisma.studentSkillLog.count();
 
   console.log("\n--- SEEDING COMPLETE ---");
   console.log(`Summary: ${tCenters} centers, ${tPrograms} programs, ${tUsers} users`);
-  console.log(`Payload: ${tStudents} students, ${tAttendance} attendances, ${tScores} exam scores, ${tForms} form submissions.`);
+  console.log(`Payload: ${tStudents} students, ${tAttendance} attendances, ${tScores} exam scores, ${tForms} form submissions, ${tSkillLogs} skill logs.`);
 }
 
 main()

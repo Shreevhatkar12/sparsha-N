@@ -23,21 +23,21 @@ programRoutes.use(authenticate);
 
 centerRoutes.get("/", listCentersController);
 centerRoutes.get("/:centerId", getCenterController);
-centerRoutes.post("/", requireRole("admin"), createCenterController);
-centerRoutes.put("/:centerId", requireRole("admin"), updateCenterController);
-centerRoutes.post("/:centerId/programs", requireRole("admin"), assignProgramController);
+centerRoutes.post("/", requireRole("super_admin"), createCenterController);
+centerRoutes.put("/:centerId", requireRole("super_admin"), updateCenterController);
+centerRoutes.post("/:centerId/programs", requireRole("super_admin"), assignProgramController);
 centerRoutes.delete(
   "/:centerId/programs/:programId",
-  requireRole("admin"),
+  requireRole("super_admin"),
   removeProgramController,
 );
-centerRoutes.post("/:centerId/users", requireRole("admin"), assignUserController);
-centerRoutes.delete("/:centerId/users/:userId", requireRole("admin"), removeUserController);
+centerRoutes.post("/:centerId/users", requireRole("super_admin"), assignUserController);
+centerRoutes.delete("/:centerId/users/:userId", requireRole("super_admin"), removeUserController);
 
 programRoutes.get("/", listProgramsController);
-programRoutes.post("/", requireRole("admin"), createProgramController);
-programRoutes.put("/:programId", requireRole("admin"), updateProgramController);
-programRoutes.get("/:programId/centers", requireRole("admin"), programCentersController);
+programRoutes.post("/", requireRole("super_admin"), createProgramController);
+programRoutes.put("/:programId", requireRole("super_admin"), updateProgramController);
+programRoutes.get("/:programId/centers", requireRole("super_admin"), programCentersController);
 
 export { programRoutes };
 export default centerRoutes;

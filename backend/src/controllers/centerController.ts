@@ -82,7 +82,8 @@ export async function removeProgramController(req: Request, res: Response, next:
 
 export async function assignUserController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await assignUserToCenter(req.params.centerId as string, req.body);
+    const user = (req as AuthenticatedRequest).user!;
+    const result = await assignUserToCenter(user.userId, req.params.centerId as string, req.body);
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

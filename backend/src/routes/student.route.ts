@@ -22,7 +22,7 @@ import {
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/requireRole.middleware.js';
 import { validate } from '../middleware/validate.js';
-import { createStudentSchema, updateStudentSchema } from '../validation/schemas.js';
+import { createStudentSchema, updateStudentSchema, createSkillSchema, createCareerSchema } from '../validation/schemas.js';
 
 const router = Router();
 
@@ -35,35 +35,35 @@ router.get("/filter", filterStudents);
 router.get("/dashboard", getDashboardStats);
 
 // Students CRUD
-router.post("/", requireRole("admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
+router.post("/", requireRole("super_admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
 router.get("/", getAllStudents);
 router.get("/:id/summary", getStudentSummary);
 router.get("/:id/profile", getStudentProfile);
 router.get("/:id", getStudentById);
-router.put("/:id", requireRole("admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
-router.delete("/:id", requireRole("admin", "teacher"), deleteStudent);
+router.put("/:id", requireRole("super_admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
+router.delete("/:id", requireRole("super_admin", "teacher"), deleteStudent);
 
 // Attendance
 router.post(
   "/:studentId/attendance",
-  requireRole("admin", "teacher", "staff"),
+  requireRole("super_admin", "teacher", "staff"),
   addAttendance,
 );
 router.get("/:studentId/attendance", getAttendanceByStudent);
 router.put(
   "/attendance/:id",
-  requireRole("admin", "teacher", "staff"),
+  requireRole("super_admin", "teacher", "staff"),
   updateAttendance,
 );
 
 // Skills
-router.post("/:studentId/skills", requireRole("admin", "teacher", "staff"), addSkill);
+router.post("/:studentId/skills", requireRole("super_admin", "teacher", "staff"), validate(createSkillSchema), addSkill);
 router.get("/:studentId/skills", getSkillsByStudent);
-router.put("/skills/:id", requireRole("admin", "teacher", "staff"), updateSkill);
+router.put("/skills/:id", requireRole("super_admin", "teacher", "staff"), validate(createSkillSchema), updateSkill);
 
 // Careers
-router.post("/:studentId/careers", requireRole("admin", "teacher", "staff"), addCareer);
+router.post("/:studentId/careers", requireRole("super_admin", "teacher", "staff"), validate(createCareerSchema), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
-router.put("/careers/:id", requireRole("admin", "teacher", "staff"), updateCareer);
+router.put("/careers/:id", requireRole("super_admin", "teacher", "staff"), validate(createCareerSchema), updateCareer);
 
 export default router;

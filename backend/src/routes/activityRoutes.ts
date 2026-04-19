@@ -17,12 +17,12 @@ activityRoutes.use(authenticate);
 
 activityRoutes.get("/", listActivitiesController);
 activityRoutes.get("/:activityId", getActivityController);
-activityRoutes.post("/", requireRole("admin", "teacher", "staff"), createActivityController);
-activityRoutes.put("/:activityId", requireRole("admin", "teacher", "staff"), updateActivityController);
-activityRoutes.delete("/:activityId", requireRole("admin"), deleteActivityController);
+activityRoutes.post("/", requireRole("super_admin", "teacher", "staff"), createActivityController);
+activityRoutes.put("/:activityId", requireRole("super_admin", "teacher", "staff"), updateActivityController);
+activityRoutes.delete("/:activityId", requireRole("super_admin"), deleteActivityController);
 
-activityRoutes.post("/:activityId/assign", requireRole("admin", "teacher"), assignVolunteerController);
-activityRoutes.delete("/:activityId/assign/:userId", requireRole("admin"), removeVolunteerAssignmentController);
+activityRoutes.post("/:activityId/assign", requireRole("super_admin", "teacher"), assignVolunteerController);
+activityRoutes.delete("/:activityId/assign/:userId", requireRole("super_admin"), removeVolunteerAssignmentController);
 
 activityRoutes.get("/:activityId/students", getEligibleStudentsController);
 
