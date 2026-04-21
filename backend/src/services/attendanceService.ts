@@ -12,7 +12,7 @@ type SessionCreateInput = {
 
 type RecordUpdateInput = {
   recordId: string;
-  status: "present" | "absent" | "late";
+  status: "pending" | "present" | "absent" | "late" | "excused";
   remarks?: string;
 };
 
@@ -126,10 +126,11 @@ export async function createSession(
           sessionId: session.id,
           studentId: student.id,
           centerId: student.centerId,
-          // Pending rows are represented by NULL status.
-          status: null as unknown as AttendanceStatus,
+          status: "pending",
         })),
       });
+
+      console.log("Creating records for students:", students.length);
     }
 
     const pendingRecords = await tx.attendanceRecord.findMany({

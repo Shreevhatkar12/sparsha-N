@@ -93,7 +93,7 @@ export async function updateAttendanceSessionRecords(
 ) {
   try {
     const { records } = req.body as {
-      records: Array<{ recordId: string; status: "present" | "absent" | "late"; remarks?: string }>;
+      records: Array<{ recordId: string; status: "pending" | "present" | "absent" | "late" | "excused"; remarks?: string }>;
     };
     const result = await bulkUpdateSessionRecords(
       (req as AuthenticatedRequest).user!,

@@ -48,6 +48,7 @@ enum ActivityStatus {
 enum AttendanceStatus {
   present
   absent
+  pending
   late
   excused
 }
