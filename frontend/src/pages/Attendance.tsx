@@ -21,19 +21,25 @@ type Row = {
   status: "pending" | "present" | "absent" | "late" | "excused";
 };
 
-const STATUS_OPTIONS = ['pending', 'present', 'absent', 'late', 'excused'] as const;
+const STATUS_OPTIONS = [
+  "pending",
+  "present",
+  "absent",
+  "late",
+  "excused",
+] as const;
 
-type Status = typeof STATUS_OPTIONS[number];
+type Status = (typeof STATUS_OPTIONS)[number];
 
 const STATUS_CONFIG: Record<
   Status,
   { label: string; color: string; bg: string }
 > = {
-  pending: { label: 'Pending', color: '#4B5563', bg: 'bg-gray-500' },
-  present: { label: 'Present', color: '#16A34A', bg: 'bg-green-600' },
-  absent: { label: 'Absent', color: '#DC2626', bg: 'bg-red-600' },
-  late: { label: 'Late', color: '#CA8A04', bg: 'bg-yellow-600' },
-  excused: { label: 'Excused', color: '#2563EB', bg: 'bg-blue-600' },
+  pending: { label: "Pending", color: "#4B5563", bg: "bg-gray-500" },
+  present: { label: "Present", color: "#16A34A", bg: "bg-green-600" },
+  absent: { label: "Absent", color: "#DC2626", bg: "bg-red-600" },
+  late: { label: "Late", color: "#CA8A04", bg: "bg-yellow-600" },
+  excused: { label: "Excused", color: "#2563EB", bg: "bg-blue-600" },
 };
 
 export function SegmentedSlider({
@@ -72,7 +78,7 @@ export function SegmentedSlider({
             className={`
               relative z-10 flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg 
               transition-colors duration-200
-              ${isActive ? 'text-white' : 'text-gray-500 hover:text-gray-700'}
+              ${isActive ? "text-white" : "text-gray-500 hover:text-gray-700"}
             `}
           >
             {STATUS_CONFIG[status].label}
@@ -97,6 +103,8 @@ export const Attendance: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(true);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -135,6 +143,8 @@ export const Attendance: React.FC = () => {
       const sid = res.session?.id;
       if (!sid) throw new Error("No session id");
       setSessionId(sid);
+      setIsEditing(true);
+      setSuccess(false);
       await refreshRows(sid);
     } catch (e: unknown) {
       const ax = e as {
@@ -173,17 +183,25 @@ export const Attendance: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sessionId) return;
+
+    if (!isEditing) return; // 🔒 prevents accidental submits
+
     setLoading(true);
     setError(null);
+    setSuccess(false);
+
     try {
       const records = rows
         .filter((r) => r.recordId)
         .map((r) => ({
           recordId: r.recordId,
-          status: r.status,
+          status: r.status || "pending",
         }));
+
       await updateAttendanceSessionRecords(sessionId, { records });
-      await refreshRows(sessionId);
+
+      setIsEditing(false); // 🔒 lock after submit
+      setSuccess(true); // ✅ show success
     } catch {
       setError("Failed to save attendance.");
     } finally {
@@ -288,27 +306,55 @@ export const Attendance: React.FC = () => {
                         </div>
                         <SegmentedSlider
                           value={r.status || "pending"}
-                          onChange={(newStatus) =>
+                          onChange={(newStatus) => {
+                            if (!isEditing) return;
+
                             setRows((prev) =>
                               prev.map((x, j) =>
                                 j === i ? { ...x, status: newStatus } : x,
                               ),
-                            )
-                          }
+                            );
+                          }}
                         />
                       </div>
                     ))
                   )}
                 </div>
-                <div className="flex justify-end">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={loading}
-                    disabled={!rows.length}
-                  >
-                    Submit
-                  </Button>
+                <div className="flex justify-between items-center">
+                  {success && (
+                    <span className="text-green-600 text-sm font-medium">
+                      Attendance submitted successfully
+                    </span>
+                  )}
+
+                  <div className="flex gap-2">
+                    {/* Use type="button" for both to prevent accidental form submission */}
+                    {isEditing ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={handleSave} // Explicitly call handleSave
+                        isLoading={loading}
+                        disabled={!rows.length}
+                      >
+                        Submit Attendance
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={async () => {
+                          setLoading(true);
+                          await refreshRows(sessionId!); // Reload fresh data from server
+                          setIsEditing(true);
+                          setSuccess(false);
+                          setLoading(false);
+                        }}
+                      >
+                        Edit Attendance
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </form>
             </Card>

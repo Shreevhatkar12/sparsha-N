@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import type { JwtPayload } from '../lib/auth.js';
+import type { JwtPayload } from "../lib/auth.js";
 import {
   bulkUpdateSessionRecords,
   createSession,
@@ -10,11 +10,15 @@ import {
   getStudentAttendanceHistory,
   listSessions,
   parseHasIncomplete,
-} from '../services/attendanceService.js';
+} from "../services/attendanceService.js";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 
-export async function createAttendanceSession(req: Request, res: Response, next: NextFunction) {
+export async function createAttendanceSession(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { centerId, programId, sessionDate, activityId } = req.body as {
       centerId: string;
@@ -40,7 +44,11 @@ export async function createAttendanceSession(req: Request, res: Response, next:
   }
 }
 
-export async function getAttendanceSessions(req: Request, res: Response, next: NextFunction) {
+export async function getAttendanceSessions(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { centerId, programId, from, to, hasIncomplete } = req.query;
 
@@ -74,7 +82,11 @@ export async function getAttendanceSessionRecords(
   }
 }
 
-export async function getAttendanceSessionById(req: Request, res: Response, next: NextFunction) {
+export async function getAttendanceSessionById(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const result = await getSessionById(
       (req as AuthenticatedRequest).user!,
@@ -93,20 +105,35 @@ export async function updateAttendanceSessionRecords(
 ) {
   try {
     const { records } = req.body as {
-      records: Array<{ recordId: string; status: "pending" | "present" | "absent" | "late" | "excused"; remarks?: string }>;
+      records: Array<{
+        recordId: string;
+        status: "pending" | "present" | "absent" | "late" | "excused";
+        remarks?: string;
+      }>;
     };
-    const result = await bulkUpdateSessionRecords(
+    await bulkUpdateSessionRecords(
       (req as AuthenticatedRequest).user!,
       req.params.sessionId as string,
       records,
     );
-    return res.status(200).json(result);
+
+    // ✅ Always return consistent structure
+    const full = await getSessionById(
+      (req as AuthenticatedRequest).user!,
+      req.params.sessionId as string,
+    );
+
+    return res.status(200).json(full);
   } catch (error) {
     return next(error);
   }
 }
 
-export async function getStudentAttendance(req: Request, res: Response, next: NextFunction) {
+export async function getStudentAttendance(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const { from, to, programId } = req.query;
     const result = await getStudentAttendanceHistory(
@@ -131,12 +158,15 @@ export async function getAttendanceSummaryController(
 ) {
   try {
     const { centerId, programId, from, to } = req.query;
-    const result = await getAttendanceSummary((req as AuthenticatedRequest).user!, {
-      centerId: centerId as string | undefined,
-      programId: programId as string | undefined,
-      from: from as string | undefined,
-      to: to as string | undefined,
-    });
+    const result = await getAttendanceSummary(
+      (req as AuthenticatedRequest).user!,
+      {
+        centerId: centerId as string | undefined,
+        programId: programId as string | undefined,
+        from: from as string | undefined,
+        to: to as string | undefined,
+      },
+    );
     return res.status(200).json(result);
   } catch (error) {
     return next(error);
@@ -149,7 +179,9 @@ export async function getPendingSessionsController(
   next: NextFunction,
 ) {
   try {
-    const result = await getPendingSessions((req as AuthenticatedRequest).user!.userId);
+    const result = await getPendingSessions(
+      (req as AuthenticatedRequest).user!.userId,
+    );
     return res.status(200).json({ sessions: result });
   } catch (error) {
     return next(error);

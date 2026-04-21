@@ -36,7 +36,7 @@ export const updateAttendanceSessionRecordsSchema = z.object({
     .array(
       z.object({
         recordId: uuid,
-        status: z.enum(["present", "absent", "late"]),
+        status: z.enum(["pending", "present", "absent", "late", "excused"]),
         remarks: z.string().optional(),
       }),
     )
