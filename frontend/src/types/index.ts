@@ -26,6 +26,7 @@ export interface Student {
   centerId: string;
   programId: string;
   fullName: string;
+  rollNumber?: string | null;
   dob?: string | Date;
   gender?: Gender;
   guardianName?: string;

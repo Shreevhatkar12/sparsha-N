@@ -189,6 +189,39 @@ export const StudentDetails: React.FC = () => {
         </Card>
       </div>
 
+      <Card className="mb-6">
+        <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
+          <h2 className="text-lg font-semibold text-neutral-900">Summary Report</h2>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => window.print()}>
+              Print Report
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => alert('Detailed report view coming soon!')}>
+              View Report
+            </Button>
+          </div>
+        </div>
+        <div className="text-sm text-neutral-700 space-y-3">
+          <p>
+            <strong>Attendance:</strong> {student.fullName} has attended {stats?.attendancePct ?? 0}% of recorded sessions.
+          </p>
+          <p>
+            <strong>Exams:</strong> Average score across recorded exams is {stats?.avgExamPct ?? '—'}.
+            {examComparison && examComparison.length > 0 ? (
+              <span> The latest comparison shows data for {examComparison.map((e: any) => e.subject).join(', ')}.</span>
+            ) : null}
+          </p>
+          <p>
+            <strong>Skills:</strong> 
+            {radarData.length > 0 ? (
+              <span> Top assessed skill is {radarData.reduce((prev, current) => (prev.score > current.score) ? prev : current).skill} with a score of {radarData.reduce((prev, current) => (prev.score > current.score) ? prev : current).score}.</span>
+            ) : (
+              <span> No skills assessed yet.</span>
+            )}
+          </p>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">Attendance trend</h2>
@@ -199,7 +232,7 @@ export const StudentDetails: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={attendanceTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 1]} tickFormatter={(v) => (v === 1 ? 'Present' : 'Absent')} width={56} />
+                  <YAxis domain={[0, 1]} ticks={[0, 1]} tickFormatter={(v) => (v === 1 ? 'Present' : 'Absent')} width={56} />
                   <Tooltip />
                   <Bar dataKey="present" fill={CHART_RED} name="Present (1) / Absent (0)" radius={[4, 4, 0, 0]} />
                 </BarChart>
