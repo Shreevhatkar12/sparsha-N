@@ -198,6 +198,9 @@ model User {
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  createdBy    String?   @db.Uuid @map("created_by")
+  creator      User?     @relation("UserToCreator", fields: [createdBy], references: [id])
+  createdUsers User[]    @relation("UserToCreator")
 
   centerAssignments     UserCenterAssignment[]   @relation("UserAssignments")
   assignedByCenters     UserCenterAssignment[]   @relation("AssignedByUser")

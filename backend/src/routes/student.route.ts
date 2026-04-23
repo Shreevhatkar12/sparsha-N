@@ -26,44 +26,51 @@ import { createStudentSchema, updateStudentSchema } from '../validation/schemas.
 
 const router = Router();
 
-// All student routes are protected
+// 1. All student routes are protected
 router.use(authenticate);
 
+// 2. Dashboards (Admins might still want to see stats, but not edit data)
 router.get("/filter", filterStudents);
-
-// Dashboard
 router.get("/dashboard", getDashboardStats);
 
-// Students CRUD
-router.post("/", requireRole("admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
-router.get("/", getAllStudents);
+// 3. Students CRUD (Strictly Teachers and Staff only)
+router.post(
+  "/", 
+  requireRole("teacher", "staff"), 
+  validate(createStudentSchema), 
+  createStudent
+);
+
+// Admins/Super Admins can still "View" the list and profiles for reports
+router.get("/", requireRole("super_admin", "center_admin", "teacher", "staff"), getAllStudents);
 router.get("/:id/summary", getStudentSummary);
 router.get("/:id/profile", getStudentProfile);
 router.get("/:id", getStudentById);
-router.put("/:id", requireRole("admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
-router.delete("/:id", requireRole("admin", "teacher"), deleteStudent);
 
-// Attendance
-router.post(
-  "/:studentId/attendance",
-  requireRole("admin", "teacher", "staff"),
-  addAttendance,
-);
-router.get("/:studentId/attendance", getAttendanceByStudent);
+// Editing students is restricted to the people handling them
 router.put(
-  "/attendance/:id",
-  requireRole("admin", "teacher", "staff"),
-  updateAttendance,
+  "/:id", 
+  requireRole("teacher", "staff"), 
+  validate(updateStudentSchema), 
+  updateStudent
 );
 
-// Skills
-router.post("/:studentId/skills", requireRole("admin", "teacher", "staff"), addSkill);
-router.get("/:studentId/skills", getSkillsByStudent);
-router.put("/skills/:id", requireRole("admin", "teacher", "staff"), updateSkill);
+// Delete remains restricted (usually NGO admins handle deletions for data integrity)
+router.delete("/:id", requireRole("super_admin", "center_admin","teacher"), deleteStudent);
 
-// Careers
-router.post("/:studentId/careers", requireRole("admin", "teacher", "staff"), addCareer);
+// 4. Attendance (Daily task for Teachers)
+router.post("/:studentId/attendance", requireRole("teacher", "staff"), addAttendance);
+router.get("/:studentId/attendance", getAttendanceByStudent);
+router.put("/attendance/:id", requireRole("teacher", "staff"), updateAttendance);
+
+// 5. Skills (Pedagogical task for Teachers)
+router.post("/:studentId/skills", requireRole("teacher", "staff"), addSkill);
+router.get("/:studentId/skills", getSkillsByStudent);
+router.put("/skills/:id", requireRole("teacher", "staff"), updateSkill);
+
+// 6. Careers (Guidance task for Teachers)
+router.post("/:studentId/careers", requireRole("teacher", "staff"), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
-router.put("/careers/:id", requireRole("admin", "teacher", "staff"), updateCareer);
+router.put("/careers/:id", requireRole("teacher", "staff"), updateCareer);
 
 export default router;
