@@ -22,7 +22,7 @@ export const StudentList: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -299,7 +299,7 @@ export const StudentList: React.FC = () => {
           </Button>
         </div>
 
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <LoadingSpinner />
         ) : rows.length === 0 ? (
           <EmptyState
@@ -312,13 +312,15 @@ export const StudentList: React.FC = () => {
             }
           />
         ) : (
-          <DataTable<Row>
-            columns={columns}
-            data={rows}
-            rowKey={(r) => r.id}
-            filterKeys={['fullName', '_programName', '_centerName']}
-            filterPlaceholder="Filter loaded page…"
-          />
+          <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+            <DataTable<Row>
+              columns={columns}
+              data={rows}
+              rowKey={(r) => r.id}
+              filterKeys={['fullName', '_programName', '_centerName']}
+              filterPlaceholder="Filter loaded page…"
+            />
+          </div>
         )}
 
         {totalPages > 1 && !loading && (

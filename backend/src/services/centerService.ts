@@ -80,6 +80,19 @@ export async function createCenter(input: { name: string; location?: string }) {
   });
 }
 
+export async function deleteCenter(centerId: string) {
+  const activeStudents = await prisma.student.count({
+    where: { centerId, isActive: true },
+  });
+  if (activeStudents > 0) {
+    throw new AppError("Cannot delete center with active students", 409);
+  }
+
+  return prisma.center.delete({
+    where: { id: centerId },
+  });
+}
+
 export async function updateCenter(
   centerId: string,
   input: { name?: string; location?: string; isActive?: boolean },

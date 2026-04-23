@@ -18,7 +18,7 @@ export const StudentRegistration: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const isEditMode = Boolean(id);
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
   const defaultCenter = !isAdmin && selectedCenterId ? selectedCenterId : '';
 
   const [loading, setLoading] = useState(isEditMode);

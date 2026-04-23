@@ -537,12 +537,20 @@ export async function getPendingItemsData(user: JwtPayload) {
   const activeTemplates = await prisma.formTemplate.findMany({ where: { isActive: true }});
   
   if (activeTemplates.length > 0) {
+    const groupedSubs = await prisma.formSubmission.groupBy({
+      by: ['centerId', 'templateId'],
+      _count: { id: true }
+    });
+
+    const subMap = new Map();
+    for (const sub of groupedSubs) {
+      subMap.set(`${sub.centerId}-${sub.templateId}`, sub._count.id);
+    }
+
     for (const group of activeStudentsGroup) {
       const centerId = group.centerId;
       for (const tpl of activeTemplates) {
-        const subs = await prisma.formSubmission.count({
-          where: { centerId, templateId: tpl.id }
-        });
+        const subs = subMap.get(`${centerId}-${tpl.id}`) || 0;
         if (subs < group._count.id) {
           pendingFormSubmissions.push({
             templateId: tpl.id,

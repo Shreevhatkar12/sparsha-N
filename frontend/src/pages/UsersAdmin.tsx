@@ -21,7 +21,7 @@ const ROLES: UserRole[] = ['admin', 'teacher', 'staff', 'volunteer', 'parent', '
 
 export const UsersAdmin: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
   const [rows, setRows] = useState<UserAdminItem[]>([]);
   const [loading, setLoading] = useState(true);
