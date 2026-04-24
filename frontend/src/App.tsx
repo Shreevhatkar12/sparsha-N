@@ -22,7 +22,7 @@ import { useAuthStore } from "./store/useAuthStore";
 
 function App() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
-  const setAccessToken = useAuthStore((s) => s.setAccessToken);
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +36,8 @@ function App() {
 
         if (res.ok) {
           const data = await res.json();
-          setAccessToken(data.accessToken);
+          // Use setAuth to set both the user and the accessToken
+          setAuth(data.user, data.accessToken);
         }
       } catch (err) {
         console.log("No active session");

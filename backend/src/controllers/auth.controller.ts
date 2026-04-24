@@ -101,14 +101,8 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
     const token = req.cookies.refreshToken;
     if (!token) throw new AppError("Unauthorized", 401);
 
-    const decoded = verifyRefreshToken(token);
-
-    // 🔥 THE FIX: Remove 'iat' and 'exp' so generateAccessToken can set new ones
-    const { iat, exp, ...payloadToSign } = decoded as any;
-
-    const newAccessToken = generateAccessToken(payloadToSign);
-
-    return res.json({ accessToken: newAccessToken });
+    const result = await authService.refreshAccessToken(token);
+    return res.json(result);
   } catch (err) {
     next(err);
   }
