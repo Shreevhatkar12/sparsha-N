@@ -15,6 +15,7 @@ import authRoutes from './routes/auth.route.js';
 import reportRoutes from './routes/reportRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import studentRoutes from './routes/student.route.js';
+import skillRoutes from './routes/skillRoutes.js';
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/skills", skillRoutes);
 
 app.use(errorHandler);
 

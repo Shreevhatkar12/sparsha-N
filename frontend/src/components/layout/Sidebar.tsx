@@ -233,18 +233,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     badge?: number;
     viewRoles: string[];
   }> = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent','tech_admin'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
-    { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, badge: pending.missingAttendance, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer'] },
+    { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, badge: pending.missingAttendance, viewRoles: ['center_admin','supervisor','teacher','staff','volunteer'] },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, badge: pending.incompleteExams, viewRoles: ['super_admin','center_admin','supervisor','teacher'] },
     { name: 'Forms', path: '/forms', icon: <FileText size={20} />, badge: pending.pendingForms, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
     { name: 'Activities', path: '/activities', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
     { name: 'Skills', path: '/skills', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','student','parent'] },
-    { name: 'Equipment', path: '/equipment', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','supervisor'] },
-    { name: 'Messages', path: '/messages', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent'] },
-    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff'] },
+    { name: 'Equipment', path: '/equipment', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','supervisor','tech_admin'] },
+    { name: 'Messages', path: '/messages', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','volunteer','student','parent','tech_admin'] },
+    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','supervisor','teacher','staff','tech_admin'] },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, viewRoles: ['super_admin','center_admin','supervisor','shareholder'] },
-    { name: 'Users', path: '/users', icon: <UserCog size={20} />, viewRoles: ['super_admin','center_admin'] },
+    { name: 'Users', path: '/users', icon: <UserCog size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Settings', path: '/settings', icon: <Settings size={20} />, viewRoles: ['super_admin','tech_admin'] },
   ];
 

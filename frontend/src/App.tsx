@@ -16,6 +16,10 @@ import { FormsListPage } from './pages/Forms/FormsListPage';
 import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
 import { FormRendererPage } from './pages/Forms/FormRendererPage';
 import { FormSubmissionsPage } from './pages/Forms/FormSubmissionsPage';
+import { Equipment } from './pages/Equipment';
+import { Messages } from './pages/Messages';
+import { Announcements } from './pages/Announcements';
+import { Activities } from './pages/Activities';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -83,6 +87,10 @@ function App() {
           <Route path="/forms" element={<FormsListPage />} />
           <Route path="/forms/:templateId/fill" element={<FormRendererPage />} />
           <Route path="/forms/:templateId/submissions" element={<FormSubmissionsPage />} />
+          <Route path="/activities" element={<Activities />} />
+          <Route path="/equipment" element={<Equipment />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/announcements" element={<Announcements />} />
         </Route>
 
         {/* --- LEVEL 2: TEACHERS & STAFF ONLY (Data Entry) --- */}
@@ -91,16 +99,16 @@ function App() {
           <Route path="/students/:id/edit" element={<StudentRegistration />} />
         </Route>
 
-        {/* --- LEVEL 3: ADMIN & SUPER ADMIN ONLY (Management) --- */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'center_admin']} />}>
+        {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'center_admin', 'tech_admin']} />}>
           <Route path="/users" element={<UsersAdmin />} />
           {/* Form Building is usually an Admin task */}
           <Route path="/forms/new" element={<FormBuilderPage />} />
           <Route path="/forms/:templateId/edit" element={<FormBuilderPage />} />
         </Route>
 
-        {/* --- LEVEL 4: SUPER ADMIN ONLY (Critical System Config) --- */}
-        <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
+        {/* --- LEVEL 4: SYSTEM ADMINS ONLY (Critical System Config) --- */}
+        <Route element={<ProtectedRoute allowedRoles={['super_admin', 'tech_admin']} />}>
           <Route path="/settings" element={<Settings />} />
         </Route>
 

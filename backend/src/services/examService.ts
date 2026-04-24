@@ -253,25 +253,43 @@ export async function getExamComparison(
     },
   });
 
-  const result: Record<
+  const subjectMap: Record<
     string,
-    { examType: string; marks: number }[]
+    { baselineTotal: number; baselineCount: number; endlineTotal: number; endlineCount: number }
   > = {};
 
   for (const exam of exams) {
     for (const score of exam.scores) {
-      const subjectKey = score.subject.name.toLowerCase();
+      const subjectName = score.subject.name.toLowerCase();
+      if (!subjectMap[subjectName]) {
+        subjectMap[subjectName] = { baselineTotal: 0, baselineCount: 0, endlineTotal: 0, endlineCount: 0 };
+      }
 
-      if (!result[subjectKey]) result[subjectKey] = [];
-
-      result[subjectKey].push({
-        examType: exam.examType,
-        marks: score.marks ? score.marks.toNumber() : 0,
-      });
+      const val = score.marks ? Number(score.marks) : 0;
+      if (exam.examType === 'baseline') {
+        subjectMap[subjectName].baselineTotal += val;
+        subjectMap[subjectName].baselineCount++;
+      } else if (exam.examType === 'endline') {
+        subjectMap[subjectName].endlineTotal += val;
+        subjectMap[subjectName].endlineCount++;
+      }
     }
   }
 
-  return result;
+  const perSubject = Object.entries(subjectMap).map(([subject, data]) => {
+    const bAvg = data.baselineCount > 0 ? data.baselineTotal / data.baselineCount : 0;
+    const eAvg = data.endlineCount > 0 ? data.endlineTotal / data.endlineCount : 0;
+    const growth = bAvg > 0 ? ((eAvg - bAvg) / bAvg) * 100 : 0;
+
+    return {
+      subject,
+      baselineAvg: bAvg,
+      endlineAvg: eAvg,
+      growth,
+    };
+  });
+
+  return { perSubject };
 }
 
 // ================= STUDENT SCORES =================

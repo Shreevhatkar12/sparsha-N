@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 
 // Define the roles based on your Prisma Schema
-type UserRole = 'super_admin' | 'center_admin' | 'teacher' | 'staff' | 'volunteer';
+type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];
