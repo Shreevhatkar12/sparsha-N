@@ -10,7 +10,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { GraduationCap } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      const { token, accessToken, user } = await login(email, password);
+      const { token, accessToken, user } = await login(username, password);
       const authToken = token || accessToken;
       if (!authToken) throw new Error('No access token received');
       setAuth(
@@ -55,7 +55,7 @@ export const Login: React.FC = () => {
       if (data?.status === 429) {
         setError('Too many login attempts. Please try again later.');
       } else {
-        setError(msg || 'Login failed. Check your email and password.');
+        setError(msg || 'Login failed. Check your UserID and password.');
       }
     } finally {
       setIsLoading(false);
@@ -85,12 +85,12 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <Input
-            label="Email Address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.org"
-            autoComplete="email"
+            label="User ID"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your User ID"
+            autoComplete="username"
             required
           />
           <Input

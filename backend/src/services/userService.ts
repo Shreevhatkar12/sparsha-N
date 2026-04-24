@@ -19,12 +19,14 @@ export async function listUsers(query: {
   search?: string;
   page?: number;
   limit?: number;
+  createdBy?: string;
 }) {
   const page = Math.max(query.page ?? 1, 1);
   const limit = Math.max(query.limit ?? 50, 1);
   const skip = (page - 1) * limit;
 
   const where = {
+    ...(query.createdBy ? { createdBy: query.createdBy } : {}),
     ...(query.role ? { role: query.role } : {}),
     ...(query.centerId
       ? {
@@ -100,6 +102,7 @@ export async function createUser(input: {
   fullName: string;
   phone?: string;
   role: UserRole;
+  createdBy?: string;
 }) {
   try {
     const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
@@ -110,6 +113,7 @@ export async function createUser(input: {
         fullName: input.fullName,
         phone: input.phone ?? null,
         role: input.role,
+        createdBy: input.createdBy,
       },
       include: {
         centerAssignments: {

@@ -17,11 +17,19 @@ import {
 } from '../services/users.service';
 import type { UserRole } from '../types';
 
-const ROLES: UserRole[] = ['admin', 'teacher', 'staff', 'volunteer', 'parent', 'shareholder'];
+// 1. Update the roles list to match your Prisma Enum
+const ROLES = ['super_admin', 'center_admin', 'teacher', 'staff', 'volunteer'] as UserRole[];
 
 export const UsersAdmin: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+  // 2. Update the Admin check to recognize both Admin roles
+  const isSuperAdmin = currentUser?.role === 'super_admin';
+  const isCenterAdmin = currentUser?.role === 'center_admin';
+  const canAccess = isSuperAdmin || isCenterAdmin;
+
+  const roleOptions: UserRole[] = isSuperAdmin 
+    ? ['super_admin', 'center_admin'] 
+    : ['teacher', 'staff', 'volunteer'];
 
   const [rows, setRows] = useState<UserAdminItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +106,8 @@ export const UsersAdmin: React.FC = () => {
     }
   };
 
-  if (!isAdmin) {
+  // 3. Update the navigation bounce to use the new 'canAccess' check
+  if (!canAccess) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -114,7 +123,7 @@ export const UsersAdmin: React.FC = () => {
         </div>
       ),
     },
-    { id: 'role', header: 'Role', sortable: true, accessor: (u) => u.role.toUpperCase() },
+    { id: 'role', header: 'Role', sortable: true, accessor: (u) => u.role.toUpperCase().replace('_', ' ') },
     { id: 'phone', header: 'Phone', accessor: (u) => u.phone || '-' },
     { id: 'isActive', header: 'Status', accessor: (u) => (u.isActive ? 'Active' : 'Inactive') },
     {
@@ -151,7 +160,7 @@ export const UsersAdmin: React.FC = () => {
         <h3 className="text-base font-semibold text-neutral-900 mb-4">Create User</h3>
         <form className="grid grid-cols-1 md:grid-cols-2 gap-3" onSubmit={handleCreate}>
           <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input label="User ID" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input
             label="Password"
             type="password"
@@ -168,9 +177,9 @@ export const UsersAdmin: React.FC = () => {
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
             >
-              {ROLES.map((r) => (
+              {roleOptions.map((r) => (
                 <option key={r} value={r}>
-                  {r.toUpperCase()}
+                  {r.toUpperCase().replace('_', ' ')}
                 </option>
               ))}
             </select>
