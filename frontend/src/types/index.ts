@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'teacher' | 'staff' | 'volunteer' | 'parent' | 'shareholder';
+export type UserRole = 'super_admin' | 'admin' | 'teacher' | 'staff' | 'volunteer' | 'parent' | 'shareholder';
 export type Gender = 'male' | 'female' | 'other';
 export type AttendanceStatus = 'present' | 'absent' | 'late';
 export type ExamType = 'baseline' | 'endline';
@@ -26,6 +26,7 @@ export interface Student {
   centerId: string;
   programId: string;
   fullName: string;
+  rollNumber?: string | null;
   dob?: string | Date;
   gender?: Gender;
   guardianName?: string;

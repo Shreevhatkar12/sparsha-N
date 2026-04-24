@@ -30,7 +30,7 @@ const initialPending: DashboardPendingCounts = {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const currentUser = useAuthStore((state) => state.currentUser);
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
   const [pending, setPending] = useState<DashboardPendingCounts>(initialPending);
 
   useEffect(() => {

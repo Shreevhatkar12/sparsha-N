@@ -109,16 +109,16 @@ export const Skills: React.FC = () => {
                 {skillsPayload.map((skill: any, i: number) => (
                   <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:border-primary/50 transition-colors group">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="font-medium text-neutral-800 capitalize">{skill.skillName || skill.name || 'Skill Area'}</span>
-                      <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shadow-sm">{skill.level || skill.score || skill.value || 0}/100</span>
+                      <span className="font-medium text-neutral-800 capitalize">{skill.skill?.name || skill.skillName || skill.name || 'Skill Area'}</span>
+                      <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shadow-sm">Level {skill.level || 0} / 5</span>
                     </div>
                     <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden border border-neutral-200/50">
                       <div 
                         className="bg-primary h-2 rounded-full transition-all duration-700 ease-out group-hover:opacity-90" 
-                        style={{ width: `${Math.min(100, Math.max(0, skill.level || skill.score || skill.value || 0))}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, (skill.level || 0) * 20))}%` }}
                       ></div>
                     </div>
-                    {skill.notes && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-md">{skill.notes}</p>}
+                    {skill.remarks && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-md">{skill.remarks}</p>}
                   </div>
                 ))}
               </div>

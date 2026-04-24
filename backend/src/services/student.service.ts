@@ -65,7 +65,7 @@ export const createStudent = async (user: AuthUser, data: any) => {
   });
 };
 
-export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, centerId, programId, isActive, search }: Record<string, any> = {}) => {
+export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
   const where = scopedWhere(user, {
@@ -87,7 +87,11 @@ export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, cen
       where,
       skip,
       take: safeLimit,
-      orderBy: { createdAt: "desc" },
+      orderBy: sortOrder === 'name_asc' ? { fullName: 'asc' } :
+               sortOrder === 'name_desc' ? { fullName: 'desc' } :
+               sortOrder === 'roll_asc' ? { rollNumber: 'asc' } :
+               sortOrder === 'roll_desc' ? { rollNumber: 'desc' } :
+               { createdAt: "desc" },
       include: {
         center: true,
         program: true,
@@ -328,12 +332,17 @@ export const getStudentProfile = async (user: AuthUser, id: string) => {
   }
   const avgExamPct = n > 0 ? Number((sumPct / n).toFixed(1)) : null;
 
-  const attendanceTrend = [...records]
-    .reverse()
-    .map((r) => ({
-      date: r.session.sessionDate.toISOString().slice(0, 10),
-      present: r.status === "present" ? 1 : 0,
-    }));
+  const groupedTrend = [...records].reverse().reduce((acc, r) => {
+    const d = r.session.sessionDate.toISOString().slice(0, 10);
+    if (!acc[d]) {
+      acc[d] = { date: d, present: r.status === "present" ? 1 : 0 };
+    } else {
+      acc[d].present = Math.max(acc[d].present, r.status === "present" ? 1 : 0);
+    }
+    return acc;
+  }, {} as Record<string, { date: string; present: number }>);
+
+  const attendanceTrend = Object.values(groupedTrend);
 
   const bySubject: Record<string, any> = {};
   for (const es of examScoresList) {

@@ -5,6 +5,7 @@ import {
   assignUserToCenter,
   createCenter,
   createProgram,
+  deleteCenter,
   getCenterDetails,
   getProgramCenters,
   listCenters,
@@ -42,6 +43,15 @@ export async function createCenterController(req: Request, res: Response, next: 
   try {
     const center = await createCenter(req.body);
     return res.status(201).json(center);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function deleteCenterController(req: Request, res: Response, next: NextFunction) {
+  try {
+    await deleteCenter(req.params.centerId as string);
+    return res.status(204).send();
   } catch (error) {
     return next(error);
   }

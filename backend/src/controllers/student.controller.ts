@@ -25,7 +25,7 @@ export const getAllStudents = async (
   next: NextFunction
 ): Promise<Response | void> => {
   try {
-    const { page, limit, search, centerId, programId, isActive } = req.query;
+    const { page, limit, search, centerId, programId, isActive, sortOrder } = req.query;
 
     const result = await studentService.getAllStudents(req.user, {
       page: Number(page) || 1,
@@ -33,6 +33,7 @@ export const getAllStudents = async (
       search: search as string | undefined,
       centerId: centerId as string | undefined,
       programId: programId as string | undefined,
+      sortOrder: sortOrder as string | undefined,
       isActive:
         typeof isActive === "string"
           ? isActive.toLowerCase() === "true"

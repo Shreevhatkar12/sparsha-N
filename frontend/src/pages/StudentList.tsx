@@ -9,11 +9,12 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { DataTable, type DataTableColumn } from '../components/ui/DataTable';
-import { Search, Download, Plus, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, Download, Plus, Eye, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuthStore } from '../store/useAuthStore';
 import { deleteStudent, getStudents, type StudentListQuery } from '../services/students.service';
-import type { Student } from '../types';
+import { listCenters, listPrograms } from '../services/centers.service';
+import type { Student, CenterSummary, ProgramSummary } from '../types';
 
 type Row = Student & { _programName: string; _centerName: string };
 
@@ -21,16 +22,32 @@ export const StudentList: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterCenterId, setFilterCenterId] = useState('');
+  const [filterProgramId, setFilterProgramId] = useState('');
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | ''>('');
+  
+  const [centers, setCenters] = useState<CenterSummary[]>([]);
+  const [programs, setPrograms] = useState<ProgramSummary[]>([]);
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteName, setDeleteName] = useState('');
+
+  useEffect(() => {
+    Promise.all([listCenters(), listPrograms()])
+      .then(([cRes, pRes]) => {
+        setCenters(cRes);
+        setPrograms(pRes);
+      })
+      .catch(console.error);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,7 +57,9 @@ export const StudentList: React.FC = () => {
         page,
         limit: 50,
         ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
-        ...(!isAdmin && selectedCenterId ? { centerId: selectedCenterId } : {}),
+        ...(!isAdmin && selectedCenterId ? { centerId: selectedCenterId } : (filterCenterId ? { centerId: filterCenterId } : {})),
+        ...(filterProgramId ? { programId: filterProgramId } : {}),
+        ...(sortOrder ? { sortOrder } : {})
       };
       const res = await getStudents(params);
       setTotalPages(res.totalPages);
@@ -57,7 +76,7 @@ export const StudentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery, isAdmin, selectedCenterId]);
+  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterProgramId, sortOrder]);
 
   useEffect(() => {
     void load();
@@ -109,6 +128,13 @@ export const StudentList: React.FC = () => {
       sortable: true,
       className: 'hidden md:table-cell',
       accessor: (s) => s._programName,
+    },
+    {
+      id: 'rollNumber',
+      header: 'Roll No',
+      sortable: true,
+      className: 'hidden sm:table-cell',
+      accessor: (s) => s.rollNumber || '—',
     },
     {
       id: '_centerName',
@@ -192,30 +218,88 @@ export const StudentList: React.FC = () => {
 
       <Card className="mb-6">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-neutral-50 p-3 rounded-lg border border-neutral-100 mb-4">
-          <div className="relative w-full md:max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={18} className="text-neutral-400" />
+          <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search size={18} className="text-neutral-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search by name…"
+                className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void load();
+                }}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search by name…"
-              className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-              value={searchQuery}
+            
+            <div className="flex bg-neutral-200/50 p-1 rounded-lg border border-neutral-200 items-center overflow-x-auto whitespace-nowrap">
+              <span className="text-xs font-semibold text-neutral-500 uppercase px-2">Sort:</span>
+              <button 
+                className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('roll') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+                onClick={() => { 
+                  if (sortOrder === 'roll_asc') setSortOrder('roll_desc');
+                  else setSortOrder('roll_asc');
+                  setPage(1); 
+                }}
+              >
+                Roll Number
+                {sortOrder === 'roll_asc' && <ArrowUp size={14} />}
+                {sortOrder === 'roll_desc' && <ArrowDown size={14} />}
+              </button>
+              <button 
+                className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('name') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+                onClick={() => { 
+                  if (sortOrder === 'name_asc') setSortOrder('name_desc');
+                  else setSortOrder('name_asc');
+                  setPage(1); 
+                }}
+              >
+                Name
+                {sortOrder === 'name_asc' && <ArrowUp size={14} />}
+                {sortOrder === 'name_desc' && <ArrowDown size={14} />}
+              </button>
+            </div>
+            
+            <select
+                className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
+                value={filterCenterId}
+                onChange={(e) => {
+                  setFilterCenterId(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All Centers</option>
+                {centers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+
+            <select
+              className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
+              value={filterProgramId}
               onChange={(e) => {
-                setSearchQuery(e.target.value);
+                setFilterProgramId(e.target.value);
                 setPage(1);
               }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void load();
-              }}
-            />
+            >
+              <option value="">All Classes</option>
+              {programs.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
           <Button variant="secondary" size="sm" type="button" onClick={() => void load()}>
-            Search
+            Apply Filters
           </Button>
         </div>
 
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <LoadingSpinner />
         ) : rows.length === 0 ? (
           <EmptyState
@@ -228,13 +312,15 @@ export const StudentList: React.FC = () => {
             }
           />
         ) : (
-          <DataTable<Row>
-            columns={columns}
-            data={rows}
-            rowKey={(r) => r.id}
-            filterKeys={['fullName', '_programName', '_centerName']}
-            filterPlaceholder="Filter loaded page…"
-          />
+          <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+            <DataTable<Row>
+              columns={columns}
+              data={rows}
+              rowKey={(r) => r.id}
+              filterKeys={['fullName', '_programName', '_centerName']}
+              filterPlaceholder="Filter loaded page…"
+            />
+          </div>
         )}
 
         {totalPages > 1 && !loading && (
