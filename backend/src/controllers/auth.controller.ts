@@ -96,29 +96,15 @@ export const login = async (
  * POST /api/auth/refresh
  * Accepts token in request body
  */
-export const refresh = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+export const refresh = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = req.cookies.refreshToken;
-
     if (!token) throw new AppError("Unauthorized", 401);
 
-    let decoded;
-    try {
-      decoded = verifyRefreshToken(token);
-    } catch (e) {
-      res.clearCookie("refreshToken");
-      return res.status(401).json({ success: false, message: "Invalid refresh token" });
-    }
-
-    const newAccessToken = generateAccessToken(decoded);
-
-    return res.json({ accessToken: newAccessToken });
+    const result = await authService.refreshAccessToken(token);
+    return res.json(result);
   } catch (err) {
-    console.error("Refresh Token Error:", err);
+    res.clearCookie("refreshToken");
     next(err);
   }
 };

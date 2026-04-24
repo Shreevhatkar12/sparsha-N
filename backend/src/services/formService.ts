@@ -247,7 +247,7 @@ export async function listSubmissions(
     ...(query.studentId ? { studentId: query.studentId } : {}),
     ...(from || to
       ? {
-          createdAt: {
+          submittedAt: {
             ...(from ? { gte: from } : {}),
             ...(to ? { lte: to } : {}),
           },

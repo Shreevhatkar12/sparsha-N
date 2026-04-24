@@ -4,6 +4,7 @@ import {
   assignProgramController,
   assignUserController,
   createCenterController,
+  deleteCenterController,
   createProgramController,
   getCenterController,
   listCentersController,
@@ -24,6 +25,7 @@ programRoutes.use(authenticate);
 centerRoutes.get("/", listCentersController);
 centerRoutes.get("/:centerId", getCenterController);
 centerRoutes.post("/", requireRole("super_admin"), createCenterController);
+centerRoutes.delete("/:centerId", requireRole("super_admin"), deleteCenterController);
 centerRoutes.put("/:centerId", requireRole("super_admin"), updateCenterController);
 centerRoutes.post("/:centerId/programs", requireRole("super_admin"), assignProgramController);
 centerRoutes.delete(

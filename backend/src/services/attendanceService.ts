@@ -126,7 +126,7 @@ export async function createSession(
           sessionId: session.id,
           studentId: student.id,
           centerId: student.centerId,
-          status: "pending",
+          status: "pending" as AttendanceStatus,
         })),
       });
 
@@ -291,7 +291,7 @@ export async function bulkUpdateSessionRecords(
       prisma.attendanceRecord.update({
         where: { id: record.recordId },
         data: {
-          status: record.status,
+          status: record.status as AttendanceStatus,
           remarks: record.remarks ?? null,
         },
       }),

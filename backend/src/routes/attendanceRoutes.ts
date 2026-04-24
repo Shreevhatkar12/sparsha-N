@@ -14,7 +14,7 @@ import { validate } from '../middleware/validate.js';
 import {
   createAttendanceSessionSchema,
   updateAttendanceSessionRecordsSchema,
-} from '../validation/schemas.js';
+} from '../validators/schemas.js';
 
 const attendanceRoutes = Router();
 

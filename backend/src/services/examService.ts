@@ -50,12 +50,20 @@ function applyCenterFilter(user: JwtPayload, where: any) {
 export async function createExam(user: JwtPayload, input: CreateExamInput) {
   enforceCenterAccess(user, input.centerId);
 
+  let academicYearId = input.academicYear;
+  // If not a UUID, try to find by label
+  if (academicYearId && !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(academicYearId)) {
+    const ay = await prisma.academicYear.findUnique({ where: { label: academicYearId } });
+    if (ay) academicYearId = ay.id;
+    else throw new Error(`Academic year '${academicYearId}' not found`);
+  }
+
   const existing = await prisma.exam.findFirst({
     where: {
       centerId: input.centerId,
       programId: input.programId,
       examType: input.examType,
-      academicYearId: input.academicYear,
+      academicYearId: academicYearId,
     },
   });
 
@@ -68,7 +76,7 @@ export async function createExam(user: JwtPayload, input: CreateExamInput) {
       centerId: input.centerId,
       programId: input.programId,
       examType: input.examType,
-      academicYearId: input.academicYear,
+      academicYearId: academicYearId,
       examDate: input.examDate ? new Date(input.examDate) : null,
       name: `${input.examType} exam`,
       createdBy: user.userId,
@@ -88,7 +96,9 @@ export async function listExams(user: JwtPayload, query: ListExamQuery) {
   if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
   if (query.examType) where.examType = query.examType;
-  if (query.academicYearId) where.academicYearId = query.academicYearId;
+  if (query.academicYearId) {
+    where.academicYear = { label: query.academicYearId };
+  }
 
   const exams = await prisma.exam.findMany({
     where,
@@ -131,18 +141,39 @@ export async function getExamById(user: JwtPayload, examId: string) {
 export async function upsertExamScores(
   user: JwtPayload,
   examId: string,
-  scores: ScoreInput[],
+  input: { scores: any[] },
 ) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
+    include: { program: { include: { subjects: true } } },
   });
 
   if (!exam) throw new Error("Exam not found");
 
   enforceCenterAccess(user, exam.centerId);
 
+  const subjectMap = new Map<string, string>();
+  exam.program?.subjects.forEach((s) => {
+    subjectMap.set(s.id, s.id);
+    subjectMap.set(s.name.toLowerCase(), s.id);
+    if (s.name.toLowerCase() === "mathematics") subjectMap.set("maths", s.id);
+  });
+
+  const processedScores = input.scores.map((s) => {
+    const subjectId = s.subjectId || subjectMap.get((s.subject || "").toLowerCase());
+    if (!subjectId) {
+      throw new Error(`Subject '${s.subject || s.subjectId}' not found for program`);
+    }
+    return {
+      studentId: s.studentId,
+      subjectId: subjectId,
+      marks: s.marks,
+      remarks: s.remarks,
+    };
+  });
+
   await prisma.$transaction(
-    scores.map((score) =>
+    processedScores.map((score) =>
       prisma.examScore.upsert({
         where: {
           examId_studentId_subjectId: {
@@ -240,7 +271,9 @@ export async function getExamComparison(
 
   if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
-  if (query.academicYearId) where.academicYearId = query.academicYearId;
+  if (query.academicYearId) {
+    where.academicYear = { label: query.academicYearId };
+  }
 
   const exams = await prisma.exam.findMany({
     where,
@@ -253,25 +286,43 @@ export async function getExamComparison(
     },
   });
 
-  const result: Record<
+  const subjectMap: Record<
     string,
-    { examType: string; marks: number }[]
+    { baselineTotal: number; baselineCount: number; endlineTotal: number; endlineCount: number }
   > = {};
 
   for (const exam of exams) {
     for (const score of exam.scores) {
-      const subjectKey = score.subject.name.toLowerCase();
+      const subjectName = score.subject.name.toLowerCase();
+      if (!subjectMap[subjectName]) {
+        subjectMap[subjectName] = { baselineTotal: 0, baselineCount: 0, endlineTotal: 0, endlineCount: 0 };
+      }
 
-      if (!result[subjectKey]) result[subjectKey] = [];
-
-      result[subjectKey].push({
-        examType: exam.examType,
-        marks: score.marks ? score.marks.toNumber() : 0,
-      });
+      const val = score.marks ? Number(score.marks) : 0;
+      if (exam.examType === 'baseline') {
+        subjectMap[subjectName].baselineTotal += val;
+        subjectMap[subjectName].baselineCount++;
+      } else if (exam.examType === 'endline') {
+        subjectMap[subjectName].endlineTotal += val;
+        subjectMap[subjectName].endlineCount++;
+      }
     }
   }
 
-  return result;
+  const perSubject = Object.entries(subjectMap).map(([subject, data]) => {
+    const bAvg = data.baselineCount > 0 ? data.baselineTotal / data.baselineCount : 0;
+    const eAvg = data.endlineCount > 0 ? data.endlineTotal / data.endlineCount : 0;
+    const growth = bAvg > 0 ? ((eAvg - bAvg) / bAvg) * 100 : 0;
+
+    return {
+      subject,
+      baselineAvg: bAvg,
+      endlineAvg: eAvg,
+      growth,
+    };
+  });
+
+  return { perSubject };
 }
 
 // ================= STUDENT SCORES =================

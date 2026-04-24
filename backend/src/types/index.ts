@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'teacher' | 'staff' | 'volunteer' | 'parent' | 'shareholder';
+export type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
 export type Gender = 'male' | 'female' | 'other';
 export type AttendanceStatus = 'present' | 'absent' | 'late';
 export type ExamType = 'baseline' | 'endline';
@@ -130,8 +130,9 @@ export interface ApiError {
 }
 
 export interface AuthUser extends User {
+  userId: string;
   allowedCenterIds: string[];
-  centerIds?: string[];
+  centerIds: string[];
 }
 
 export interface LoginPayload {

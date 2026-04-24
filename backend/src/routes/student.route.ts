@@ -22,48 +22,55 @@ import {
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/requireRole.middleware.js';
 import { validate } from '../middleware/validate.js';
-import { createStudentSchema, updateStudentSchema, createSkillSchema, createCareerSchema } from '../validation/schemas.js';
+import { createStudentSchema, updateStudentSchema, createSkillSchema, createCareerSchema } from '../validators/schemas.js';
 
 const router = Router();
 
-// All student routes are protected
+// 1. All student routes are protected
 router.use(authenticate);
 
+// 2. Dashboards (Admins might still want to see stats, but not edit data)
 router.get("/filter", filterStudents);
-
-// Dashboard
 router.get("/dashboard", getDashboardStats);
 
-// Students CRUD
-router.post("/", requireRole("super_admin", "teacher", "staff"), validate(createStudentSchema), createStudent);
-router.get("/", getAllStudents);
+// 3. Students CRUD (Strictly Teachers and Staff only for creation/update)
+router.post(
+  "/", 
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
+  validate(createStudentSchema), 
+  createStudent
+);
+
+// Admins/Super Admins can still "View" the list and profiles for reports
+router.get("/", requireRole("super_admin", "center_admin", "teacher", "staff"), getAllStudents);
 router.get("/:id/summary", getStudentSummary);
 router.get("/:id/profile", getStudentProfile);
 router.get("/:id", getStudentById);
-router.put("/:id", requireRole("super_admin", "teacher", "staff"), validate(updateStudentSchema), updateStudent);
-router.delete("/:id", requireRole("super_admin", "teacher"), deleteStudent);
 
-// Attendance
-router.post(
-  "/:studentId/attendance",
-  requireRole("super_admin", "teacher", "staff"),
-  addAttendance,
-);
-router.get("/:studentId/attendance", getAttendanceByStudent);
+// Editing students is restricted to the people handling them
 router.put(
-  "/attendance/:id",
-  requireRole("super_admin", "teacher", "staff"),
-  updateAttendance,
+  "/:id", 
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
+  validate(updateStudentSchema), 
+  updateStudent
 );
 
-// Skills
-router.post("/:studentId/skills", requireRole("super_admin", "teacher", "staff"), validate(createSkillSchema), addSkill);
-router.get("/:studentId/skills", getSkillsByStudent);
-router.put("/skills/:id", requireRole("super_admin", "teacher", "staff"), validate(createSkillSchema), updateSkill);
+// Delete remains restricted (usually NGO admins handle deletions for data integrity)
+router.delete("/:id", requireRole("super_admin", "center_admin","teacher"), deleteStudent);
 
-// Careers
-router.post("/:studentId/careers", requireRole("super_admin", "teacher", "staff"), validate(createCareerSchema), addCareer);
+// 4. Attendance (Daily task for Teachers)
+router.post("/:studentId/attendance", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), addAttendance);
+router.get("/:studentId/attendance", getAttendanceByStudent);
+router.put("/attendance/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), updateAttendance);
+
+// 5. Skills (Pedagogical task for Teachers)
+router.post("/:studentId/skills", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), addSkill);
+router.get("/:studentId/skills", getSkillsByStudent);
+router.put("/skills/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), updateSkill);
+
+// 6. Careers (Guidance task for Teachers)
+router.post("/:studentId/careers", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
-router.put("/careers/:id", requireRole("super_admin", "teacher", "staff"), validate(createCareerSchema), updateCareer);
+router.put("/careers/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), updateCareer);
 
 export default router;

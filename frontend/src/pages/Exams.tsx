@@ -27,7 +27,7 @@ type GridRow = Record<SubjectKey, string> & { remarks: string };
 
 export const Exams: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = useAuthStore((s) => s.currentUser?.role === 'admin');
+  const isAdmin = useAuthStore((s) => ['super_admin', 'tech_admin', 'center_admin'].includes(s.currentUser?.role || ''));
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -80,7 +80,7 @@ export const Exams: React.FC = () => {
   const loadComparison = useCallback(async () => {
     setError(null);
     try {
-      const q: Record<string, string | undefined> = { academicYear };
+      const q: Record<string, string | undefined> = { academicYearId: academicYear };
       if (!isAdmin && centerId) q.centerId = centerId;
       if (programId) q.programId = programId;
       const c = await getExamComparison(q);
@@ -107,8 +107,13 @@ export const Exams: React.FC = () => {
           remarks: '',
         };
         for (const sc of row.scores) {
-          const sub = sc.subject.toLowerCase() as SubjectKey;
-          if (sub === 'english' || sub === 'science' || sub === 'maths') {
+          const subRaw = sc.subject.toLowerCase();
+          let sub: SubjectKey | null = null;
+          if (subRaw === 'english') sub = 'english';
+          else if (subRaw === 'science') sub = 'science';
+          else if (subRaw === 'maths' || subRaw === 'mathematics') sub = 'maths';
+
+          if (sub) {
             g[sub] = sc.marks != null && sc.marks !== '' ? String(sc.marks) : '';
           }
           if (sc.remarks && !g.remarks) g.remarks = sc.remarks;
@@ -189,7 +194,7 @@ export const Exams: React.FC = () => {
         centerId,
         programId,
         examType,
-        academicYear,
+        academicYearId: academicYear,
       };
       const res = (await listExams(params)) as { exams?: Array<{ id: string }> };
       const first = res.exams?.[0];

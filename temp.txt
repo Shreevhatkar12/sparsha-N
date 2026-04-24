@@ -1,0 +1,125 @@
+[0] Server running on port 5000
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Skills.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx:14:22
+[1]   11 |  import { User, Megaphone, Plus, Search } from "lucide-react";
+[1]   12 |  import { format } from "date-fns";
+[1]   13 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   14 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx";
+[1]   15 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1] 8:19:32 PM [vite] Internal server error: Failed to resolve import "../components/ui/Modal" from "src/pages/Skills.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx:14:22
+[1]   11 |  import { User, Megaphone, Plus, Search } from "lucide-react";
+[1]   12 |  import { format } from "date-fns";
+[1]   13 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   14 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx";
+[1]   15 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1]       at TransformPluginContext._formatLog (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30339:39)
+[1]       at TransformPluginContext.error (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30336:14)
+[1]       at normalizeUrl (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27624:18)
+[1]       at async file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27687:30
+[1]       at async Promise.all (index 12)
+[1]       at async TransformPluginContext.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27655:4)
+[1]       at async EnvironmentPluginContainer.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30128:14)
+[1]       at async loadAndTransform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:24459:26)
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Skills.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx:14:22
+[1]   11 |  import { User, Megaphone, Plus, Search } from "lucide-react";
+[1]   12 |  import { format } from "date-fns";
+[1]   13 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   14 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Skills.tsx";
+[1]   15 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Equipment.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { Input } from "../components/ui/Input";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx";
+[1]   12 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Equipment.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { Input } from "../components/ui/Input";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx";
+[1]   12 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Announcements.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { format } from "date-fns";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  import { Input } from "../components/ui/Input";
+[1]   12 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx";
+[1] 8:19:32 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Announcements.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { format } from "date-fns";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  import { Input } from "../components/ui/Input";
+[1]   12 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx";
+[1] 8:19:33 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Equipment.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { Input } from "../components/ui/Input";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx";
+[1]   12 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1] 8:19:33 PM [vite] Internal server error: Failed to resolve import "../components/ui/Modal" from "src/pages/Equipment.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { Input } from "../components/ui/Input";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Equipment.tsx";
+[1]   12 |  import { jsxDEV as _jsxDEV } from "react/jsx-dev-runtime";
+[1]       at TransformPluginContext._formatLog (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30339:39)
+[1]       at TransformPluginContext.error (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30336:14)
+[1]       at normalizeUrl (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27624:18)
+[1]       at async file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27687:30
+[1]       at async Promise.all (index 9)
+[1]       at async TransformPluginContext.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27655:4)
+[1]       at async EnvironmentPluginContainer.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30128:14)
+[1]       at async loadAndTransform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:24459:26)
+[1] 8:19:33 PM [vite] (client) Pre-transform error: Failed to resolve import "../components/ui/Modal" from "src/pages/Announcements.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { format } from "date-fns";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  import { Input } from "../components/ui/Input";
+[1]   12 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx";
+[1] 8:19:33 PM [vite] Internal server error: Failed to resolve import "../components/ui/Modal" from "src/pages/Announcements.tsx". Does the file exist?
+[1]   Plugin: vite:import-analysis
+[1]   File: /home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx:10:22
+[1]   8  |  import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+[1]   9  |  import { format } from "date-fns";
+[1]   10 |  import { Modal } from "../components/ui/Modal";
+[1]      |                         ^
+[1]   11 |  import { Input } from "../components/ui/Input";
+[1]   12 |  var _jsxFileName = "/home/seucra/Runes/projects/sparsha/frontend/src/pages/Announcements.tsx";
+[1]       at TransformPluginContext._formatLog (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30339:39)
+[1]       at TransformPluginContext.error (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30336:14)
+[1]       at normalizeUrl (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27624:18)
+[1]       at async file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27687:30
+[1]       at async Promise.all (index 9)
+[1]       at async TransformPluginContext.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:27655:4)
+[1]       at async EnvironmentPluginContainer.transform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:30128:14)
+[1]       at async loadAndTransform (file:///home/seucra/Runes/projects/sparsha/frontend/node_modules/vite/dist/node/chunks/node.js:24459:26)
+

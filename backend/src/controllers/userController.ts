@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { JwtPayload } from '../lib/auth.js';
-import type { UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import {
   createUser,
   getMyCenters,
@@ -11,10 +11,14 @@ import {
   updateUser,
 } from '../services/userService.js';
 
+// Define the custom request type to access req.user
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 
 export async function listUsersController(req: Request, res: Response, next: NextFunction) {
   try {
+    const requester = (req as AuthenticatedRequest).user;
+
+    // 1. Logic Fix: Merge all filters into one object to avoid calling listUsers twice
     const result = await listUsers({
       role: req.query.role as UserRole | undefined,
       centerId: req.query.centerId as string | undefined,
@@ -25,7 +29,10 @@ export async function listUsersController(req: Request, res: Response, next: Nex
       search: req.query.search as string | undefined,
       page: req.query.page ? Number(req.query.page) : 1,
       limit: req.query.limit ? Number(req.query.limit) : 50,
+      // 🔥 THE KEY FIX: Only filter by creator if NOT a super_admin
+      createdBy: requester?.role === 'super_admin' ? undefined : (requester?.userId || requester?.id)
     });
+
     return res.status(200).json(result);
   } catch (error) {
     return next(error);
@@ -43,7 +50,43 @@ export async function getUserController(req: Request, res: Response, next: NextF
 
 export async function createUserController(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = await createUser(req.body);
+    const requester = (req as AuthenticatedRequest).user;
+    const { role: targetRole } = req.body as { role: UserRole };
+
+    if (!requester || !requester.role) {
+      return res.status(401).json({ success: false, error: "Unauthorized" });
+    }
+
+    const requesterRole = requester.role as string;
+
+    // --- HIERARCHY LOGIC ---
+    if (requesterRole === "super_admin") {
+      const allowedForSuper = ["super_admin", "center_admin"];
+      if (!allowedForSuper.includes(targetRole)) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Super Admins can only create Super Admins or Center Admins." 
+        });
+      }
+    } else if (requesterRole === "center_admin") {
+      const allowedForAdmin = ["teacher", "staff", "volunteer"];
+      if (!allowedForAdmin.includes(targetRole)) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Center Admins can only create Teachers, Staff, or Volunteers." 
+        });
+      }
+    } else {
+      return res.status(403).json({ success: false, error: "Access Denied." });
+    }
+
+    // Attach the creator's ID to the new user data
+    const userData = {
+      ...req.body,
+       createdBy: requester?.userId || requester?.id 
+    };
+
+    const user = await createUser(userData);
     return res.status(201).json(user);
   } catch (error) {
     return next(error);
@@ -53,10 +96,10 @@ export async function createUserController(req: Request, res: Response, next: Ne
 export async function updateUserController(req: Request, res: Response, next: NextFunction) {
   try {
     if ("email" in req.body) {
-      return res.status(400).json({ success: false, error: "Email cannot be changed here" });
+      return res.status(400).json({ success: false, error: "User ID (Email field) cannot be changed once created." });
     }
     if ("password" in req.body || "passwordHash" in req.body) {
-      return res.status(400).json({ success: false, error: "Password cannot be changed here" });
+      return res.status(400).json({ success: false, error: "Use the Reset Password option to change passwords." });
     }
 
     const user = await updateUser(req.params.userId as string, req.body);
@@ -78,10 +121,27 @@ export async function resetPasswordController(req: Request, res: Response, next:
 
 export async function deleteUserController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await softDeleteUser(
-      req.params.userId as string,
-      (req as AuthenticatedRequest).user!,
-    );
+    const requester = (req as AuthenticatedRequest).user!;
+    const targetUser = await getUserById(req.params.userId as string);
+
+    const hierarchy = {
+      [UserRole.super_admin]: 3,
+      [UserRole.center_admin]: 2,
+      [UserRole.teacher]: 1,
+      [UserRole.staff]: 0
+    };
+
+    const requesterLevel = hierarchy[requester.role as keyof typeof hierarchy] || 0;
+    const targetLevel = hierarchy[targetUser.role as keyof typeof hierarchy] || 0;
+
+    if (requesterLevel <= targetLevel && requester.role !== UserRole.super_admin) {
+      return res.status(403).json({ 
+        success: false, 
+        error: "You do not have permission to delete this user." 
+      });
+    }
+
+    const result = await softDeleteUser(req.params.userId as string, requester);
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

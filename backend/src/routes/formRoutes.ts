@@ -20,7 +20,7 @@ import {
   createFormTemplateSchema,
   submitFormSchema,
   updateFormTemplateSchema,
-} from '../validation/schemas.js';
+} from '../validators/schemas.js';
 
 const formRoutes = Router();
 

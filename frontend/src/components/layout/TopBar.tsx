@@ -9,8 +9,8 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const { currentUser, logout } = useAuthStore();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     window.location.href = '/login';
   };
 
