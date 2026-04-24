@@ -107,8 +107,13 @@ export const Exams: React.FC = () => {
           remarks: '',
         };
         for (const sc of row.scores) {
-          const sub = sc.subject.toLowerCase() as SubjectKey;
-          if (sub === 'english' || sub === 'science' || sub === 'maths') {
+          const subRaw = sc.subject.toLowerCase();
+          let sub: SubjectKey | null = null;
+          if (subRaw === 'english') sub = 'english';
+          else if (subRaw === 'science') sub = 'science';
+          else if (subRaw === 'maths' || subRaw === 'mathematics') sub = 'maths';
+
+          if (sub) {
             g[sub] = sc.marks != null && sc.marks !== '' ? String(sc.marks) : '';
           }
           if (sc.remarks && !g.remarks) g.remarks = sc.remarks;

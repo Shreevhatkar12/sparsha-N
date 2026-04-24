@@ -30,7 +30,9 @@ export const Equipment: React.FC = () => {
     category: 'Electronics',
     status: 'active',
     serialNumber: '',
-    centerId: ''
+    centerId: '',
+    quantity: 1,
+    notes: ''
   });
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export const Equipment: React.FC = () => {
         centerId: formData.centerId || currentUser?.centerIds[0]
       });
       setIsModalOpen(false);
-      setFormData({ name: '', category: 'Electronics', status: 'active', serialNumber: '', centerId: '' });
+      setFormData({ name: '', category: 'Electronics', status: 'active', serialNumber: '', centerId: '', quantity: 1, notes: '' });
       fetchEquipment();
     } catch (err) {
       console.error(err);
@@ -127,6 +129,10 @@ export const Equipment: React.FC = () => {
                         <MapPin size={14} className="text-neutral-400" />
                         <span className="font-medium">Center:</span> {item.center?.name || 'Local Center'}
                      </div>
+                     <div className="flex items-center gap-2 text-sm text-neutral-600">
+                        <Package size={14} className="text-neutral-400" />
+                        <span className="font-medium">Quantity:</span> {item.quantity || 1}
+                     </div>
                      {item.serialNumber && (
                         <div className="flex items-center gap-2 text-sm text-neutral-600">
                            <Briefcase size={14} className="text-neutral-400" />
@@ -172,16 +178,36 @@ export const Equipment: React.FC = () => {
                   <option>Furniture</option>
                   <option>Sports</option>
                   <option>Educational</option>
+                  <option>Consumables</option>
                </select>
             </div>
             <div>
-               <label className="block text-sm font-medium text-neutral-700 mb-1">Serial Number (Optional)</label>
+               <label className="block text-sm font-medium text-neutral-700 mb-1">Quantity</label>
                <Input
-                  value={formData.serialNumber}
-                  onChange={e => setFormData({ ...formData, serialNumber: e.target.value })}
-                  placeholder="S/N"
+                  type="number"
+                  min="1"
+                  value={formData.quantity}
+                  onChange={e => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
                />
             </div>
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-neutral-700 mb-1">Serial Number / Asset ID (Optional)</label>
+             <Input
+                value={formData.serialNumber}
+                onChange={e => setFormData({ ...formData, serialNumber: e.target.value })}
+                placeholder="E.g., TAG-2024-001"
+             />
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-neutral-700 mb-1">Notes / Description</label>
+             <textarea
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                rows={3}
+                value={formData.notes}
+                onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Details about condition, purchase info, etc."
+             />
           </div>
           <div className="flex justify-end gap-3 mt-6">
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>

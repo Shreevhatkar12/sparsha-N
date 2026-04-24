@@ -25,11 +25,39 @@ export const Activities: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [centers, setCenters] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
   const { currentUser } = useAuthStore();
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd'),
+    status: 'planned',
+    centerId: '',
+    programId: ''
+  });
 
   useEffect(() => {
     fetchActivities();
+    fetchMetadata();
   }, []);
+
+  const fetchMetadata = async () => {
+    try {
+      const [cRes, pRes] = await Promise.all([
+        api.get('/centers'),
+        api.get('/programs')
+      ]);
+      setCenters(cRes.data.centers || []);
+      setPrograms(pRes.data || []);
+      if (cRes.data.centers?.[0]) setFormData(prev => ({ ...prev, centerId: cRes.data.centers[0].id }));
+      if (pRes.data?.[0]) setFormData(prev => ({ ...prev, programId: pRes.data[0].id }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchActivities = async () => {
     try {
@@ -50,6 +78,26 @@ export const Activities: React.FC = () => {
       case 'completed': return 'bg-green-100 text-green-700 border-green-200';
       case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-neutral-100 text-neutral-700';
+    }
+  };
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/activities', formData);
+      setIsModalOpen(false);
+      setFormData({
+        name: '',
+        description: '',
+        startDate: format(new Date(), 'yyyy-MM-dd'),
+        endDate: format(new Date(), 'yyyy-MM-dd'),
+        status: 'planned',
+        centerId: centers[0]?.id || '',
+        programId: programs[0]?.id || ''
+      });
+      fetchActivities();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -160,10 +208,44 @@ export const Activities: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title="Plan New Activity"
       >
-        <div className="p-4 text-center text-neutral-500">
-           <p>Activity creation form is being finalized. You can currently seed activities via the database seeder.</p>
-           <Button variant="primary" className="mt-4" onClick={() => setIsModalOpen(false)}>Close</Button>
-        </div>
+        <form onSubmit={handleCreate} className="space-y-4">
+          <div>
+             <label className="block text-sm font-medium text-neutral-700 mb-1">Activity Name</label>
+             <Input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="E.g. Summer Camp, Drawing Competition" />
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
+             <textarea className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" rows={3} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Details about the activity..." />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Start Date</label>
+                <Input type="date" required value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">End Date</label>
+                <Input type="date" required value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
+             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Center</label>
+                <select className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" value={formData.centerId} onChange={e => setFormData({ ...formData, centerId: e.target.value })} required>
+                   {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Program</label>
+                <select className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" value={formData.programId} onChange={e => setFormData({ ...formData, programId: e.target.value })} required>
+                   {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+             </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+             <Button type="submit" variant="primary">Create Activity</Button>
+          </div>
+        </form>
       </Modal>
     </PageWrapper>
   );

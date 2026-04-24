@@ -141,18 +141,39 @@ export async function getExamById(user: JwtPayload, examId: string) {
 export async function upsertExamScores(
   user: JwtPayload,
   examId: string,
-  scores: ScoreInput[],
+  input: { scores: any[] },
 ) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
+    include: { program: { include: { subjects: true } } },
   });
 
   if (!exam) throw new Error("Exam not found");
 
   enforceCenterAccess(user, exam.centerId);
 
+  const subjectMap = new Map<string, string>();
+  exam.program?.subjects.forEach((s) => {
+    subjectMap.set(s.id, s.id);
+    subjectMap.set(s.name.toLowerCase(), s.id);
+    if (s.name.toLowerCase() === "mathematics") subjectMap.set("maths", s.id);
+  });
+
+  const processedScores = input.scores.map((s) => {
+    const subjectId = s.subjectId || subjectMap.get((s.subject || "").toLowerCase());
+    if (!subjectId) {
+      throw new Error(`Subject '${s.subject || s.subjectId}' not found for program`);
+    }
+    return {
+      studentId: s.studentId,
+      subjectId: subjectId,
+      marks: s.marks,
+      remarks: s.remarks,
+    };
+  });
+
   await prisma.$transaction(
-    scores.map((score) =>
+    processedScores.map((score) =>
       prisma.examScore.upsert({
         where: {
           examId_studentId_subjectId: {

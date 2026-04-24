@@ -64,27 +64,27 @@ export const Announcements: React.FC = () => {
     }
   };
 
-  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin' || currentUser?.role === 'center_admin';
+    const isManagement = currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin' || currentUser?.role === 'center_admin';
 
-  if (loading) return <PageWrapper title="Announcements"><LoadingSpinner /></PageWrapper>;
+    if (loading) return <PageWrapper title="Announcements"><LoadingSpinner /></PageWrapper>;
 
-  return (
-    <PageWrapper title="Announcements">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-2">
-            <Megaphone className="text-primary" />
-            System Announcements
-          </h1>
-          <p className="text-neutral-500">Stay updated with the latest news and notifications</p>
+    return (
+      <PageWrapper title="Announcements">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-2">
+              <Megaphone className="text-primary" />
+              System Announcements
+            </h1>
+            <p className="text-neutral-500">Stay updated with the latest news and notifications</p>
+          </div>
+          {isManagement && (
+            <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
+              <Plus size={18} />
+              Post New Announcement
+            </Button>
+          )}
         </div>
-        {isAdmin && (
-          <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} />
-            Post New Announcement
-          </Button>
-        )}
-      </div>
 
       <div className="space-y-4">
         {announcements.length === 0 ? (

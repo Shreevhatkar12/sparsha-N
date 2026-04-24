@@ -20,9 +20,17 @@ async function main() {
   });
   const ay2025 = await prisma.academicYear.upsert({
     where: { label: "2025-26" },
-    update: { isCurrent: true },
-    create: { label: "2025-26", startDate: new Date(2025, 5, 1), endDate: new Date(2026, 4, 31), isCurrent: true }
+    update: { isCurrent: false },
+    create: { label: "2025-26", startDate: new Date(2025, 5, 1), endDate: new Date(2026, 4, 31), isCurrent: false }
   });
+  const ay2026 = await prisma.academicYear.upsert({
+    where: { label: "2026-27" },
+    update: { isCurrent: true },
+    create: { label: "2026-27", startDate: new Date(2026, 5, 1), endDate: new Date(2027, 4, 31), isCurrent: true }
+  });
+  
+  // Use ay2026 for the rest of the seeding
+  const currentAY = ay2026;
 
   // 2. Programs & Subjects
   console.log("🎓 Seeding Programs & Subjects...");
@@ -132,7 +140,7 @@ async function main() {
         fullName: `Student ${i + 1}`,
         centerId: center.id,
         programId: program.id,
-        academicYearId: ay2025.id,
+        academicYearId: currentAY.id,
         dob: new Date(2005 + (i % 12), i % 12, (i % 28) + 1),
         gender: i % 2 === 0 ? "male" : "female",
         guardianName: `Parent of ${i + 1}`,
@@ -171,7 +179,7 @@ async function main() {
     for (const center of centers) {
       for (const p of [pMap.SWAYAM, pMap.SHIKSHA]) {
         const session = await prisma.attendanceSession.create({
-          data: { centerId: center.id, programId: p.id, sessionDate: date, createdBy: teachers[0].id, academicYearId: ay2025.id }
+          data: { centerId: center.id, programId: p.id, sessionDate: date, createdBy: teachers[0].id, academicYearId: currentAY.id }
         });
         const centerStudents = students.filter(s => s.centerId === center.id && s.programId === p.id);
         const records = centerStudents.map(s => ({
@@ -186,6 +194,9 @@ async function main() {
   console.log("📝 Seeding Baseline & Endline Exams...");
   for (const center of centers) {
     const swayamSubs = await prisma.programSubject.findMany({ where: { programId: pMap.SWAYAM.id } });
+    // Filter to only the 3 subjects expected by the frontend for now
+    const targetSubs = swayamSubs.filter(s => ["English", "Science", "Mathematics"].includes(s.name));
+    
     for (const type of ["baseline", "endline"]) {
       const exam = await prisma.exam.create({
         data: {
@@ -193,18 +204,18 @@ async function main() {
           examType: type as any,
           centerId: center.id,
           programId: pMap.SWAYAM.id,
-          academicYearId: ay2025.id,
+          academicYearId: currentAY.id,
           createdBy: teachers[0].id,
-          examDate: datePlusDays(ay2025.startDate, type === "baseline" ? 30 : 200)
+          examDate: datePlusDays(currentAY.startDate, type === "baseline" ? 30 : 200)
         }
       });
       const centerSwayamStudents = students.filter(s => s.centerId === center.id && s.programId === pMap.SWAYAM.id);
       const scores = [];
       for (const s of centerSwayamStudents) {
-        for (const sub of swayamSubs) {
+        for (const sub of targetSubs) {
           scores.push({
             examId: exam.id, studentId: s.id, centerId: center.id, subjectId: sub.id,
-            marks: type === "baseline" ? 30 + Math.random() * 40 : 50 + Math.random() * 45,
+            marks: type === "baseline" ? 15 + Math.random() * 20 : 25 + Math.random() * 24,
             enteredBy: teachers[0].id
           });
         }

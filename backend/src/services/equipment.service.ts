@@ -23,13 +23,14 @@ export async function createEquipment(data: any, userId: string) {
   });
 }
 
-export async function logEquipmentAction(equipmentId: string, userId: string, action: string, remarks?: string) {
+export async function logEquipmentAction(equipmentId: string, centerId: string, userId: string, action: string, notes?: string) {
   return prisma.equipmentLog.create({
     data: {
       equipmentId,
-      performedBy: userId,
+      centerId,
+      loggedBy: userId,
       action,
-      remarks,
+      notes,
     },
   });
 }
@@ -37,7 +38,7 @@ export async function logEquipmentAction(equipmentId: string, userId: string, ac
 export async function getEquipmentLogs(equipmentId: string) {
   return prisma.equipmentLog.findMany({
     where: { equipmentId },
-    include: { user: { select: { fullName: true } } },
-    orderBy: { createdAt: "desc" },
+    include: { loggedByUser: { select: { fullName: true } } },
+    orderBy: { loggedAt: "desc" },
   });
 }
