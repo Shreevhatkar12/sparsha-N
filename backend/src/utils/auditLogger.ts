@@ -16,12 +16,10 @@ export async function logAudit(entry: AuditEntry, tx?: Prisma.TransactionClient)
   await db.auditLog.create({
     data: {
       userId: entry.userId,
-      role: entry.role,
       action: entry.action,
-      targetModel: entry.targetModel,
-      targetId: entry.targetId,
-      centerId: entry.centerId,
-      meta: entry.meta as Prisma.InputJsonValue,
+      tableName: entry.targetModel,
+      recordId: entry.targetId,
+      newData: entry.meta as Prisma.InputJsonValue,
     }
   });
 }

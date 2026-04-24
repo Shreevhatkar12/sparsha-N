@@ -10,7 +10,7 @@ import {
   upsertExamScoresController,
 } from '../controllers/examController.js';
 import { validate } from '../middleware/validate.js';
-import { createExamSchema, upsertExamScoresSchema } from '../validation/schemas.js';
+import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.js';
 
 const examRoutes = Router();
 

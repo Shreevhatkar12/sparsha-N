@@ -1,7 +1,7 @@
 import type { AuthUser } from '../types/index.js';
 
 export const centerScope = (user: AuthUser | undefined) => {
-  if (user?.role === "admin") {
+  if (user?.role === "super_admin") {
     return {};
   }
 

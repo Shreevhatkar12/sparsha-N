@@ -87,11 +87,11 @@ export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, cen
       where,
       skip,
       take: safeLimit,
-      orderBy: sortOrder === 'name_asc' ? { fullName: 'asc' } :
-               sortOrder === 'name_desc' ? { fullName: 'desc' } :
-               sortOrder === 'roll_asc' ? { rollNumber: 'asc' } :
-               sortOrder === 'roll_desc' ? { rollNumber: 'desc' } :
-               { createdAt: "desc" },
+      orderBy: (sortOrder === 'name_asc' ? { fullName: 'asc' } :
+                sortOrder === 'name_desc' ? { fullName: 'desc' } :
+                sortOrder === 'roll_asc' ? { rollNumber: 'asc' } :
+                sortOrder === 'roll_desc' ? { rollNumber: 'desc' } :
+                { createdAt: "desc" }) as any,
       include: {
         center: true,
         program: true,
@@ -192,7 +192,7 @@ export const filterStudents = async (user: AuthUser, query: Record<string, any> 
   const where = scopedWhere(user, {
     ...(query.gender ? { gender: query.gender } : {}),
     ...(query.programId ? { programId: query.programId } : {}),
-    ...(user?.role === "admin" && query.centerId ? { centerId: query.centerId } : {}),
+    ...(user?.role === "super_admin" && query.centerId ? { centerId: query.centerId } : {}),
     ...(Object.keys(dobFilter).length ? { dob: dobFilter } : {}),
     ...((query.enrolledAfter || query.enrolledBefore)
       ? {

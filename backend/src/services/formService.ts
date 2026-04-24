@@ -208,7 +208,7 @@ export async function listSubmissions(
     ...(query.studentId ? { studentId: query.studentId } : {}),
     ...((from || to)
       ? {
-          createdAt: {
+          submittedAt: {
             ...(from ? { gte: from } : {}),
             ...(to ? { lte: to } : {}),
           },
@@ -252,10 +252,7 @@ export async function getSubmissionById(user: JwtPayload, submissionId: string) 
 }
 
 export async function deleteSubmission(submissionId: string) {
-  await prisma.formSubmission.findUniqueOrThrow({ where: { id: submissionId } });
-  await prisma.formSubmission.update({
-      data: { isActive: false },
-    where: { id: submissionId } });
+  await prisma.formSubmission.delete({ where: { id: submissionId } });
   return { success: true };
 }
 

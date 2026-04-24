@@ -171,14 +171,12 @@ export async function deleteActivity(user: JwtPayload, activityId: string) {
   }
 
   // Delete all assignments first
-  await prisma.userActivityAssignment.updateMany({
-      data: { isActive: false },
+  await prisma.userActivityAssignment.deleteMany({
     where: { activityId },
   });
 
   // Hard delete activity (as per schema)
-  return prisma.activity.update({
-      data: { isActive: false },
+  return prisma.activity.delete({
     where: { id: activityId },
   });
 }
@@ -234,8 +232,7 @@ export async function removeVolunteerAssignment(activityId: string, userId: stri
     throw new NotFoundError("Assignment not found");
   }
 
-  return prisma.userActivityAssignment.update({
-      data: { isActive: false },
+  return prisma.userActivityAssignment.delete({
     where: { id: existing.id },
   });
 }

@@ -113,7 +113,7 @@ export async function createUser(input: {
         fullName: input.fullName,
         phone: input.phone ?? null,
         role: input.role,
-        createdBy: input.createdBy,
+        ...(input.createdBy ? { creator: { connect: { id: input.createdBy } } } : {}),
       },
       include: {
         centerAssignments: {

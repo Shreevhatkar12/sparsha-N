@@ -18,7 +18,7 @@ export interface TokenPayload {
 
 export const generateAccessToken = (payload: TokenPayload, expiresInOverride?: string) => {
   return jwt.sign(payload, ACCESS_SECRET, {
-    expiresIn: expiresInOverride || ACCESS_EXPIRY,
+    expiresIn: (expiresInOverride || ACCESS_EXPIRY) as any,
   });
 };
 

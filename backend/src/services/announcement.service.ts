@@ -40,7 +40,6 @@ export const listAnnouncements = async (
 ) => {
   const announcements = await prisma.announcement.findMany({
     where: {
-      isActive: true,
       OR: [
         { centerId: null },
         { centerId: { in: allowedCenterIds } },

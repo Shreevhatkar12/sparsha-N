@@ -22,7 +22,7 @@ import {
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/requireRole.middleware.js';
 import { validate } from '../middleware/validate.js';
-import { createStudentSchema, updateStudentSchema, createSkillSchema, createCareerSchema } from '../validation/schemas.js';
+import { createStudentSchema, updateStudentSchema, createSkillSchema, createCareerSchema } from '../validators/schemas.js';
 
 const router = Router();
 

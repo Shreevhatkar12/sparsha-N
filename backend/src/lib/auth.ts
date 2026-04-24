@@ -1,5 +1,5 @@
 import type { AuthUser } from '../types/index.js';
-import type { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
@@ -75,11 +75,11 @@ export function verifyToken(token: string): JwtPayload {
   }
 }
 
-export function requireAuth(
+export const requireAuth: RequestHandler = (
   req: Request,
   _res: Response,
   next: NextFunction,
-): void {
+): void => {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith("Bearer ")) {
     return next(new UnauthorizedError("Authorization token is required"));
@@ -94,7 +94,7 @@ export function requireAuth(
   }
 }
 
-export function requireRole(...roles: UserRole[]) {
+export function requireRole(...roles: UserRole[]): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const user = req.user as unknown as JwtPayload;
 

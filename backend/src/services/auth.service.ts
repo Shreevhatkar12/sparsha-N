@@ -195,6 +195,12 @@ export const refreshAccessToken = async (token: string) => {
 
     return {
       accessToken: generateAccessToken(payload),
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        centerIds,
+      },
     };
   } catch (err) {
     console.error("Refresh Token Service Error:", err);
