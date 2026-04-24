@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import { z } from "zod";
-import type { AuthUser } from '../types/index.js';
+import type { TokenPayload } from '../utils/jwt.js';
 import { centerScope } from '../lib/centerScope.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 
@@ -37,7 +37,7 @@ const scopedWhere = (user: AuthUser, otherConditions: Record<string, unknown> = 
    STUDENTS
 ───────────────────────────────────────── */
 
-export const createStudent = async (user: AuthUser, data: any) => {
+export const createStudent = async (user: TokenPayload, data: any) => {
   const parsed = studentCreateSchema.safeParse(data);
   if (!parsed.success) {
     throw new ValidationError("Invalid student payload", parsed.error.flatten());
@@ -65,7 +65,7 @@ export const createStudent = async (user: AuthUser, data: any) => {
   });
 };
 
-export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder }: Record<string, any> = {}) => {
+export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
   const where = scopedWhere(user, {
@@ -103,7 +103,7 @@ export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, cen
   return { students, total, page, totalPages: Math.ceil(total / safeLimit) };
 };
 
-export const getStudentById = async (user: AuthUser, id: string) => {
+export const getStudentById = async (user: TokenPayload, id: string) => {
   const student = await prisma.student.findUnique({
     where: { id },
     include: {
@@ -128,7 +128,7 @@ export const getStudentById = async (user: AuthUser, id: string) => {
   return student;
 };
 
-export const updateStudent = async (user: AuthUser, id: string, data: any) => {
+export const updateStudent = async (user: TokenPayload, id: string, data: any) => {
   if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
     throw new ValidationError("centerId and programId cannot be changed after creation");
   }
@@ -160,7 +160,7 @@ export const updateStudent = async (user: AuthUser, id: string, data: any) => {
   });
 };
 
-export const deleteStudent = async (user: AuthUser, id: string) => {
+export const deleteStudent = async (user: TokenPayload, id: string) => {
   const result = await prisma.student.updateMany({
     where: scopedWhere(user, { id }),
     data: { isActive: false },
@@ -171,7 +171,7 @@ export const deleteStudent = async (user: AuthUser, id: string) => {
   return { message: "Student deactivated successfully" };
 };
 
-export const filterStudents = async (user: AuthUser, query: Record<string, any> = {}) => {
+export const filterStudents = async (user: TokenPayload, query: Record<string, any> = {}) => {
   const page = Math.max(parseInt(query.page, 10) || 1, 1);
   const safeLimit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
@@ -218,7 +218,7 @@ export const filterStudents = async (user: AuthUser, query: Record<string, any> 
   return { students, total, page, totalPages: Math.ceil(total / safeLimit) };
 };
 
-export const getStudentSummary = async (user: AuthUser, id: string) => {
+export const getStudentSummary = async (user: TokenPayload, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
@@ -281,7 +281,7 @@ export const getStudentSummary = async (user: AuthUser, id: string) => {
 };
 
 /** Aggregated student dashboard payload (charts + tables) for `/students/:id/profile`. */
-export const getStudentProfile = async (user: AuthUser, id: string) => {
+export const getStudentProfile = async (user: TokenPayload, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
@@ -389,12 +389,12 @@ export const getStudentProfile = async (user: AuthUser, id: string) => {
    ATTENDANCE
 ───────────────────────────────────────── */
 
-export const addAttendance = async (user: AuthUser, studentId: string, data: any) => {
+export const addAttendance = async (user: TokenPayload, studentId: string, data: any) => {
   await getStudentById(user, studentId);
   return prisma.attendanceRecord.create({ data: { ...data, studentId } });
 };
 
-export const getAttendanceByStudent = async (user: AuthUser, studentId: string) => {
+export const getAttendanceByStudent = async (user: TokenPayload, studentId: string) => {
   await getStudentById(user, studentId);
   return prisma.attendanceRecord.findMany({
     where: { studentId },
@@ -414,7 +414,7 @@ export const updateAttendance = async (id: string, data: any) => {
    SKILLS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
-export const addSkill = async (user: AuthUser, studentId: string, data: any) => {
+export const addSkill = async (user: TokenPayload, studentId: string, data: any) => {
   const student = await getStudentById(user, studentId);
   return prisma.studentSkillLog.create({
     data: {
@@ -423,13 +423,13 @@ export const addSkill = async (user: AuthUser, studentId: string, data: any) => 
       skillId: data.skillId,
       level: data.level,
       remarks: data.remarks,
-      assessedBy: user.id,
+      assessedBy: user.userId,
     },
     include: { skill: true, assessedByUser: { select: { fullName: true } } },
   });
 };
 
-export const getSkillsByStudent = async (user: AuthUser, studentId: string) => {
+export const getSkillsByStudent = async (user: TokenPayload, studentId: string) => {
   const student = await getStudentById(user, studentId);
   return prisma.studentSkillLog.findMany({
     where: { studentId: student.id },
@@ -452,7 +452,7 @@ export const updateSkill = async (id: string, data: any) => {
    CAREERS (STUBBED - Model missing from schema)
 ───────────────────────────────────────── */
 
-export const addCareer = async (user: AuthUser, studentId: string, data: any) => {
+export const addCareer = async (user: TokenPayload, studentId: string, data: any) => {
   const student = await getStudentById(user, studentId);
   
   let template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking", targetEntity: "student" } });
@@ -462,7 +462,7 @@ export const addCareer = async (user: AuthUser, studentId: string, data: any) =>
         name: "Career Tracking",
         formType: "system",
         targetEntity: "student",
-        createdBy: user.id,
+        createdBy: user.userId,
         schema: { fields: [] }
       }
     });
@@ -473,7 +473,7 @@ export const addCareer = async (user: AuthUser, studentId: string, data: any) =>
       templateId: template.id,
       studentId: student.id,
       centerId: student.centerId,
-      submittedBy: user.id,
+      submittedBy: user.userId,
       data: data
     }
   });
@@ -486,7 +486,7 @@ export const addCareer = async (user: AuthUser, studentId: string, data: any) =>
   };
 };
 
-export const getCareersByStudent = async (user: AuthUser, studentId: string) => {
+export const getCareersByStudent = async (user: TokenPayload, studentId: string) => {
   const student = await getStudentById(user, studentId);
   const template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking" } });
   if (!template) return [];

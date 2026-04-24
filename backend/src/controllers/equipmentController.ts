@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from "express";
+import prisma from "../lib/prisma.js";
 import * as equipmentService from "../services/equipment.service.js";
 
 export async function listEquipment(req: Request, res: Response, next: NextFunction) {
   try {
     const { centerIds, role } = req.user!;
-    const equipment = await equipmentService.listEquipment(centerIds, role);
+    const centerId = req.query.centerId as string;
+    const equipment = await equipmentService.listEquipment(centerIds, role, centerId);
     res.json(equipment);
   } catch (err) {
     next(err);
@@ -26,7 +28,12 @@ export async function logAction(req: Request, res: Response, next: NextFunction)
     const { equipmentId } = req.params;
     const { action, remarks } = req.body;
     const { userId } = req.user!;
-    const log = await equipmentService.logEquipmentAction(equipmentId, userId, action, remarks);
+    
+    // We need the centerId for the log entry
+    const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId } });
+    if (!equipment) throw new Error("Equipment not found");
+
+    const log = await equipmentService.logEquipmentAction(equipmentId, equipment.centerId, userId, action, remarks);
     res.status(201).json(log);
   } catch (err) {
     next(err);

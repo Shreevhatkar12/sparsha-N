@@ -23,6 +23,8 @@ export const Equipment: React.FC = () => {
   const [items, setItems] = useState<EquipmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [centers, setCenters] = useState<any[]>([]);
+  const [centerFilter, setCenterFilter] = useState('');
   const { currentUser } = useAuthStore();
   
   const [formData, setFormData] = useState({
@@ -37,12 +39,26 @@ export const Equipment: React.FC = () => {
 
   useEffect(() => {
     fetchEquipment();
-  }, []);
+    if (currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') {
+      fetchCenters();
+    }
+  }, [centerFilter]);
+
+  const fetchCenters = async () => {
+    try {
+      const res = await api.get('/centers');
+      setCenters(res.data.centers || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchEquipment = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/equipment');
+      const res = await api.get('/equipment', {
+        params: { centerId: centerFilter || undefined }
+      });
       setItems(res.data);
     } catch (err) {
       console.error(err);
@@ -87,13 +103,25 @@ export const Equipment: React.FC = () => {
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                <Input className="pl-10" placeholder="Search equipment by name or serial number..." />
             </div>
-            <select className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20">
-               <option>All Categories</option>
-               <option>Electronics</option>
-               <option>Furniture</option>
-               <option>Sports</option>
-               <option>Educational</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-4">
+               {(currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') && (
+                 <select 
+                   className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                   value={centerFilter}
+                   onChange={e => setCenterFilter(e.target.value)}
+                 >
+                    <option value="">All Centers</option>
+                    {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                 </select>
+               )}
+               <select className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option>All Categories</option>
+                  <option>Electronics</option>
+                  <option>Furniture</option>
+                  <option>Sports</option>
+                  <option>Educational</option>
+               </select>
+            </div>
          </div>
       </Card>
 

@@ -1,10 +1,19 @@
 import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/errors.js";
 
-export async function listEquipment(centerIds: string[], role?: string) {
+export async function listEquipment(centerIds: string[], role?: string, centerId?: string) {
   const where: any = {};
-  if (role !== "super_admin") {
-    where.centerId = { in: centerIds };
+  
+  if (role === "super_admin") {
+    if (centerId) {
+      where.centerId = centerId;
+    }
+  } else {
+    if (centerId && centerIds.includes(centerId)) {
+      where.centerId = centerId;
+    } else {
+      where.centerId = { in: centerIds };
+    }
   }
 
   return prisma.equipment.findMany({
