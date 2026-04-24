@@ -115,12 +115,18 @@ export const loginUser = async ({ email, password }: LoginInput) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user) throw new AppError("Invalid credentials", 401);
+    if (!user) {
+      console.warn(`Login failed: User not found for email: ${email}`);
+      throw new AppError("Invalid credentials", 401);
+    }
     if (!user.isActive) throw new AppError("Account is inactive", 403);
 
     const isValid = await bcrypt.compare(password, user.passwordHash);
 
-    if (!isValid) throw new AppError("Invalid credentials", 401);
+    if (!isValid) {
+      console.warn(`Login failed: Invalid password for email: ${email}`);
+      throw new AppError("Invalid credentials", 401);
+    }
 
     const centerIds = await getCenterIdsByUserId(user.id);
 

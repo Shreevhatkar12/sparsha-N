@@ -1,64 +1,49 @@
-# Seeded Data for Testing (Extensive)
+# Comprehensive Seeded Data Reference
 
-The database has been seeded with the following data to facilitate comprehensive system testing.
+The database has been fully rebuilt and seeded with extensive data across all modules. This document provides a detailed map of the current data state for testing.
 
-## 1. Academic Years
-- **2024-25**: Past year.
-- **2025-26**: **Current Year** (Active for most operations).
-- **2026-27**: Future year.
+## 1. Authentication Credentials
+**Security Note**: All sessions have been invalidated due to the database reset. Please log in fresh.
 
-## 2. Centers (5)
-- **Andheri Center**
-- **Dharavi Center**
-- **Govandi Center**
-- **Kurla Center**
-- **Malad Center**
-
-## 3. Programs
-- **SWAYAM** (Youth Development, Age 15-18)
-- **SHIKSHA** (Early Learning, Age 3-6)
-- **KUSUM** (Women Empowerment)
-- **UDAY** (Vocational)
-
-## 4. Users & Access Control
-| Email | Password | Role | Center(s) |
+| Role | Email | Password | Access Scope |
 |---|---|---|---|
-| `super_admin_1` | `SuperAdmin@123` | `super_admin` | All |
-| `tech_admin_1` | `SuperAdmin@123` | `tech_admin` | All |
-| `center_admin_1` | `Staff@123` | `center_admin` | Andheri |
-| `teacher_1` | `Staff@123` | `teacher` | Andheri |
-| `teacher_2` | `Staff@123` | `teacher` | Dharavi |
-| (up to `teacher_10`) | `Staff@123` | `teacher` | Rotating |
+| **Super Admin** | `super_admin@sparsha.org` | `SuperAdmin@123` | System-wide |
+| **Tech Admin** | `tech_admin@sparsha.org` | `SuperAdmin@123` | System-wide / Tech Support |
+| **Center Admin 1** | `center_admin_1@sparsha.org` | `Staff@123` | Andheri Center |
+| **Teacher 1** | `teacher_1@sparsha.org` | `Staff@123` | Andheri Center |
+| **Teacher 2** | `teacher_2@sparsha.org` | `Staff@123` | Andheri Center |
+| **Center Admin 2** | `center_admin_2@sparsha.org` | `Staff@123` | Dharavi Center |
 
-## 5. Students (100)
-- Distributed across all 5 centers.
-- 50% in SWAYAM, 50% in SHIKSHA.
-- All enrolled in the `2025-26` Academic Year.
+## 2. Infrastructure
+- **5 Centers**: Andheri, Dharavi, Govandi, Kurla, Malad.
+- **4 Programs**: SWAYAM (Youth), SHIKSHA (Early Learning), KUSUM (Women), UDAY (Vocational).
+- **Academic Years**: 2024-25, 2025-26 (**Current**), 2026-27.
 
-## 6. Attendance
-- **History**: Last 7 days of daily attendance sessions created for ALL centers and BOTH major programs.
-- **Completion**: 90% attendance marks populated. 10% random absences for analytics testing.
+## 3. Module Data (Seeded Details)
 
-## 7. Exams & Performance
-- **Baseline 2025**: Created for all students in Andheri Center.
-- **Endline 2025**: Created for all students in Andheri Center.
-- **Scores**: Seeded for English, Mathematics, and Science. Endline scores are generally higher to show "Improvement" in analytics.
+### 📊 Reports & Analytics
+- **Students**: 100 students (20 per center, 50% SWAYAM, 50% SHIKSHA).
+- **Attendance**: **14 days of history** seeded for every student, center, and program.
+- **Exams**: Baseline and Endline exams created for all 5 centers (SWAYAM program).
+    - Full score sets (5 subjects) populated for all SWAYAM students in Andheri.
+    - Endline scores are weighted higher to demonstrate "Improvement" in analytics.
 
-## 8. Skill Assessments
-- **Skill Areas**: Communication, Critical Thinking, Collaboration, Creativity, Self-Management.
-- **Records**: 20 students in each program have initial proficiency logs (Levels 1-5).
+### 🏆 Skills Development
+- **5 Skills**: Public Speaking, Critical Thinking, Team Collaboration, Digital Literacy, Emotional Resilience.
+- **Logs**: **40 students** have individual assessment logs (Levels 1-5) with professional remarks.
 
-## 9. Forms & Templates
-- **Templates (5)**: Career Interest, Family Background, Health Assessment, Quarterly Feedback, Center Safety Audit.
-- **Submissions**: 10 sample submissions created for the first 10 students.
+### 📋 Form Management
+- **5 Templates**: Career Goal Tracking, Maintenance Audit, Parent Feedback, Health Check, Performance Review.
+- **Submissions**: **10 students** have pre-filled submissions for each student-based template.
 
-## 10. Equipment
-- 5 items (Laptop, Projector, etc.) assigned to EACH center.
-- All items marked as "Active" and "Good condition".
+### 📦 Equipment & Inventory
+- **5 Items per Center**: Laptops, Projectors, Science Kits, Whiteboards, First Aid Kits.
+- **Status**: All items marked as "Good Condition" and "Active".
 
-## 11. Announcements
-- **Pinned**: "Quarterly Review Meeting", "Exam Schedule Updated".
-- **General**: "New Resource Center Opening".
+### 📢 Communications
+- **Announcements**: 2 global announcements (Annual Day, Exam Schedule) with role-based visibility.
+- **Messages**: 1 threaded conversation thread between `teacher_1` and `tech_admin` regarding IT Support.
 
-## 12. Messages
-- 5 Threaded conversations between Teachers and Tech Admin regarding password resets.
+## 4. Troubleshooting
+- **Unauthorised / 401**: Clear your browser cookies or use Incognito. The database reset has invalidated old tokens.
+- **Redirect Loop**: This is caused by a stale refresh token. Logout and login again with the new credentials.

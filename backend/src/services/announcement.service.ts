@@ -39,18 +39,18 @@ export const listAnnouncements = async (
   cursor?: string
 ) => {
   const announcements = await prisma.announcement.findMany({
-    where: {
-      OR: [
-        { centerId: null },
-        { centerId: { in: allowedCenterIds } },
-        ...(role === 'super_admin' ? [{}] : [])
-      ],
-      targetRoles: { has: role },
-      AND: [
-        { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
-      ],
-      ...(programId ? { programId } : {})
-    },
+      where: {
+        OR: [
+          { centerId: null },
+          { centerId: { in: allowedCenterIds } },
+          ...(role === 'super_admin' ? [{}] : [])
+        ],
+        ...(role !== 'super_admin' ? { targetRoles: { has: role } } : {}),
+        AND: [
+          { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }
+        ],
+        ...(programId ? { programId } : {})
+      },
     ...buildCursorPagination(cursor, 50),
     orderBy: [
       { isPinned: 'desc' },

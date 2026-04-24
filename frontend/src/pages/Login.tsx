@@ -55,7 +55,7 @@ export const Login: React.FC = () => {
       if (data?.status === 429) {
         setError('Too many login attempts. Please try again later.');
       } else {
-        setError(msg || 'Login failed. Check your UserID and password.');
+        setError(msg || 'Login failed. Check your credentials.');
       }
     } finally {
       setIsLoading(false);
@@ -85,12 +85,12 @@ export const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} className="space-y-4">
           <Input
-            label="User ID"
-            type="text"
+            label="Email Address"
+            type="email"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter your User ID"
-            autoComplete="username"
+            placeholder="e.g. super_admin@sparsha.org"
+            autoComplete="email"
             required
           />
           <Input
