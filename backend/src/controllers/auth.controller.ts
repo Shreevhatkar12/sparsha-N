@@ -104,6 +104,7 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
     const result = await authService.refreshAccessToken(token);
     return res.json(result);
   } catch (err) {
+    res.clearCookie("refreshToken");
     next(err);
   }
 };

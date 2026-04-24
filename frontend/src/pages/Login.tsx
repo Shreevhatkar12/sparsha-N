@@ -20,7 +20,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (accessToken || localStorage.getItem('accessToken')) {
+    if (accessToken) {
       navigate('/dashboard', { replace: true });
     }
   }, [accessToken, navigate]);

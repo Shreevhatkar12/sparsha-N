@@ -23,6 +23,7 @@ import { useAuthStore } from "./store/useAuthStore";
 function App() {
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const logout = useAuthStore((s) => s.logout);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,9 +39,13 @@ function App() {
           const data = await res.json();
           // Use setAuth to set both the user and the accessToken
           setAuth(data.user, data.accessToken);
+        } else {
+          // If refresh fails, clear the store
+          logout();
         }
       } catch (err) {
         console.log("No active session");
+        logout();
       } finally {
         setLoading(false);
       }

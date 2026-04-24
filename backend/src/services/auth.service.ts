@@ -181,7 +181,7 @@ export const refreshAccessToken = async (token: string) => {
     });
 
     if (!user) {
-      throw new AppError("User not found", 404);
+      throw new AppError("Invalid session", 401);
     }
 
     const centerIds = await getCenterIdsByUserId(user.id);
