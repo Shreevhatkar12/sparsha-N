@@ -8,12 +8,14 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuthStore } from '../../store/useAuthStore';
-import { listFormTemplates, type FormTemplateListItem } from '../../services/forms.service';
+import { listFormTemplates, syncKoboForms, type FormTemplateListItem } from '../../services/forms.service';
 import { Plus, Pencil, FileText, Inbox } from 'lucide-react';
 
 export const FormsListPage: React.FC = () => {
   const navigate = useNavigate();
-  const isAdmin = useAuthStore((s) => s.currentUser?.role === 'admin');
+  const isAdmin = useAuthStore((s) =>
+  ['super_admin', 'center_admin'].includes(s.currentUser?.role || '')
+);
 
   const [templates, setTemplates] = useState<FormTemplateListItem[]>([]);
   const [formTypeSlugs, setFormTypeSlugs] = useState<string[]>([]);
@@ -31,6 +33,15 @@ export const FormsListPage: React.FC = () => {
       setError('Failed to load form templates.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncKobo = async () => {
+    try {
+      await syncKoboForms();
+      await load();
+    } catch {
+      setError('Failed to sync Kobo forms.');
     }
   };
 
@@ -53,7 +64,6 @@ export const FormsListPage: React.FC = () => {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, formTypeFilter]);
 
   return (
@@ -61,9 +71,14 @@ export const FormsListPage: React.FC = () => {
       title="Forms"
       actions={
         isAdmin ? (
-          <Button variant="primary" onClick={() => navigate('/forms/new')}>
-            <Plus size={16} className="mr-2" /> New template
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleSyncKobo}>
+              Sync Kobo
+            </Button>
+            <Button variant="primary" onClick={() => navigate('/forms/new')}>
+              <Plus size={16} className="mr-2" /> New template
+            </Button>
+          </div>
         ) : undefined
       }
     >
@@ -89,9 +104,6 @@ export const FormsListPage: React.FC = () => {
             ))}
           </select>
         </label>
-        <p className="text-xs text-neutral-500">
-          Filter by category (e.g. student_meeting). Add types not listed by creating a template first.
-        </p>
       </div>
 
       <Card>
@@ -101,13 +113,6 @@ export const FormsListPage: React.FC = () => {
           <EmptyState
             title="No form templates"
             description={isAdmin ? 'Create a template to start collecting structured responses.' : 'Ask an admin to publish a form template.'}
-            action={
-              isAdmin ? (
-                <Button variant="primary" onClick={() => navigate('/forms/new')}>
-                  Create template
-                </Button>
-              ) : undefined
-            }
           />
         ) : (
           <div className="overflow-x-auto">
@@ -124,7 +129,12 @@ export const FormsListPage: React.FC = () => {
               <tbody>
                 {templates.map((t) => (
                   <tr key={t.id} className="border-b border-neutral-100 hover:bg-neutral-50/80">
-                    <td className="py-3 pr-4 font-medium text-neutral-900">{t.name}</td>
+                    <td className="py-3 pr-4 font-medium text-neutral-900">
+                      {t.name}
+                      {t.externalSource === 'kobo' && (
+                        <span className="ml-2 text-xs bg-green-200 px-2 py-1 rounded">Kobo</span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-neutral-600">{t.formType}</td>
                     <td className="py-3 pr-4">
                       <Badge variant={t.isActive ? 'success' : 'neutral'}>
@@ -135,14 +145,14 @@ export const FormsListPage: React.FC = () => {
                       {new Date(t.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 text-right space-x-2">
-                      <Button variant="ghost" size="sm" className="px-2" onClick={() => navigate(`/forms/${t.id}/fill`)}>
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/fill`)}>
                         <FileText size={16} className="mr-1" /> Fill
                       </Button>
-                      <Button variant="ghost" size="sm" className="px-2" onClick={() => navigate(`/forms/${t.id}/submissions`)}>
+                      <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/submissions`)}>
                         <Inbox size={16} className="mr-1" /> Submissions
                       </Button>
                       {isAdmin && (
-                        <Button variant="ghost" size="sm" className="px-2" onClick={() => navigate(`/forms/${t.id}/edit`)}>
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/edit`)}>
                           <Pencil size={16} className="mr-1" /> Edit
                         </Button>
                       )}

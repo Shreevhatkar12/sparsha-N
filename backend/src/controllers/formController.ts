@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import type { JwtPayload } from '../lib/auth.js';
+import type { JwtPayload } from '../lib/auth.ts';
 import {
   createTemplate,
   deleteSubmission,
@@ -12,9 +12,22 @@ import {
   softDeleteTemplate,
   submitForm,
   updateTemplate,
-} from '../services/formService.js';
+  syncKoboForms,
+  syncKoboSubmissions
+} from '../services/formService.ts';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
+
+export async function syncKoboFormsController(req, res) {
+  await syncKoboForms();
+  res.json({ message: "Kobo forms synced" });
+}
+
+export async function syncKoboSubmissionsController(req, res) {
+  const { formId } = req.params;
+  await syncKoboSubmissions(formId);
+  res.json({ message: "Kobo submissions synced" });
+}
 
 export async function createTemplateController(req: Request, res: Response, next: NextFunction) {
   try {

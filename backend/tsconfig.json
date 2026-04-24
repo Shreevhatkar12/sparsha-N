@@ -9,8 +9,8 @@
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": "src",
-    "allowImportingTsExtensions": false,
-    "noEmit": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "paths": {
       "@/*": [
         "*"

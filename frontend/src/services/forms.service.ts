@@ -6,6 +6,8 @@ export type FormTemplateListItem = {
   formType: string;
   isActive: boolean;
   createdAt: string;
+
+  externalSource?: string;
 };
 
 export type FormSubmissionsResult = {
@@ -13,6 +15,13 @@ export type FormSubmissionsResult = {
   total: number;
   page: number;
   totalPages: number;
+};
+
+export type KoboForm = {
+  id: string;
+  name: string;
+  externalSource?: string;
+  externalId?: string;
 };
 
 export const createFormTemplate = (body: Record<string, unknown>) =>
@@ -56,3 +65,9 @@ export const getStudentFormSubmissions = (studentId: string) =>
 
 export const getPendingForms = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/forms/pending', { params }).then((r) => r.data);
+
+export const syncKoboForms = () =>
+  api.post('/forms/kobo/sync-forms').then((r) => r.data);
+
+export const syncKoboSubmissions = (formId: string) =>
+  api.post(`/forms/kobo/${formId}/sync-submissions`).then((r) => r.data);

@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { getFormTemplate, listFormSubmissions } from '../../services/forms.service';
+import { getFormTemplate, listFormSubmissions, syncKoboSubmissions } from '../../services/forms.service';
 import { ArrowLeft } from 'lucide-react';
 
 export const FormSubmissionsPage: React.FC = () => {
@@ -46,26 +46,38 @@ export const FormSubmissionsPage: React.FC = () => {
     }
   };
 
+  const handleSync = async () => {
+    if (!templateId) return;
+    try {
+      await syncKoboSubmissions(templateId);
+      await load(1);
+    } catch {
+      setError('Failed to sync Kobo submissions.');
+    }
+  };
+
   useEffect(() => {
     if (!templateId) {
       setLoading(false);
       return;
     }
     void load(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
-  if (!templateId) {
-    return null;
-  }
+  if (!templateId) return null;
 
   return (
     <PageWrapper
       title={title ? `Submissions · ${title}` : 'Submissions'}
       actions={
-        <Button variant="ghost" onClick={() => navigate('/forms')} className="bg-white">
-          <ArrowLeft size={18} className="mr-2" /> Forms
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={handleSync}>
+            Sync Kobo
+          </Button>
+          <Button variant="ghost" onClick={() => navigate('/forms')} className="bg-white">
+            <ArrowLeft size={18} className="mr-2" /> Forms
+          </Button>
+        </div>
       }
     >
       {error && (
@@ -94,16 +106,23 @@ export const FormSubmissionsPage: React.FC = () => {
                   {rows.map((row) => {
                     const st = row.student as { fullName?: string } | undefined;
                     const created = row.createdAt as string | undefined;
+
                     return (
                       <tr key={String(row.id)} className="border-b border-neutral-100 align-top">
                         <td className="py-2 pr-3 text-neutral-600 whitespace-nowrap">
                           {created ? new Date(created).toLocaleString() : '—'}
                         </td>
-                        <td className="py-2 pr-3">{st?.fullName ?? String(row.studentId ?? '')}</td>
+                        <td className="py-2 pr-3">
+                          {st?.fullName ?? String(row.studentId ?? '')}
+                        </td>
                         <td className="py-2">
-                          <pre className="text-xs bg-neutral-50 p-2 rounded-lg max-h-32 overflow-auto border border-neutral-100">
-                            {JSON.stringify(row.data, null, 2)}
-                          </pre>
+                          <div className="text-xs bg-neutral-50 p-2 rounded-lg max-h-40 overflow-auto border border-neutral-100">
+                            {Object.entries((row.data as Record<string, unknown>) || {}).map(([k, v]) => (
+                              <div key={k}>
+                                <strong>{k}:</strong> {String(v)}
+                              </div>
+                            ))}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -111,6 +130,7 @@ export const FormSubmissionsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
             {totalPages > 1 && (
               <div className="mt-4 flex justify-center gap-2 items-center text-sm text-neutral-600">
                 <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => void load(page - 1)}>

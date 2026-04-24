@@ -533,6 +533,9 @@ model FormTemplate {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz
 
+  externalSource String? // "kobo"
+  externalId     String? @unique // Kobo UID
+
   center        Center?          @relation(fields: [centerId], references: [id])
   program       Program?         @relation(fields: [programId], references: [id])
   createdByUser User             @relation("UserCreatedFormTemplates", fields: [createdBy], references: [id])
@@ -573,6 +576,8 @@ model FormSubmission {
   ipAddress    String?   @map("ip_address") // Prisma maps INET to String
   userAgent    String?   @map("user_agent")
   data         Json      @default("{}")
+
+  koboSubmissionId String?
 
   template        FormTemplate    @relation(fields: [templateId], references: [id])
   assignment      FormAssignment? @relation(fields: [assignmentId], references: [id])

@@ -1,9 +1,21 @@
 import type { Prisma } from "@prisma/client";
-import type { JwtPayload } from '../lib/auth.js';
-import prisma from '../lib/prisma.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
+import type { JwtPayload } from "../lib/auth.ts";
+import prisma from "../lib/prisma.ts";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../lib/errors.ts";
 
-type FormFieldType = "text" | "textarea" | "date" | "number" | "boolean" | "select";
+import { getKoboForms, getKoboSubmissions } from "./kobo.service.ts";
+
+type FormFieldType =
+  | "text"
+  | "textarea"
+  | "date"
+  | "number"
+  | "boolean"
+  | "select";
 type FormField = {
   name: string;
   label: string;
@@ -42,15 +54,34 @@ function validateSchema(schema: FormSchema): void {
   }
 
   for (const field of schema.fields) {
-    if (!field.name || !field.label || typeof field.required !== "boolean" || !field.type) {
-      throw new ValidationError("Each field must have name, label, type, required");
+    if (
+      !field.name ||
+      !field.label ||
+      typeof field.required !== "boolean" ||
+      !field.type
+    ) {
+      throw new ValidationError(
+        "Each field must have name, label, type, required",
+      );
     }
-    const allowed: FormFieldType[] = ["text", "textarea", "date", "number", "boolean", "select"];
+    const allowed: FormFieldType[] = [
+      "text",
+      "textarea",
+      "date",
+      "number",
+      "boolean",
+      "select",
+    ];
     if (!allowed.includes(field.type)) {
       throw new ValidationError(`Unsupported field type: ${field.type}`);
     }
-    if (field.type === "select" && (!Array.isArray(field.options) || field.options.length === 0)) {
-      throw new ValidationError("select fields must include non-empty options array");
+    if (
+      field.type === "select" &&
+      (!Array.isArray(field.options) || field.options.length === 0)
+    ) {
+      throw new ValidationError(
+        "select fields must include non-empty options array",
+      );
     }
   }
 }
@@ -64,7 +95,10 @@ function parseDate(value?: string): Date | undefined {
   return date;
 }
 
-export async function createTemplate(user: JwtPayload, input: CreateTemplateInput) {
+export async function createTemplate(
+  user: JwtPayload,
+  input: CreateTemplateInput,
+) {
   validateSchema(input.schema);
   const schemaWithVersion = {
     ...input.schema,
@@ -96,12 +130,17 @@ export async function listTemplates(
 }
 
 export async function getTemplateById(templateId: string) {
-  const template = await prisma.formTemplate.findUnique({ where: { id: templateId } });
+  const template = await prisma.formTemplate.findUnique({
+    where: { id: templateId },
+  });
   if (!template) throw new NotFoundError("Form template");
   return template;
 }
 
-export async function updateTemplate(templateId: string, input: CreateTemplateInput) {
+export async function updateTemplate(
+  templateId: string,
+  input: CreateTemplateInput,
+) {
   const existing = await getTemplateById(templateId);
   validateSchema(input.schema);
   const prevSchema = existing.schema as unknown as FormSchema;
@@ -206,7 +245,7 @@ export async function listSubmissions(
     centerId: centerFilter,
     ...(query.templateId ? { templateId: query.templateId } : {}),
     ...(query.studentId ? { studentId: query.studentId } : {}),
-    ...((from || to)
+    ...(from || to
       ? {
           createdAt: {
             ...(from ? { gte: from } : {}),
@@ -238,7 +277,10 @@ export async function listSubmissions(
   };
 }
 
-export async function getSubmissionById(user: JwtPayload, submissionId: string) {
+export async function getSubmissionById(
+  user: JwtPayload,
+  submissionId: string,
+) {
   const submission = await prisma.formSubmission.findUnique({
     where: { id: submissionId },
     include: {
@@ -252,12 +294,17 @@ export async function getSubmissionById(user: JwtPayload, submissionId: string) 
 }
 
 export async function deleteSubmission(submissionId: string) {
-  await prisma.formSubmission.findUniqueOrThrow({ where: { id: submissionId } });
+  await prisma.formSubmission.findUniqueOrThrow({
+    where: { id: submissionId },
+  });
   await prisma.formSubmission.delete({ where: { id: submissionId } });
   return { success: true };
 }
 
-export async function getStudentSubmissions(user: JwtPayload, studentId: string) {
+export async function getStudentSubmissions(
+  user: JwtPayload,
+  studentId: string,
+) {
   const student = await prisma.student.findUnique({ where: { id: studentId } });
   if (!student) throw new NotFoundError("Student");
   ensureCenterAccess(user, student.centerId);
@@ -270,12 +317,15 @@ export async function getStudentSubmissions(user: JwtPayload, studentId: string)
     orderBy: { submittedAt: "desc" },
   });
 
-  const grouped = submissions.reduce<Record<string, typeof submissions>>((acc, row) => {
-    const key = row.template.formType;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(row);
-    return acc;
-  }, {});
+  const grouped = submissions.reduce<Record<string, typeof submissions>>(
+    (acc, row) => {
+      const key = row.template.formType;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(row);
+      return acc;
+    },
+    {},
+  );
 
   return { studentId, groupedByFormType: grouped };
 }
@@ -290,14 +340,22 @@ export async function getPendingSubmissions(
 
   const centerId =
     query.centerId ??
-    (user.role === "super_admin" ? undefined : user.centerIds.length === 1 ? user.centerIds[0] : undefined);
+    (user.role === "super_admin"
+      ? undefined
+      : user.centerIds.length === 1
+        ? user.centerIds[0]
+        : undefined);
   if (!centerId && user.role !== "super_admin") {
     throw new ValidationError("centerId is required for multi-center users");
   }
   if (centerId) ensureCenterAccess(user, centerId);
 
   const studentWhere = {
-    ...(centerId ? { centerId } : user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
+    ...(centerId
+      ? { centerId }
+      : user.role === "super_admin"
+        ? {}
+        : { centerId: { in: user.centerIds } }),
     isActive: true,
   };
 
@@ -317,4 +375,65 @@ export async function getPendingSubmissions(
   const submittedIds = new Set(existing.map((row) => row.studentId));
 
   return students.filter((student) => !submittedIds.has(student.id));
+}
+
+export async function syncKoboForms() {
+  const forms = await getKoboForms();
+
+  for (const form of forms) {
+    await prisma.formTemplate.upsert({
+      where: {
+        externalId: form.uid,
+      },
+      update: {
+        name: form.name,
+        description: form.description,
+      },
+      create: {
+        name: form.name,
+        description: form.description,
+        formType: "kobo",
+        externalSource: "kobo",
+        externalId: form.uid,
+        targetEntity: "student",
+        schema: { fields: [] },
+        createdByUser: {
+          connect: { id: "SYSTEM_USER_ID" },
+        },
+      },
+    });
+  }
+}
+
+export async function syncKoboSubmissions(formId: string) {
+  const form = await prisma.formTemplate.findUnique({
+    where: { id: formId },
+  });
+
+  if (!form?.externalId) {
+    throw new Error("Not a Kobo form");
+  }
+
+  const submissions = await getKoboSubmissions(form.externalId);
+
+  for (const sub of submissions) {
+    // prevent duplicate
+    const exists = await prisma.formSubmission.findFirst({
+      where: {
+        koboSubmissionId: sub._id,
+      },
+    });
+
+    if (exists) continue;
+
+    await prisma.formSubmission.create({
+      data: {
+        templateId: form.id,
+        centerId: "REPLACE_CENTER_ID",
+        submittedBy: "REPLACE_USER_ID",
+        data: sub,
+        koboSubmissionId: sub._id,
+      },
+    });
+  }
 }
