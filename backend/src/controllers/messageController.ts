@@ -3,8 +3,8 @@ import * as messageService from "../services/message.service.js";
 
 export async function listThreads(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = req.user!.userId;
-    const threads = await messageService.listThreads(userId);
+    const { userId, role } = req.user!;
+    const threads = await messageService.listThreads(userId, role);
     res.json(threads);
   } catch (err) {
     next(err);
@@ -14,8 +14,8 @@ export async function listThreads(req: Request, res: Response, next: NextFunctio
 export async function getThreadMessages(req: Request, res: Response, next: NextFunction) {
   try {
     const { threadId } = req.params;
-    const userId = req.user!.userId;
-    const messages = await messageService.getThreadMessages(threadId, userId);
+    const { userId, role } = req.user!;
+    const messages = await messageService.getThreadMessages(threadId, userId, role);
     res.json(messages);
   } catch (err) {
     next(err);

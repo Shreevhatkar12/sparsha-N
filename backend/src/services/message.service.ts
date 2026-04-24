@@ -1,11 +1,14 @@
 import prisma from "../lib/prisma.js";
 import { AppError } from "../lib/errors.js";
 
-export async function listThreads(userId: string) {
+export async function listThreads(userId: string, role?: string) {
+  const where: any = {};
+  if (role !== 'super_admin') {
+    where.participants = { some: { userId } };
+  }
+  
   return prisma.messageThread.findMany({
-    where: {
-      participants: { some: { userId } },
-    },
+    where,
     include: {
       participants: {
         include: { user: { select: { fullName: true, email: true, role: true } } },
@@ -20,14 +23,14 @@ export async function listThreads(userId: string) {
   });
 }
 
-export async function getThreadMessages(threadId: string, userId: string) {
+export async function getThreadMessages(threadId: string, userId: string, role?: string) {
   const thread = await prisma.messageThread.findUnique({
     where: { id: threadId },
     include: { participants: true },
   });
 
   if (!thread) throw new AppError("Thread not found", 404);
-  if (!thread.participants.some((p) => p.userId === userId)) {
+  if (role !== 'super_admin' && !thread.participants.some((p) => p.userId === userId)) {
     throw new AppError("Access denied", 403);
   }
 

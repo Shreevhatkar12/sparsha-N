@@ -3,8 +3,8 @@ import * as equipmentService from "../services/equipment.service.js";
 
 export async function listEquipment(req: Request, res: Response, next: NextFunction) {
   try {
-    const { centerIds } = req.user!;
-    const equipment = await equipmentService.listEquipment(centerIds);
+    const { centerIds, role } = req.user!;
+    const equipment = await equipmentService.listEquipment(centerIds, role);
     res.json(equipment);
   } catch (err) {
     next(err);

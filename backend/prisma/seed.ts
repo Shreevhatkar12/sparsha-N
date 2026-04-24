@@ -23,11 +23,6 @@ async function main() {
     update: { isCurrent: true },
     create: { label: "2025-26", startDate: new Date(2025, 5, 1), endDate: new Date(2026, 4, 31), isCurrent: true }
   });
-  const ay2026 = await prisma.academicYear.upsert({
-    where: { label: "2026-27" },
-    update: {},
-    create: { label: "2026-27", startDate: new Date(2026, 5, 1), endDate: new Date(2027, 4, 31), isCurrent: false }
-  });
 
   // 2. Programs & Subjects
   console.log("🎓 Seeding Programs & Subjects...");
@@ -44,7 +39,6 @@ async function main() {
       update: { isActive: true },
       create: { ...p, isActive: true },
     });
-    // Add subjects
     const subjects = ["English", "Mathematics", "Science", "Digital Literacy", "Social Skills"];
     for (const sName of subjects) {
       await prisma.programSubject.upsert({
@@ -65,7 +59,6 @@ async function main() {
   ];
   const centers = [];
   for (const c of centerData) {
-    // Just find by name and update or create
     let center = await prisma.center.findFirst({ where: { name: c.name } });
     if (center) {
       center = await prisma.center.update({ where: { id: center.id }, data: { location: c.location } });
@@ -73,7 +66,6 @@ async function main() {
       center = await prisma.center.create({ data: { name: c.name, location: c.location, isActive: true } });
     }
     centers.push(center);
-    
     await prisma.centerProgram.upsert({
       where: { centerId_programId: { centerId: center.id, programId: pMap.SWAYAM.id } },
       update: {}, create: { centerId: center.id, programId: pMap.SWAYAM.id }
@@ -151,7 +143,25 @@ async function main() {
     students.push(s);
   }
 
-  // 6. Attendance
+  // 6. Activities
+  console.log("🏀 Seeding Activities...");
+  for (const center of centers) {
+    await prisma.activity.create({
+      data: {
+        name: `Summer Camp - ${center.name}`,
+        description: "Annual summer workshop for youth.",
+        centerId: center.id,
+        programId: pMap.SWAYAM.id,
+        activityType: "general",
+        startDate: new Date(2025, 4, 1),
+        endDate: new Date(2025, 4, 15),
+        createdBy: superAdmin.id,
+        status: "planned",
+      }
+    });
+  }
+
+  // 7. Attendance
   console.log("📅 Seeding 14 days of Attendance...");
   for (let d = 14; d >= 0; d--) {
     const date = new Date();
@@ -172,7 +182,7 @@ async function main() {
     }
   }
 
-  // 7. Exams
+  // 8. Exams
   console.log("📝 Seeding Baseline & Endline Exams...");
   for (const center of centers) {
     const swayamSubs = await prisma.programSubject.findMany({ where: { programId: pMap.SWAYAM.id } });
@@ -203,7 +213,7 @@ async function main() {
     }
   }
 
-  // 8. Skills
+  // 9. Skills
   console.log("🛠️ Seeding Skill Assessments...");
   const skillSets = ["Public Speaking", "Critical Thinking", "Team Collaboration", "Digital Literacy", "Emotional Resilience"];
   for (const name of skillSets) {
@@ -221,7 +231,7 @@ async function main() {
     }
   }
 
-  // 9. Equipment
+  // 10. Equipment
   console.log("📦 Seeding Center Equipment...");
   const equipmentItems = ["Laptop", "Projector", "Science Kit", "Whiteboard", "First Aid Kit"];
   for (const center of centers) {
@@ -235,7 +245,7 @@ async function main() {
     }
   }
 
-  // 10. Forms
+  // 11. Forms
   console.log("📋 Seeding Form Templates...");
   const templates = ["Career Goal Tracking", "Maintenance Audit", "Parent Feedback", "Health Check", "Performance Review"];
   for (const name of templates) {
@@ -252,19 +262,19 @@ async function main() {
     }
   }
 
-  // 11. Messaging
+  // 12. Messaging
   console.log("📢 Seeding Communications...");
   await prisma.announcement.createMany({
     data: [
-      { title: "Annual Day 2025", body: "Cultural event preparation.", isPinned: true, createdBy: superAdmin.id, targetRoles: ["teacher"] },
-      { title: "Exam Schedule", body: "Check the notice board.", isPinned: false, createdBy: superAdmin.id, targetRoles: ["all"] }
+      { title: "Annual Day 2025", body: "Cultural event preparation.", isPinned: true, createdBy: superAdmin.id, targetRoles: ["teacher", "super_admin"] },
+      { title: "Exam Schedule", body: "Check the notice board.", isPinned: false, createdBy: superAdmin.id, targetRoles: ["all", "super_admin"] }
     ]
   });
 
   const thread = await prisma.messageThread.create({
     data: {
       subject: "IT Support", centerId: centers[0].id, createdBy: teachers[0].id,
-      participants: { create: [{ userId: teachers[0].id }, { userId: techAdmin.id }] }
+      participants: { create: [{ userId: teachers[0].id }, { userId: techAdmin.id }, { userId: superAdmin.id }] }
     }
   });
   await prisma.message.create({
