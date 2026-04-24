@@ -45,8 +45,12 @@ export const createStudent = async (user: AuthUser, data: any) => {
 
   const payload = parsed.data;
 
-  if (user?.role === "teacher" && !user.centerIds?.includes(payload.centerId as string)) {
-    throw new ForbiddenError("Teachers can only create students in assigned centers");
+  if (user.role !== 'super_admin') {
+    if (!user.centerIds || user.centerIds.length === 0) {
+      throw new ForbiddenError("You must be assigned to a center to create students");
+    }
+    // Override payload centerId from token explicitly
+    payload.centerId = user.centerIds[0];
   }
 
   return prisma.student.create({
@@ -96,8 +100,8 @@ export const getAllStudents = async (user: AuthUser, { page = 1, limit = 50, cen
 };
 
 export const getStudentById = async (user: AuthUser, id: string) => {
-  const student = await prisma.student.findFirst({
-    where: scopedWhere(user, { id }),
+  const student = await prisma.student.findUnique({
+    where: { id },
     include: {
       center: true,
       program: true,
@@ -111,6 +115,10 @@ export const getStudentById = async (user: AuthUser, id: string) => {
 
   if (!student) {
     throw new NotFoundError("Student");
+  }
+
+  if (user.role !== 'super_admin' && !user.centerIds.includes(student.centerId)) {
+    throw new ForbiddenError("Cannot access student from another center");
   }
 
   return student;

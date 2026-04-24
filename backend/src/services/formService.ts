@@ -253,7 +253,9 @@ export async function getSubmissionById(user: JwtPayload, submissionId: string) 
 
 export async function deleteSubmission(submissionId: string) {
   await prisma.formSubmission.findUniqueOrThrow({ where: { id: submissionId } });
-  await prisma.formSubmission.delete({ where: { id: submissionId } });
+  await prisma.formSubmission.update({
+      data: { isActive: false },
+    where: { id: submissionId } });
   return { success: true };
 }
 

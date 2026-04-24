@@ -11,13 +11,14 @@ export interface TokenPayload {
   email: string;
   role: string;
   centerIds: string[];
+  isActive?: boolean;
 }
 
 /* -------- ACCESS TOKEN -------- */
 
-export const generateAccessToken = (payload: TokenPayload) => {
+export const generateAccessToken = (payload: TokenPayload, expiresInOverride?: string) => {
   return jwt.sign(payload, ACCESS_SECRET, {
-    expiresIn: ACCESS_EXPIRY,
+    expiresIn: expiresInOverride || ACCESS_EXPIRY,
   });
 };
 
