@@ -10,8 +10,24 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🚀 Starting TOTAL DB REBUILD & EXTENSIVE SEEDING...");
-
-  // 1. Academic Years
+  // 0. Cleanup existing dynamic data to prevent duplication on multiple runs
+  console.log("🧹 Cleaning up old records...");
+  await prisma.message.deleteMany();
+  await prisma.threadParticipant.deleteMany();
+  await prisma.messageThread.deleteMany();
+  await prisma.announcement.deleteMany();
+  await prisma.formSubmission.deleteMany();
+  await prisma.formAssignment.deleteMany();
+  await prisma.formTemplate.deleteMany();
+  await prisma.equipmentLog.deleteMany();
+  await prisma.equipment.deleteMany();
+  await prisma.studentSkillLog.deleteMany();
+  await prisma.skillDefinition.deleteMany();
+  await prisma.examScore.deleteMany();
+  await prisma.exam.deleteMany();
+  await prisma.userActivityAssignment.deleteMany();
+  await prisma.activity.deleteMany();
+  // Note: We don't delete Students, Users, Centers, or Academic Years as they use upsert
   console.log("📅 Seeding Academic Years...");
   const ay2024 = await prisma.academicYear.upsert({
     where: { label: "2024-25" },
