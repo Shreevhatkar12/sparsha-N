@@ -36,7 +36,7 @@ router.get("/dashboard", getDashboardStats);
 // 3. Students CRUD (Strictly Teachers and Staff only for creation/update)
 router.post(
   "/", 
-  requireRole("teacher", "staff"), 
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
   validate(createStudentSchema), 
   createStudent
 );
@@ -50,7 +50,7 @@ router.get("/:id", getStudentById);
 // Editing students is restricted to the people handling them
 router.put(
   "/:id", 
-  requireRole("teacher", "staff"), 
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
   validate(updateStudentSchema), 
   updateStudent
 );
@@ -59,18 +59,18 @@ router.put(
 router.delete("/:id", requireRole("super_admin", "center_admin","teacher"), deleteStudent);
 
 // 4. Attendance (Daily task for Teachers)
-router.post("/:studentId/attendance", requireRole("teacher", "staff"), addAttendance);
+router.post("/:studentId/attendance", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), addAttendance);
 router.get("/:studentId/attendance", getAttendanceByStudent);
-router.put("/attendance/:id", requireRole("teacher", "staff"), updateAttendance);
+router.put("/attendance/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), updateAttendance);
 
 // 5. Skills (Pedagogical task for Teachers)
-router.post("/:studentId/skills", requireRole("teacher", "staff"), validate(createSkillSchema), addSkill);
+router.post("/:studentId/skills", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), addSkill);
 router.get("/:studentId/skills", getSkillsByStudent);
-router.put("/skills/:id", requireRole("teacher", "staff"), validate(createSkillSchema), updateSkill);
+router.put("/skills/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), updateSkill);
 
 // 6. Careers (Guidance task for Teachers)
-router.post("/:studentId/careers", requireRole("teacher", "staff"), validate(createCareerSchema), addCareer);
+router.post("/:studentId/careers", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
-router.put("/careers/:id", requireRole("teacher", "staff"), validate(createCareerSchema), updateCareer);
+router.put("/careers/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), updateCareer);
 
 export default router;

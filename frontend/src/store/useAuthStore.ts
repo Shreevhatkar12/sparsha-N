@@ -46,11 +46,15 @@ export const useAuthStore = create<AuthState>()(
         // Hydration via persist happens automatically.
       },
 
-      logout: () => {
-        fetch("/api/auth/logout", {
-          method: "POST",
-          credentials: "include",
-        });
+      logout: async () => {
+        try {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+        } catch (err) {
+          console.error("Logout API failed", err);
+        }
 
         set({
           currentUser: null,

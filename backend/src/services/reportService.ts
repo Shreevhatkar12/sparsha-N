@@ -225,7 +225,7 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
 
   // Fetch all qualifying exams and scores
   const whereExam: Prisma.ExamWhereInput = {
-    academicYear,
+    academicYear: { label: { contains: academicYear } },
     centerId: getCenterScope(user)
   };
   if (centerId) {

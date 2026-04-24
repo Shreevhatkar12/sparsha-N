@@ -50,12 +50,20 @@ function applyCenterFilter(user: JwtPayload, where: any) {
 export async function createExam(user: JwtPayload, input: CreateExamInput) {
   enforceCenterAccess(user, input.centerId);
 
+  let academicYearId = input.academicYear;
+  // If not a UUID, try to find by label
+  if (academicYearId && !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(academicYearId)) {
+    const ay = await prisma.academicYear.findUnique({ where: { label: academicYearId } });
+    if (ay) academicYearId = ay.id;
+    else throw new Error(`Academic year '${academicYearId}' not found`);
+  }
+
   const existing = await prisma.exam.findFirst({
     where: {
       centerId: input.centerId,
       programId: input.programId,
       examType: input.examType,
-      academicYearId: input.academicYear,
+      academicYearId: academicYearId,
     },
   });
 
@@ -68,7 +76,7 @@ export async function createExam(user: JwtPayload, input: CreateExamInput) {
       centerId: input.centerId,
       programId: input.programId,
       examType: input.examType,
-      academicYearId: input.academicYear,
+      academicYearId: academicYearId,
       examDate: input.examDate ? new Date(input.examDate) : null,
       name: `${input.examType} exam`,
       createdBy: user.userId,
@@ -88,7 +96,9 @@ export async function listExams(user: JwtPayload, query: ListExamQuery) {
   if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
   if (query.examType) where.examType = query.examType;
-  if (query.academicYearId) where.academicYearId = query.academicYearId;
+  if (query.academicYearId) {
+    where.academicYear = { label: query.academicYearId };
+  }
 
   const exams = await prisma.exam.findMany({
     where,
@@ -240,7 +250,9 @@ export async function getExamComparison(
 
   if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
-  if (query.academicYearId) where.academicYearId = query.academicYearId;
+  if (query.academicYearId) {
+    where.academicYear = { label: query.academicYearId };
+  }
 
   const exams = await prisma.exam.findMany({
     where,

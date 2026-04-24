@@ -20,10 +20,23 @@ export async function getSkillsByStudent(user: JwtPayload, studentId: string) {
       skill: true,
       assessedByUser: true,
     },
-    orderBy: { assessedAt: "desc" },
+    orderBy: { assessedOn: "desc" },
   });
 
   return logs;
+}
+
+export async function createSkillLog(user: JwtPayload, studentId: string, data: any) {
+  return prisma.studentSkillLog.create({
+    data: {
+      studentId,
+      centerId: data.centerId,
+      skillId: data.skillId,
+      level: data.level,
+      remarks: data.remarks,
+      assessedBy: user.userId,
+    },
+  });
 }
 
 export async function listSkillDefinitions(programId?: string) {

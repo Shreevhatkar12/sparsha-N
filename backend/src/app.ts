@@ -16,6 +16,9 @@ import reportRoutes from './routes/reportRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import studentRoutes from './routes/student.route.js';
 import skillRoutes from './routes/skillRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
+import equipmentRoutes from './routes/equipmentRoutes.js';
+import messageRoutes from './routes/messageRoutes.js';
 
 const app = express();
 
@@ -57,6 +60,9 @@ app.use("/api/activities", activityRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/skills", skillRoutes);
+app.use("/api/announcements", announcementRoutes);
+app.use("/api/equipment", equipmentRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.use(errorHandler);
 

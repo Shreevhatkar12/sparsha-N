@@ -8,14 +8,26 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { getStudents } from '../services/students.service';
 import { getSkillsByStudent } from '../services/skills.service';
 import type { Student } from '../types';
+import api from '../services/api';
+import { User, Megaphone, Plus, Search } from 'lucide-react';
+import { format } from 'date-fns';
+import { Modal } from '../components/ui/Modal';
 
 export const Skills: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [skillsPayload, setSkillsPayload] = useState<unknown>(null);
+  const [skillsPayload, setSkillsPayload] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [skillDefs, setSkillDefs] = useState<any[]>([]);
+  const [newSkillLog, setNewSkillLog] = useState({
+    skillId: '',
+    level: 3,
+    remarks: ''
+  });
 
   useEffect(() => {
     let alive = true;
@@ -27,15 +39,19 @@ export const Skills: React.FC = () => {
         if (!alive) return;
         setStudents(res.students);
         if (res.students[0]) setSelectedId(res.students[0].id);
-      } catch {
-        if (alive) setError('Failed to load students.');
+        
+        const skRes = await api.get(`/skills/definitions`);
+        if (alive) {
+          setSkillDefs(skRes.data);
+          if (skRes.data[0]) setNewSkillLog(s => ({ ...s, skillId: skRes.data[0].id }));
+        }
+      } catch (err) {
+        if (alive) setError('Failed to load initial data.');
       } finally {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {
@@ -45,101 +61,133 @@ export const Skills: React.FC = () => {
       setDetailLoading(true);
       setError(null);
       try {
-        const data = await getSkillsByStudent(selectedId);
-        if (alive) setSkillsPayload(data);
-      } catch {
+        const res = await api.get(`/students/${selectedId}/skills`);
+        if (alive) setSkillsPayload(res.data.data);
+      } catch (err) {
         if (alive) {
-          setSkillsPayload(null);
-          setError('Skill records are not available for this deployment (backend route or schema).');
+          setSkillsPayload([]);
+          setError('Failed to load skill records.');
         }
       } finally {
         if (alive) setDetailLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [selectedId]);
 
-  if (loading) {
-    return (
-      <PageWrapper title="Skills">
-        <LoadingSpinner />
-      </PageWrapper>
-    );
-  }
+  const handleSaveSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId || !newSkillLog.skillId) return;
+    
+    try {
+      setDetailLoading(true);
+      await api.post(`/students/${selectedId}/skills`, {
+        ...newSkillLog,
+        centerId: students.find(s => s.id === selectedId)?.centerId
+      });
+      setIsModalOpen(false);
+      const res = await api.get(`/students/${selectedId}/skills`);
+      setSkillsPayload(res.data.data);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to save skill assessment.');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  if (loading) return <PageWrapper title="Skills"><LoadingSpinner /></PageWrapper>;
 
   return (
     <PageWrapper title="Skill Development Tracking">
-      {error && (
-        <div className="mb-4">
-          <ErrorMessage message={error} />
-        </div>
-      )}
+      {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card>
-          <h2 className="text-lg font-semibold mb-3">Student</h2>
+        <Card className="h-fit">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Student Selection</h2>
+            <div className="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-brand-600">
+               <User size={16} />
+            </div>
+          </div>
           {students.length === 0 ? (
             <EmptyState title="No students" description="Add students before logging skills." />
           ) : (
             <select
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
               value={selectedId}
-              onChange={(e) => {
-                setError(null);
-                setSelectedId(e.target.value);
-              }}
+              onChange={(e) => setSelectedId(e.target.value)}
             >
               {students.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.fullName}
-                </option>
+                <option key={s.id} value={s.id}>{s.fullName}</option>
               ))}
             </select>
           )}
+          <div className="mt-6 pt-6 border-t border-neutral-100">
+             <Button variant="primary" className="w-full flex items-center justify-center gap-2" onClick={() => setIsModalOpen(true)} disabled={!selectedId}>
+                <Plus size={18} /> Record Assessment
+             </Button>
+          </div>
         </Card>
+
         <div className="lg:col-span-2">
-          <Card>
-            <h2 className="text-lg font-semibold mb-2">Records from API</h2>
+          <Card className="h-full">
+            <h2 className="text-lg font-semibold mb-6">Proficiency Records</h2>
             {detailLoading ? (
               <LoadingSpinner label="Loading skills…" />
             ) : Array.isArray(skillsPayload) && skillsPayload.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
                 {skillsPayload.map((skill: any, i: number) => (
-                  <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:border-primary/50 transition-colors group">
+                  <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:border-primary/50 transition-all group">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="font-medium text-neutral-800 capitalize">{skill.skill?.name || skill.skillName || skill.name || 'Skill Area'}</span>
-                      <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shadow-sm">Level {skill.level || 0} / 5</span>
+                      <span className="font-bold text-neutral-800 capitalize">{skill.skill?.name || 'Skill Area'}</span>
+                      <span className="text-xs font-bold text-brand-700 bg-brand-50 px-2 py-1 rounded-full">Level {skill.level || 0} / 5</span>
                     </div>
-                    <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden border border-neutral-200/50">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all duration-700 ease-out group-hover:opacity-90" 
-                        style={{ width: `${Math.min(100, Math.max(0, (skill.level || 0) * 20))}%` }}
-                      ></div>
+                    <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden mb-2">
+                      <div className="bg-brand-600 h-2 rounded-full transition-all duration-1000" style={{ width: `${(skill.level || 0) * 20}%` }}></div>
                     </div>
-                    {skill.remarks && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-md">{skill.remarks}</p>}
+                    <div className="flex justify-between items-center text-[10px] text-neutral-400">
+                       <span>{skill.assessedOn ? format(new Date(skill.assessedOn), 'MMM d, yyyy') : 'Recently'}</span>
+                       {skill.assessedByUser && <span>By: {skill.assessedByUser.fullName}</span>}
+                    </div>
+                    {skill.remarks && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-lg italic">"{skill.remarks}"</p>}
                   </div>
                 ))}
               </div>
             ) : (
-               <div className="py-10 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-200 rounded-2xl bg-neutral-50 hover:bg-neutral-100/50 transition-colors">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3 text-primary">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                  </div>
-                  <h3 className="font-medium text-neutral-700">No skill assessments</h3>
-                  <p className="text-sm text-neutral-500 mt-1 max-w-sm">No skill data has been recorded for this student yet.</p>
+               <div className="py-20 flex flex-col items-center justify-center text-center border-2 border-dashed border-neutral-100 rounded-2xl bg-neutral-50/50">
+                  <Megaphone size={32} className="text-neutral-400 mb-4" />
+                  <h3 className="text-lg font-medium text-neutral-800">No assessments yet</h3>
+                  <p className="text-sm text-neutral-500 mt-1">Start by recording the first skill assessment.</p>
                </div>
             )}
-            <p className="text-xs text-neutral-400 mt-4 px-2 italic text-center">
-              * Active editing and saving skills capabilities will be enabled once backend endpoints are finalized.
-            </p>
-            <Button variant="secondary" className="mt-4" type="button" disabled>
-              Save (pending API contract)
-            </Button>
           </Card>
         </div>
       </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Skill Assessment">
+        <form onSubmit={handleSaveSkill} className="space-y-4">
+           <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Skill Area</label>
+              <select className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" value={newSkillLog.skillId} onChange={e => setNewSkillLog({ ...newSkillLog, skillId: e.target.value })} required>
+                 <option value="">Select a skill...</option>
+                 {skillDefs.map(sd => <option key={sd.id} value={sd.id}>{sd.name}</option>)}
+              </select>
+           </div>
+           <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Proficiency Level ({newSkillLog.level}/5)</label>
+              <input type="range" min="1" max="5" step="1" className="w-full accent-brand-600" value={newSkillLog.level} onChange={e => setNewSkillLog({ ...newSkillLog, level: parseInt(e.target.value) })} />
+           </div>
+           <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Remarks</label>
+              <textarea rows={3} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none" value={newSkillLog.remarks} onChange={e => setNewSkillLog({ ...newSkillLog, remarks: e.target.value })} placeholder="Observations..." />
+           </div>
+           <div className="flex justify-end gap-3 pt-4">
+              <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary">Save Assessment</Button>
+           </div>
+        </form>
+      </Modal>
     </PageWrapper>
   );
 };
