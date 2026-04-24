@@ -17,6 +17,8 @@ interface EquipmentItem {
   centerId: string;
   center: { name: string };
   serialNumber?: string;
+  quantity: number;
+  notes?: string;
 }
 
 export const Equipment: React.FC = () => {
@@ -25,6 +27,8 @@ export const Equipment: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [centers, setCenters] = useState<any[]>([]);
   const [centerFilter, setCenterFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('All Categories');
   const { currentUser } = useAuthStore();
   
   const [formData, setFormData] = useState({
@@ -38,11 +42,17 @@ export const Equipment: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchEquipment();
+    const timer = setTimeout(() => {
+      fetchEquipment();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [centerFilter, searchQuery, categoryFilter]);
+
+  useEffect(() => {
     if (currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') {
       fetchCenters();
     }
-  }, [centerFilter]);
+  }, []);
 
   const fetchCenters = async () => {
     try {
@@ -57,7 +67,11 @@ export const Equipment: React.FC = () => {
     try {
       setLoading(true);
       const res = await api.get('/equipment', {
-        params: { centerId: centerFilter || undefined }
+        params: { 
+          centerId: centerFilter || undefined,
+          search: searchQuery || undefined,
+          category: categoryFilter !== 'All Categories' ? categoryFilter : undefined
+        }
       });
       setItems(res.data);
     } catch (err) {
@@ -82,7 +96,7 @@ export const Equipment: React.FC = () => {
     }
   };
 
-  if (loading) return <PageWrapper title="Equipment"><LoadingSpinner /></PageWrapper>;
+  if (loading && items.length === 0) return <PageWrapper title="Equipment"><LoadingSpinner /></PageWrapper>;
 
   return (
     <PageWrapper title="Equipment Inventory">
@@ -101,7 +115,12 @@ export const Equipment: React.FC = () => {
          <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-               <Input className="pl-10" placeholder="Search equipment by name or serial number..." />
+               <Input 
+                 className="pl-10" 
+                 placeholder="Search equipment by name or serial number..." 
+                 value={searchQuery}
+                 onChange={e => setSearchQuery(e.target.value)}
+               />
             </div>
             <div className="flex flex-wrap items-center gap-4">
                {(currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') && (
@@ -114,12 +133,17 @@ export const Equipment: React.FC = () => {
                     {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                  </select>
                )}
-               <select className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20">
+               <select 
+                 className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
+                 value={categoryFilter}
+                 onChange={e => setCategoryFilter(e.target.value)}
+               >
                   <option>All Categories</option>
                   <option>Electronics</option>
                   <option>Furniture</option>
                   <option>Sports</option>
                   <option>Educational</option>
+                  <option>Consumables</option>
                </select>
             </div>
          </div>
@@ -131,8 +155,8 @@ export const Equipment: React.FC = () => {
              <div className="w-16 h-16 rounded-full bg-neutral-50 flex items-center justify-center text-neutral-400 mx-auto mb-4">
                 <Package size={32} />
              </div>
-             <h3 className="text-lg font-medium text-neutral-900">No equipment recorded</h3>
-             <p className="text-neutral-500 mt-1">Start by adding equipment items for your center.</p>
+             <h3 className="text-lg font-medium text-neutral-900">No equipment found</h3>
+             <p className="text-neutral-500 mt-1">Try adjusting your filters or search query.</p>
           </div>
         ) : (
           items.map(item => (
@@ -159,7 +183,7 @@ export const Equipment: React.FC = () => {
                      </div>
                      <div className="flex items-center gap-2 text-sm text-neutral-600">
                         <Package size={14} className="text-neutral-400" />
-                        <span className="font-medium">Quantity:</span> {item.quantity || 1}
+                        <span className="font-medium">Quantity:</span> {item.quantity}
                      </div>
                      {item.serialNumber && (
                         <div className="flex items-center gap-2 text-sm text-neutral-600">

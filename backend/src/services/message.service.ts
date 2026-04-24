@@ -56,7 +56,7 @@ export async function sendMessage(threadId: string, senderId: string, content: s
     data: {
       threadId,
       senderId,
-      content,
+      body: content,
     },
   });
 
@@ -84,7 +84,7 @@ export async function createThread(creatorId: string, participantIds: string[], 
             messages: {
               create: {
                 senderId: creatorId,
-                content: initialMessage,
+                body: initialMessage,
               },
             },
           }

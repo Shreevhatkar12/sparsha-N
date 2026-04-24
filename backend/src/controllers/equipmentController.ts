@@ -5,8 +5,12 @@ import * as equipmentService from "../services/equipment.service.js";
 export async function listEquipment(req: Request, res: Response, next: NextFunction) {
   try {
     const { centerIds, role } = req.user!;
-    const centerId = req.query.centerId as string;
-    const equipment = await equipmentService.listEquipment(centerIds, role, centerId);
+    const { centerId, search, category } = req.query;
+    const equipment = await equipmentService.listEquipment(centerIds, role, { 
+      centerId: centerId as string, 
+      search: search as string, 
+      category: category as string 
+    });
     res.json(equipment);
   } catch (err) {
     next(err);
