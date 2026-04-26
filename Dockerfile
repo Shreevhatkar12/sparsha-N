@@ -1,36 +1,47 @@
-# Multi-stage build for backend and frontend
+# Multi-stage Dockerfile for Sparsha OMS
+
+# --- Base Stage ---
+FROM node:20-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # --- Backend Build Stage ---
-FROM node:22 AS backend-build
+FROM base AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
-ARG NPM_REGISTRY=https://registry.npmmirror.com
-RUN npm config set registry $NPM_REGISTRY && npm ci --legacy-peer-deps
+RUN npm install
 COPY backend/ ./
+RUN npx prisma generate
 RUN npm run build
 
 # --- Frontend Build Stage ---
-FROM node:22 AS frontend-build
+FROM base AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-ARG NPM_REGISTRY=https://registry.npmmirror.com
-RUN npm config set registry $NPM_REGISTRY && npm ci --legacy-peer-deps
+RUN npm install
 COPY frontend/ ./
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
-# --- Production Image ---
-FROM node:22-alpine AS production
+# --- Final Production Image ---
+FROM base AS production
 WORKDIR /app
 
-# Copy backend build
-COPY --from=backend-build /app/backend /app/backend
-# Copy frontend build
-COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
-COPY --from=frontend-build /app/frontend/node_modules /app/frontend/node_modules
-COPY --from=backend-build /app/backend/node_modules /app/backend/node_modules
+# Backend setup
+COPY --from=backend-builder /app/backend/dist /app/backend/dist
+COPY --from=backend-builder /app/backend/node_modules /app/backend/node_modules
+COPY --from=backend-builder /app/backend/package*.json /app/backend/
+COPY --from=backend-builder /app/backend/prisma /app/backend/prisma
 
-# Expose backend port (adjust if needed)
-EXPOSE 3000
+# Frontend setup
+COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# Start backend (adjust command if needed)
+# Install serve for frontend
+RUN npm install -g serve
+
+EXPOSE 5000 5173
+
+# We will use docker-compose to override the CMD for different services
 CMD ["node", "backend/dist/server.js"]
