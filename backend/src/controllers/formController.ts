@@ -18,7 +18,7 @@ type AuthenticatedRequest = Request & { user?: JwtPayload };
 
 export async function createTemplateController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await createTemplate(req.body);
+    const result = await createTemplate((req as AuthenticatedRequest).user!, req.body);
     return res.status(201).json(result);
   } catch (error) {
     return next(error);
@@ -29,7 +29,7 @@ export async function listTemplatesController(req: Request, res: Response, next:
   try {
     const user = (req as AuthenticatedRequest).user!;
     const includeInactive =
-      user.role === "admin" &&
+      user.role === "super_admin" &&
       (req.query.includeInactive === "true" || req.query.includeInactive === "1");
     const result = await listTemplates(req.query.formType as string | undefined, {
       includeInactive,

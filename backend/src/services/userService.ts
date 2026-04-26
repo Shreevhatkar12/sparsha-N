@@ -103,9 +103,11 @@ export async function createUser(input: {
   phone?: string;
   role: UserRole;
   createdBy?: string;
+  centerIds?: string[]; // Added this to accept the array from the frontend
 }) {
   try {
     const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
+    
     const user = await prisma.user.create({
       data: {
         email: input.email,
@@ -114,6 +116,22 @@ export async function createUser(input: {
         phone: input.phone ?? null,
         role: input.role,
         createdBy: input.createdBy,
+        // This is the logic that creates the center links in your assignment table
+        
+        // backend/src/services/userService.ts
+
+centerAssignments: {
+  create: input.centerIds?.map((id: string) => ({
+    // 1. Connect the Center
+    center: { connect: { id } },
+    
+    // 2. 🔥 THE FIX: Connect the Admin who is creating this user
+    // We use the 'createdBy' ID passed into the service
+    createdByUser: { connect: { id: input.createdBy } },
+    
+    validFrom: new Date(),
+  })) || [],
+},
       },
       include: {
         centerAssignments: {
@@ -125,6 +143,7 @@ export async function createUser(input: {
         },
       },
     });
+    
     return toSafeUser(user);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -218,4 +237,32 @@ export async function getMyCenters(currentUser: JwtPayload) {
     role: user.role,
     centerAssignments: user.centerAssignments,
   };
+}
+
+export async function updateUserCenters(
+  adminId: string,
+  targetUserId: string,
+  centerIds: string[],
+) {
+  // Verify the target user exists
+  await prisma.user.findUniqueOrThrow({ where: { id: targetUserId } });
+
+  // Delete all existing assignments for this user
+  await prisma.userCenterAssignment.deleteMany({
+    where: { userId: targetUserId },
+  });
+
+  // Create new assignments
+  if (centerIds.length > 0) {
+    await prisma.userCenterAssignment.createMany({
+      data: centerIds.map((centerId) => ({
+        userId: targetUserId,
+        centerId,
+        createdBy: adminId,
+        validFrom: new Date(),
+      })),
+    });
+  }
+
+  return getUserById(targetUserId);
 }

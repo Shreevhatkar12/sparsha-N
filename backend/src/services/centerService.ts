@@ -11,17 +11,9 @@ function activeAssignmentWhere(userId?: string) {
 }
 
 export async function listCenters(user: JwtPayload) {
-  const where =
-    user.role === "admin"
-      ? {}
-      : {
-          users: {
-            some: activeAssignmentWhere(user.userId),
-          },
-        };
-
-  return prisma.center.findMany({
-    where,
+  // Temporary: Just fetch all active centers to see if they show up
+  const centers = await prisma.center.findMany({
+    where: { isActive: true },
     orderBy: { name: "asc" },
     include: {
       centerPrograms: {
@@ -30,13 +22,30 @@ export async function listCenters(user: JwtPayload) {
       },
     },
   });
+
+  console.log("Total centers found in DB:", centers.length);
+  return centers ; // This matches your frontend mapping
 }
 
 export async function getCenterDetails(user: JwtPayload, centerId: string) {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
-    throw new NotFoundError("Center");
+  const requesterId = user.userId || (user as any).id;
+
+  // 1. Permission Check — Admins see all centers
+  if (user.role !== "super_admin" && user.role !== "center_admin") {
+    const isAssigned = await prisma.userCenterAssignment.findFirst({
+      where: {
+        centerId,
+        userId: requesterId,
+        ...activeAssignmentWhere(),
+      },
+    });
+
+    if (!isAssigned) {
+      throw new NotFoundError("Center"); // Or ForbiddenError
+    }
   }
 
+  // 2. Fetch Data
   const center = await prisma.center.findUnique({
     where: { id: centerId },
     include: {
@@ -46,27 +55,42 @@ export async function getCenterDetails(user: JwtPayload, centerId: string) {
       },
     },
   });
+
   if (!center) throw new NotFoundError("Center");
 
-  const [userCount, studentCount] = await Promise.all([
-    prisma.userCenterAssignment.count({
-      where: {
-        centerId,
-        ...activeAssignmentWhere(),
-        user: { role: { in: ["teacher", "staff"] } },
+  // 3. Fetch teachers/staff assigned to this center
+  const assignments = await prisma.userCenterAssignment.findMany({
+    where: {
+      centerId,
+      ...activeAssignmentWhere(),
+    },
+    include: {
+      user: {
+        select: { id: true, fullName: true, email: true, role: true, isActive: true },
       },
-    }),
-    prisma.student.count({
-      where: {
-        centerId,
-        isActive: true,
-      },
-    }),
-  ]);
+    },
+  });
+  const teachers = assignments
+    .filter((a) => ['teacher', 'staff'].includes(a.user.role))
+    .map((a) => a.user);
+
+  // 4. Fetch students enrolled in this center
+  const students = await prisma.student.findMany({
+    where: { centerId, isActive: true },
+    select: { id: true, fullName: true, rollNumber: true, programId: true, createdById: true },
+    orderBy: { fullName: 'asc' },
+    take: 200,
+  });
+
+  const studentCount = await prisma.student.count({
+    where: { centerId, isActive: true },
+  });
 
   return {
     ...center,
-    userCount,
+    teachers,
+    students,
+    userCount: teachers.length,
     studentCount,
   };
 }
@@ -77,6 +101,19 @@ export async function createCenter(input: { name: string; location?: string }) {
       name: input.name,
       location: input.location ?? null,
     },
+  });
+}
+
+export async function deleteCenter(centerId: string) {
+  const activeStudents = await prisma.student.count({
+    where: { centerId, isActive: true },
+  });
+  if (activeStudents > 0) {
+    throw new AppError("Cannot delete center with active students", 409);
+  }
+
+  return prisma.center.delete({
+    where: { id: centerId },
   });
 }
 
@@ -139,6 +176,7 @@ export async function removeProgramFromCenter(centerId: string, programId: strin
 }
 
 export async function assignUserToCenter(
+  createdBy: string,
   centerId: string,
   input: { userId: string; validFrom?: string; validUntil?: string },
 ) {
@@ -157,6 +195,7 @@ export async function assignUserToCenter(
       data: {
         centerId,
         userId: input.userId,
+        createdBy,
         ...(validFrom ? { validFrom } : {}),
         validUntil,
       },
@@ -239,6 +278,32 @@ export async function updateProgram(
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     },
   });
+}
+
+export async function getProgramDetails(programId: string) {
+  const program = await prisma.program.findUnique({
+    where: { id: programId },
+    include: {
+      centerPrograms: {
+        where: { isActive: true },
+        include: { center: { select: { id: true, name: true, location: true } } },
+      },
+    },
+  });
+  if (!program) throw new NotFoundError("Program");
+
+  const students = await prisma.student.findMany({
+    where: { programId, isActive: true },
+    select: { id: true, fullName: true, rollNumber: true, centerId: true },
+    orderBy: { fullName: 'asc' },
+    take: 200,
+  });
+
+  const studentCount = await prisma.student.count({
+    where: { programId, isActive: true },
+  });
+
+  return { ...program, students, studentCount };
 }
 
 export async function getProgramCenters(programId: string) {

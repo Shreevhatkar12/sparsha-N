@@ -80,7 +80,7 @@ export const Exams: React.FC = () => {
   const loadComparison = useCallback(async () => {
     setError(null);
     try {
-      const q: Record<string, string | undefined> = { academicYear };
+      const q: Record<string, string | undefined> = { academicYearId: academicYear };
       if (!isAdmin && centerId) q.centerId = centerId;
       if (programId) q.programId = programId;
       const c = await getExamComparison(q);
@@ -189,7 +189,7 @@ export const Exams: React.FC = () => {
         centerId,
         programId,
         examType,
-        academicYear,
+        academicYearId: academicYear,
       };
       const res = (await listExams(params)) as { exams?: Array<{ id: string }> };
       const first = res.exams?.[0];

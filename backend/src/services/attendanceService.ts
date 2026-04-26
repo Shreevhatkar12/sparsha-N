@@ -12,18 +12,18 @@ type SessionCreateInput = {
 
 type RecordUpdateInput = {
   recordId: string;
-  status: "present" | "absent" | "late";
+  status: "pending" | "present" | "absent" | "late" | "excused";
   remarks?: string;
 };
 
 function ensureCenterAccess(user: JwtPayload, centerId: string): void {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
     throw new ForbiddenError("No access to the requested center");
   }
 }
 
 function applyCenterScopeToWhere(user: JwtPayload, where: Record<string, unknown>, centerId?: string) {
-  if (user.role === "admin") {
+  if (user.role === "super_admin") {
     if (centerId) {
       where.centerId = centerId;
     }
@@ -126,10 +126,11 @@ export async function createSession(
           sessionId: session.id,
           studentId: student.id,
           centerId: student.centerId,
-          // Pending rows are represented by NULL status.
-          status: null as unknown as AttendanceStatus,
+          status: "pending",
         })),
       });
+
+      console.log("Creating records for students:", students.length);
     }
 
     const pendingRecords = await tx.attendanceRecord.findMany({
@@ -325,7 +326,7 @@ export async function getStudentAttendanceHistory(
   const student = await prisma.student.findFirst({
     where: ({
       id: studentId,
-      ...(user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
     } as never),
     select: {
       id: true,
@@ -343,7 +344,7 @@ export async function getStudentAttendanceHistory(
   const records = await prisma.attendanceRecord.findMany({
     where: ({
       studentId,
-      ...(user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
       session: {
         ...(query.programId ? { programId: query.programId } : {}),
         ...((from || to)
@@ -467,7 +468,7 @@ export async function getPendingSessions(userId: string): Promise<Array<Record<s
 
   const sessions = await prisma.attendanceSession.findMany({
     where: {
-      ...(user.role === "admin" ? {} : { centerId: { in: centerIds } }),
+      ...(user.role === "super_admin" ? {} : { centerId: { in: centerIds } }),
       records: {
         some: {
           status: null as unknown as AttendanceStatus,

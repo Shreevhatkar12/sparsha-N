@@ -107,8 +107,18 @@ export const Careers: React.FC = () => {
                       <div className="absolute top-0 left-0 w-1 h-full bg-primary/80 rounded-l-xl group-hover:bg-primary transition-colors"></div>
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
-                          <h3 className="font-semibold text-neutral-900 text-base">{career.stage || career.title || 'Career Update'}</h3>
-                          <p className="text-sm text-neutral-600 mt-1">{career.description || career.notes || 'No detailed description provided.'}</p>
+                          <h3 className="font-semibold text-neutral-900 text-base">{career.careerGoal || career.stage || career.title || 'Career Update'}</h3>
+                          {career.industry && <p className="text-xs font-semibold text-primary uppercase tracking-wide mt-0.5">{career.industry}</p>}
+                          <p className="text-sm text-neutral-600 mt-2">{career.notes || career.description || 'No detailed notes provided.'}</p>
+                          {career.milestones && Array.isArray(career.milestones) && career.milestones.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {career.milestones.map((ms: string, idx: number) => (
+                                <span key={idx} className="text-xs bg-neutral-100 text-neutral-600 px-2 py-1 rounded border border-neutral-200">
+                                  {ms}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-2 sm:mt-0 whitespace-nowrap">
                           <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">

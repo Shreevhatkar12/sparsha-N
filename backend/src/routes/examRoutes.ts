@@ -16,14 +16,14 @@ const examRoutes = Router();
 
 examRoutes.use(authenticate);
 
-examRoutes.post("/", requireRole("admin", "teacher", "staff"), validate(createExamSchema), createExamController);
+examRoutes.post("/", requireRole("super_admin", "teacher", "staff"), validate(createExamSchema), createExamController);
 examRoutes.get("/", listExamsController);
 examRoutes.get("/comparison", getExamComparisonController);
 examRoutes.get("/students/:studentId", getStudentExamScoresController);
 examRoutes.get("/:examId", getExamByIdController);
 examRoutes.post(
   "/:examId/scores",
-  requireRole("admin", "teacher", "staff"),
+  requireRole("super_admin", "teacher", "staff"),
   validate(upsertExamScoresSchema),
   upsertExamScoresController,
 );

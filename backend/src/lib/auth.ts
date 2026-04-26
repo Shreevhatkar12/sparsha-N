@@ -87,7 +87,9 @@ export function requireAuth(
 
   const token = authHeader.split(" ")[1];
   try {
-    req.user = verifyToken(token) as unknown as AuthUser;
+    // 🔥 Fix: Assign as JwtPayload directly to match your AuthenticatedRequest type
+    const decoded = verifyToken(token);
+    (req as AuthenticatedRequest).user = decoded; 
     return next();
   } catch (error) {
     return next(error);
@@ -117,7 +119,7 @@ export function requireCenterAccess() {
       return next(new UnauthorizedError("Authentication is required"));
     }
 
-    if (user.role === "admin") {
+    if (user.role === "super_admin") {
       return next();
     }
 
@@ -136,3 +138,5 @@ export function requireCenterAccess() {
     return next();
   };
 }
+
+export const authorize = requireRole;

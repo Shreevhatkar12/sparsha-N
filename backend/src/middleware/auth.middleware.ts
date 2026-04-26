@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyAccessToken, TokenPayload } from '../utils/jwt.js'; // 1. Added TokenPayload import
+// 1. FIXED: Changed TokenPayload to JwtPayload and imported from your auth file
+import { verifyToken, JwtPayload } from '../lib/auth.js'; 
 
-// 2. Updated this type to use your real TokenPayload from jwt.ts
-type AuthenticatedRequest = Request & { user?: TokenPayload };
+// 2. Ensuring the Request type uses the same JwtPayload definition
+type AuthenticatedRequest = Request & { user?: JwtPayload };
 
 /**
  * AUTHENTICATE: The "Front Gate"
- * Checks if the user is logged in (has a valid JWT)
  */
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -21,10 +21,10 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   const token = authHeader.split(" ")[1];
 
   try {
-    // 3. Changed 'AuthUser' to 'TokenPayload' to match your JWT file
-    const decoded = verifyAccessToken(token);
+    // 3. FIXED: Using 'verifyToken' instead of 'verifyAccessToken' to match auth.ts
+    const decoded = verifyToken(token);
     
-    // 4. Using type casting to attach the user data to the request safely
+    // 4. Attach the decoded payload (including centerIds) to the request
     (req as AuthenticatedRequest).user = decoded; 
     
     next();
@@ -38,23 +38,21 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
 /**
  * AUTHORIZE: The "Internal Door"
- * Checks if the logged-in user has the right Role (e.g., super_admin)
  */
-// 5. Added the authorize function below
 export const authorize = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as AuthenticatedRequest;
 
+    // 5. Check if user exists and their role is in the allowed list
     if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: You do not have the required permissions for this action.",
+        message: "Access Denied: You do not have the required permissions.",
       });
     }
     next();
   };
 };
 
-// 6. Helpful aliases for your route files
 export const protect = authenticate;
 export const requireRole = authorize;

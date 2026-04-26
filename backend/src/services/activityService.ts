@@ -15,12 +15,12 @@ type ListActivitiesParams = {
 export async function listActivities(user: JwtPayload, params: ListActivitiesParams) {
   const { centerId, programId, from, to, search } = params;
   const where: Prisma.ActivityWhereInput = {};
-  if (user.role !== "admin") {
+  if (user.role !== "super_admin") {
     where.centerId = { in: user.centerIds };
   }
 
   if (centerId) {
-    if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+    if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
       throw new ForbiddenError("No access to this center");
     }
     where.centerId = centerId;
@@ -88,7 +88,7 @@ export async function getActivity(user: JwtPayload, activityId: string) {
   }
 
   // Access check
-  if (user.role !== "admin") {
+  if (user.role !== "super_admin") {
     // Is the user in the center?
     const inCenter = user.centerIds.includes(activity.centerId);
     
@@ -110,7 +110,7 @@ export async function createActivity(user: JwtPayload, data: { centerId: string;
     throw new ValidationError("centerId, programId, and name are required");
   }
 
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
     throw new ForbiddenError("No access to create activity in this center");
   }
 
@@ -134,7 +134,7 @@ export async function updateActivity(user: JwtPayload, activityId: string, data:
     throw new NotFoundError("Activity not found");
   }
 
-  if (user.role !== "admin" && !user.centerIds.includes(activity.centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(activity.centerId)) {
     throw new ForbiddenError("No access to update this activity");
   }
 
@@ -162,7 +162,7 @@ export async function deleteActivity(user: JwtPayload, activityId: string) {
     throw new NotFoundError("Activity not found");
   }
 
-  if (user.role !== "admin") {
+  if (user.role !== "super_admin") {
     throw new ForbiddenError("Only admins can delete activities");
   }
 

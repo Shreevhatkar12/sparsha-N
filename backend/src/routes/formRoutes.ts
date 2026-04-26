@@ -24,21 +24,21 @@ const formRoutes = Router();
 
 formRoutes.use(authenticate);
 
-formRoutes.post("/templates", requireRole("admin"), validate(createFormTemplateSchema), createTemplateController);
+formRoutes.post("/templates", requireRole("super_admin"), validate(createFormTemplateSchema), createTemplateController);
 formRoutes.get("/templates", listTemplatesController);
 formRoutes.get("/templates/:templateId", getTemplateController);
 formRoutes.put(
   "/templates/:templateId",
-  requireRole("admin"),
+  requireRole("super_admin"),
   validate(updateFormTemplateSchema),
   updateTemplateController,
 );
-formRoutes.delete("/templates/:templateId", requireRole("admin"), deleteTemplateController);
+formRoutes.delete("/templates/:templateId", requireRole("super_admin"), deleteTemplateController);
 
 formRoutes.post("/submissions", validate(submitFormSchema), submitFormController);
 formRoutes.get("/submissions", listSubmissionsController);
 formRoutes.get("/submissions/:submissionId", getSubmissionController);
-formRoutes.delete("/submissions/:submissionId", requireRole("admin"), deleteSubmissionController);
+formRoutes.delete("/submissions/:submissionId", requireRole("super_admin"), deleteSubmissionController);
 formRoutes.get("/submissions/student/:studentId", getStudentSubmissionsController);
 
 formRoutes.get("/pending", getPendingFormsController);

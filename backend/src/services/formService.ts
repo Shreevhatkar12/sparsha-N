@@ -20,6 +20,7 @@ type CreateTemplateInput = {
   formType: string;
   name: string;
   schema: FormSchema;
+  targetEntity?: string;
 };
 
 type SubmitFormInput = {
@@ -30,7 +31,7 @@ type SubmitFormInput = {
 };
 
 function ensureCenterAccess(user: JwtPayload, centerId: string): void {
-  if (user.role !== "admin" && !user.centerIds.includes(centerId)) {
+  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
     throw new ForbiddenError("No access to the requested center");
   }
 }
@@ -63,7 +64,7 @@ function parseDate(value?: string): Date | undefined {
   return date;
 }
 
-export async function createTemplate(input: CreateTemplateInput) {
+export async function createTemplate(user: JwtPayload, input: CreateTemplateInput) {
   validateSchema(input.schema);
   const schemaWithVersion = {
     ...input.schema,
@@ -74,6 +75,8 @@ export async function createTemplate(input: CreateTemplateInput) {
     data: {
       formType: input.formType,
       name: input.name,
+      targetEntity: input.targetEntity ?? "student",
+      createdBy: user.userId,
       schema: schemaWithVersion as Prisma.InputJsonValue,
     },
   });
@@ -191,7 +194,7 @@ export async function listSubmissions(
   const to = parseDate(query.to);
 
   const centerFilter =
-    user.role === "admin"
+    user.role === "super_admin"
       ? query.centerId
       : query.centerId
         ? user.centerIds.includes(query.centerId)
@@ -218,7 +221,7 @@ export async function listSubmissions(
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { submittedAt: "desc" },
       include: {
         template: { select: { name: true, formType: true } },
         student: { select: { fullName: true } },
@@ -264,7 +267,7 @@ export async function getStudentSubmissions(user: JwtPayload, studentId: string)
     include: {
       template: { select: { id: true, name: true, formType: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { submittedAt: "desc" },
   });
 
   const grouped = submissions.reduce<Record<string, typeof submissions>>((acc, row) => {
@@ -287,14 +290,14 @@ export async function getPendingSubmissions(
 
   const centerId =
     query.centerId ??
-    (user.role === "admin" ? undefined : user.centerIds.length === 1 ? user.centerIds[0] : undefined);
-  if (!centerId && user.role !== "admin") {
+    (user.role === "super_admin" ? undefined : user.centerIds.length === 1 ? user.centerIds[0] : undefined);
+  if (!centerId && user.role !== "super_admin") {
     throw new ValidationError("centerId is required for multi-center users");
   }
   if (centerId) ensureCenterAccess(user, centerId);
 
   const studentWhere = {
-    ...(centerId ? { centerId } : user.role === "admin" ? {} : { centerId: { in: user.centerIds } }),
+    ...(centerId ? { centerId } : user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
     isActive: true,
   };
 

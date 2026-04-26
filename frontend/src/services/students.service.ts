@@ -2,6 +2,7 @@ import api from './api';
 import type {
   ApiEnvelope,
   AttendanceRecordPayload,
+  FeePayment,
   Student,
   StudentCreatePayload,
   StudentProfilePayload,
@@ -15,6 +16,7 @@ export type StudentListQuery = {
   search?: string;
   centerId?: string;
   programId?: string;
+  sortOrder?: 'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | '';
   isActive?: boolean | string;
 };
 
@@ -63,3 +65,30 @@ export const updateStudentAttendance = (attendanceId: string, payload: Attendanc
   api
     .put<ApiEnvelope<unknown>>(`/students/attendance/${attendanceId}`, payload)
     .then((r) => r.data);
+
+// ─────────────── Transfer Workflow ───────────────
+
+export const requestTransfer = (studentIds: string[]) =>
+  api.post<{ success: boolean; updated: number }>('/students/transfers/request', { studentIds }).then((r) => r.data);
+
+export const getTransferRequests = () =>
+  api.get<ApiEnvelope<Student[]>>('/students/transfers/pending').then((r) => r.data.data);
+
+export const completeTransfer = (studentIds: string[], newTeacherId: string, newCenterId: string) =>
+  api.post<{ success: boolean; transferred: number }>('/students/transfers/complete', {
+    studentIds,
+    newTeacherId,
+    newCenterId,
+  }).then((r) => r.data);
+
+// ─────────────── Fee Management ───────────────
+
+export const addFeePayment = (studentId: string, amount: number, notes?: string) =>
+  api.post<ApiEnvelope<FeePayment>>(`/students/${studentId}/fees`, { amount, notes }).then((r) => r.data.data);
+
+export const getFeePayments = (studentId: string) =>
+  api.get<ApiEnvelope<FeePayment[]>>(`/students/${studentId}/fees`).then((r) => r.data.data);
+
+export const updateStudentFees = (studentId: string, data: { totalFees?: number; isFullyPaid?: boolean }) =>
+  api.put<ApiEnvelope<Student>>(`/students/${studentId}/fees/update`, data).then((r) => r.data.data);
+

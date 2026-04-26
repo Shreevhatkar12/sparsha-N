@@ -21,20 +21,31 @@ export interface Program {
   isActive: boolean;
 }
 
+
+
+export type TransferStatus = 'active' | 'pending_transfer' | 'transferred';
+
 export interface Student {
   id: string;
   centerId: string;
   programId: string;
+  createdById?: string;
   fullName: string;
+  rollNumber?: string | null;
   dob?: string | Date;
   gender?: Gender;
   guardianName?: string;
   guardianPhone?: string;
   enrollmentDate: string | Date;
   isActive: boolean;
+  transferStatus?: TransferStatus;
+  totalFees?: number | null;
+  feesPaid?: number;
+  isFullyPaid?: boolean;
   createdAt: string | Date;
   center?: Center;
   program?: Program;
+  createdByUser?: { id: string; fullName: string } | null;
 }
 
 export interface User {
@@ -153,6 +164,10 @@ export interface ProgramSummary {
   id: string;
   name: string;
   code?: string;
+  description?: string;
+  ageMin?: number;
+  ageMax?: number;
+  studentCount?: number;
 }
 
 export interface SkillRecord {
@@ -187,18 +202,18 @@ export interface StudentProfilePayload {
 }
 
 export interface StudentCreatePayload {
-    centerId: string;
-    programId: string;
-    fullName: string;
-    dob?: string | Date;
-    gender?: Gender;
-    guardianName?: string;
-    guardianPhone?: string;
-    enrollmentDate?: string | Date;
-    isActive?: boolean;
+  centerId: string;
+  programId: string;
+  fullName: string;
+  dob?: string | Date;
+  gender?: Gender;
+  guardianName?: string;
+  guardianPhone?: string;
+  enrollmentDate?: string | Date;
+  isActive?: boolean;
 }
 
-export interface StudentUpdatePayload extends Partial<StudentCreatePayload> {}
+export interface StudentUpdatePayload extends Partial<StudentCreatePayload> { }
 
 export interface StudentsListResult {
   students: Student[];
@@ -220,4 +235,13 @@ export interface ApiEnvelope<T> {
   data: T;
   message?: string;
   status?: string;
+}
+
+export interface FeePayment {
+  id: string;
+  studentId: string;
+  amount: number;
+  notes?: string | null;
+  paidAt: string | Date;
+  createdBy: string;
 }

@@ -13,56 +13,94 @@ import {
   deactivateUser,
   listUsers,
   resetUserPassword,
+  updateUserCenters,
   type UserAdminItem,
 } from '../services/users.service';
+import { listCenters } from '../services/centers.service';
 import type { UserRole } from '../types';
+import { Building2, X, Check } from 'lucide-react';
 
-// 1. Update the roles list to match your Prisma Enum
-const ROLES = ['super_admin', 'center_admin', 'teacher', 'staff', 'volunteer'] as UserRole[];
+// Extend UserAdminItem to include centerAssignments from the API
+type UserWithCenters = UserAdminItem & {
+  centerAssignments?: Array<{
+    id: string;
+    centerId: string;
+    center: { id: string; name: string };
+  }>;
+};
 
 export const UsersAdmin: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   
-  // 2. Update the Admin check to recognize both Admin roles
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const isCenterAdmin = currentUser?.role === 'center_admin';
   const canAccess = isSuperAdmin || isCenterAdmin;
 
   const roleOptions: UserRole[] = isSuperAdmin 
-    ? ['super_admin', 'center_admin'] 
+    ? ['super_admin', 'center_admin', 'teacher', 'staff', 'volunteer'] 
     : ['teacher', 'staff', 'volunteer'];
 
-  const [rows, setRows] = useState<UserAdminItem[]>([]);
+  const [rows, setRows] = useState<UserWithCenters[]>([]);
+  const [centers, setCenters] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
+  // Create user form
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('teacher');
+  const [selectedCenterIds, setSelectedCenterIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
-  const loadUsers = useCallback(async () => {
+  // Edit centers modal
+  const [editCentersUserId, setEditCentersUserId] = useState<string | null>(null);
+  const [editCentersUserName, setEditCentersUserName] = useState('');
+  const [editCenterIds, setEditCenterIds] = useState<string[]>([]);
+  const [savingCenters, setSavingCenters] = useState(false);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listUsers({ limit: 100, search: search.trim() || undefined });
-      setRows(data.users);
+      const [userData, centerData] = await Promise.all([
+        listUsers({ limit: 100, search: search.trim() || undefined }),
+        listCenters()
+      ]);
+      setRows(userData.users as UserWithCenters[]);
+      setCenters(centerData);
     } catch {
-      setError('Failed to load users.');
+      setError('Failed to load data.');
     } finally {
       setLoading(false);
     }
   }, [search]);
 
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+    void loadData();
+  }, [loadData]);
+
+  const toggleCenter = (id: string) => {
+    setSelectedCenterIds(prev => 
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  const toggleEditCenter = (id: string) => {
+    setEditCenterIds(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selectedCenterIds.length === 0) {
+        setError('Please assign at least one center to the user.');
+        return;
+    }
+
     setCreating(true);
     setError(null);
     try {
@@ -72,13 +110,15 @@ export const UsersAdmin: React.FC = () => {
         password,
         role,
         phone: phone.trim() || undefined,
+        centerIds: selectedCenterIds,
       });
       setEmail('');
       setFullName('');
       setPassword('');
       setPhone('');
       setRole('teacher');
-      await loadUsers();
+      setSelectedCenterIds([]);
+      await loadData();
     } catch {
       setError('Failed to create user. Check email uniqueness and password length.');
     } finally {
@@ -90,7 +130,7 @@ export const UsersAdmin: React.FC = () => {
     if (!window.confirm('Deactivate this user?')) return;
     try {
       await deactivateUser(userId);
-      await loadUsers();
+      await loadData();
     } catch {
       setError('Failed to deactivate user.');
     }
@@ -107,12 +147,34 @@ export const UsersAdmin: React.FC = () => {
     }
   };
 
-  // 3. Update the navigation bounce to use the new 'canAccess' check
+  const openEditCenters = (user: UserWithCenters) => {
+    setEditCentersUserId(user.id);
+    setEditCentersUserName(user.fullName);
+    // Pre-check existing center assignments
+    const currentCenterIds = user.centerAssignments?.map(a => a.center?.id || a.centerId) || [];
+    setEditCenterIds(currentCenterIds);
+  };
+
+  const handleSaveCenters = async () => {
+    if (!editCentersUserId) return;
+    setSavingCenters(true);
+    setError(null);
+    try {
+      await updateUserCenters(editCentersUserId, editCenterIds);
+      setEditCentersUserId(null);
+      await loadData();
+    } catch {
+      setError('Failed to update center assignments.');
+    } finally {
+      setSavingCenters(false);
+    }
+  };
+
   if (!canAccess) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const columns: DataTableColumn<UserAdminItem>[] = [
+  const columns: DataTableColumn<UserWithCenters>[] = [
     {
       id: 'fullName',
       header: 'User',
@@ -126,6 +188,30 @@ export const UsersAdmin: React.FC = () => {
     },
     { id: 'role', header: 'Role', sortable: true, accessor: (u) => u.role.toUpperCase().replace('_', ' ') },
     { id: 'phone', header: 'Phone', accessor: (u) => u.phone || '-' },
+    {
+      id: 'centers',
+      header: 'Centers',
+      cell: (u) => {
+        const assignedCenters = u.centerAssignments?.map(a => a.center?.name).filter(Boolean) || [];
+        return (
+          <div className="flex items-center gap-1 flex-wrap">
+            {assignedCenters.length > 0 ? (
+              assignedCenters.slice(0, 2).map((name, i) => (
+                <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-100">
+                  <Building2 size={10} />
+                  {name}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-neutral-400 italic">None</span>
+            )}
+            {assignedCenters.length > 2 && (
+              <span className="text-[11px] text-neutral-500 font-medium">+{assignedCenters.length - 2}</span>
+            )}
+          </div>
+        );
+      },
+    },
     { id: 'isActive', header: 'Status', accessor: (u) => (u.isActive ? 'Active' : 'Inactive') },
     {
       id: 'actions',
@@ -133,6 +219,15 @@ export const UsersAdmin: React.FC = () => {
       className: 'text-right',
       cell: (u) => (
         <div className="flex justify-end gap-2">
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => openEditCenters(u)}
+            title="Edit center assignments"
+          >
+            <Building2 size={14} className="mr-1" />
+            Centers
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => void handleResetPassword(u.id)}>
             Reset Password
           </Button>
@@ -157,11 +252,85 @@ export const UsersAdmin: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Centers Modal */}
+      {editCentersUserId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setEditCentersUserId(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-lg p-0 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">Edit Center Assignments</h3>
+                <p className="text-sm text-neutral-500 mt-0.5">{editCentersUserName}</p>
+              </div>
+              <button
+                onClick={() => setEditCentersUserId(null)}
+                className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
+              <p className="text-xs text-neutral-500 mb-3">
+                Select the centers this user should have access to:
+              </p>
+              <div className="space-y-1.5">
+                {centers.map((c) => (
+                  <label
+                    key={c.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all border ${
+                      editCenterIds.includes(c.id)
+                        ? 'bg-brand-50 border-brand-200 text-brand-800'
+                        : 'bg-white border-neutral-100 text-neutral-700 hover:bg-neutral-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                      checked={editCenterIds.includes(c.id)}
+                      onChange={() => toggleEditCenter(c.id)}
+                    />
+                    <Building2 size={14} className={editCenterIds.includes(c.id) ? 'text-brand-600' : 'text-neutral-400'} />
+                    <span className="text-sm font-medium">{c.name}</span>
+                    {editCenterIds.includes(c.id) && (
+                      <Check size={14} className="ml-auto text-brand-600" />
+                    )}
+                  </label>
+                ))}
+              </div>
+              {editCenterIds.length === 0 && (
+                <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-100 rounded-lg p-2">
+                  ⚠ No centers selected. The user won't be able to access any data.
+                </p>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
+              <Button variant="secondary" size="sm" onClick={() => setEditCentersUserId(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={savingCenters}
+                onClick={() => void handleSaveCenters()}
+              >
+                <Check size={14} className="mr-1" />
+                Save Assignments
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card className="mb-6">
         <h3 className="text-base font-semibold text-neutral-900 mb-4">Create User</h3>
         <form className="grid grid-cols-1 md:grid-cols-2 gap-3" onSubmit={handleCreate}>
           <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          <Input label="User ID" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Input label="User ID / Email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input
             label="Password"
             type="password"
@@ -171,6 +340,7 @@ export const UsersAdmin: React.FC = () => {
             required
           />
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          
           <div className="w-full flex flex-col gap-1.5">
             <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Role</label>
             <select
@@ -185,8 +355,30 @@ export const UsersAdmin: React.FC = () => {
               ))}
             </select>
           </div>
+
+          {/* Assigned Centers Selection */}
+          <div className="md:col-span-2 mt-2">
+            <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-2 block">
+              Assigned Centers
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border border-neutral-200 p-3 rounded-lg max-h-40 overflow-y-auto">
+              {centers.map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-neutral-50 p-1 rounded transition-colors">
+                  <input
+                    type="checkbox"
+                    className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                    checked={selectedCenterIds.includes(c.id)}
+                    onChange={() => toggleCenter(c.id)}
+                  />
+                  <span className="truncate">{c.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-[10px] text-neutral-500 mt-1 italic">Assign at least one center to the user.</p>
+          </div>
+
           <div className="md:col-span-2">
-            <Button type="submit" isLoading={creating}>
+            <Button type="submit" isLoading={creating} className="w-full md:w-auto">
               Create User
             </Button>
           </div>
@@ -200,17 +392,17 @@ export const UsersAdmin: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void loadUsers();
+              if (e.key === 'Enter') void loadData();
             }}
           />
-          <Button variant="secondary" onClick={() => void loadUsers()}>
+          <Button variant="secondary" onClick={() => void loadData()}>
             Search
           </Button>
         </div>
         {loading ? (
           <LoadingSpinner />
         ) : (
-          <DataTable<UserAdminItem>
+          <DataTable<UserWithCenters>
             columns={columns}
             data={rows}
             rowKey={(u) => u.id}

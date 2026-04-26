@@ -12,6 +12,8 @@ import { Exams } from './pages/Exams';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { UsersAdmin } from './pages/UsersAdmin';
+import { CentersPage } from './pages/CentersPage';
+import { ProgramsPage } from './pages/ProgramsPage';
 import { FormsListPage } from './pages/Forms/FormsListPage';
 import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
 import { FormRendererPage } from './pages/Forms/FormRendererPage';
@@ -21,6 +23,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
 
 function App() {
+  const { currentUser } = useAuthStore();
   const initializeAuth = useAuthStore((s) => s.initializeAuth);
   const setAccessToken = useAuthStore((s) => s.setAccessToken);
   const [loading, setLoading] = useState(true);
@@ -33,7 +36,6 @@ function App() {
           method: "POST",
           credentials: "include",
         });
-
         if (res.ok) {
           const data = await res.json();
           setAccessToken(data.accessToken);
@@ -45,7 +47,7 @@ function App() {
       }
     };
     initAuth();
-  }, []);
+  }, [initializeAuth, setAccessToken]);
 
   if (loading) {
     return (
@@ -55,50 +57,51 @@ function App() {
     );
   }
 
+  // Determine if the user is an admin
+  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'center_admin';
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        {/* --- LEVEL 1: ALL STAFF (Teachers, Admins, Super Admins) --- */}
+        {/* --- LEVEL 1: SHARED ACCESS (Teachers & Admins) --- */}
+        {/* CRITICAL: Ensure NO allowedRoles is passed here */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : "/students"} replace />} />
+
           <Route path="/students" element={<StudentList />} />
           <Route path="/students/:id" element={<StudentDetails />} />
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/skills" element={<Skills />} />
           <Route path="/careers" element={<Careers />} />
           <Route path="/exams" element={<Exams />} />
-          {/* Reports are usually viewable by all staff for their respective centers */}
           <Route path="/reports" element={<Reports />} />
-          
-          {/* Forms viewing/filling */}
           <Route path="/forms" element={<FormsListPage />} />
           <Route path="/forms/:templateId/fill" element={<FormRendererPage />} />
           <Route path="/forms/:templateId/submissions" element={<FormSubmissionsPage />} />
         </Route>
 
-        {/* --- LEVEL 2: TEACHERS & STAFF ONLY (Data Entry) --- */}
-        <Route element={<ProtectedRoute allowedRoles={['teacher', 'staff', 'super_admin']} />}>
+        {/* --- LEVEL 2: DATA ENTRY (Teachers & Admins) --- */}
+        <Route element={<ProtectedRoute allowedRoles={['teacher', 'staff', 'super_admin', 'center_admin']} />}>
           <Route path="/students/new" element={<StudentRegistration />} />
           <Route path="/students/:id/edit" element={<StudentRegistration />} />
         </Route>
 
-        {/* --- LEVEL 3: ADMIN & SUPER ADMIN ONLY (Management) --- */}
+        {/* --- LEVEL 3: MANAGEMENT (Admins Only) --- */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'center_admin']} />}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<UsersAdmin />} />
-          {/* Form Building is usually an Admin task */}
+          <Route path="/centers" element={<CentersPage />} />
+          <Route path="/programs" element={<ProgramsPage />} />
           <Route path="/forms/new" element={<FormBuilderPage />} />
           <Route path="/forms/:templateId/edit" element={<FormBuilderPage />} />
         </Route>
 
-        {/* --- LEVEL 4: SUPER ADMIN ONLY (Critical System Config) --- */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
           <Route path="/settings" element={<Settings />} />
         </Route>
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

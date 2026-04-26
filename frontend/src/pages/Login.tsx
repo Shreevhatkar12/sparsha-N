@@ -17,13 +17,15 @@ export const Login: React.FC = () => {
 
   const setAuth = useAuthStore((s) => s.setAuth);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (accessToken || localStorage.getItem('accessToken')) {
-      navigate('/dashboard', { replace: true });
+    if (accessToken && currentUser) {
+      const isAdmin = currentUser.role === 'super_admin' || currentUser.role === 'center_admin';
+      navigate(isAdmin ? '/dashboard' : '/students', { replace: true });
     }
-  }, [accessToken, navigate]);
+  }, [accessToken, currentUser, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,14 +46,16 @@ export const Login: React.FC = () => {
         },
         authToken,
       );
-      navigate('/dashboard');
+      // Role-aware redirect: teachers go to students, admins go to dashboard
+      const isAdmin = user.role === 'super_admin' || user.role === 'center_admin';
+      navigate(isAdmin ? '/dashboard' : '/students');
     } catch (err: unknown) {
       const data =
         err && typeof err === 'object' && 'response' in err
           ? (err as { response?: { status?: number; data?: { message?: string; error?: string } } }).response
           : undefined;
       const msg = data?.data?.message || data?.data?.error;
-      
+
       if (data?.status === 429) {
         setError('Too many login attempts. Please try again later.');
       } else {

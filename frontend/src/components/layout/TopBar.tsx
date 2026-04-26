@@ -26,10 +26,10 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
         <span className="font-semibold text-lg text-primary hidden md:block">SPARSHA System</span>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <div className="flex flex-col items-end hidden sm:flex">
           <span className="text-sm font-medium text-neutral-900">{currentUser?.email || 'User'}</span>
-          <span className="text-xs text-neutral-500 capitalize">{currentUser?.role || 'Guest'}</span>
+          <span className="text-xs text-neutral-500 capitalize">{currentUser?.role?.replace('_', ' ') || 'Guest'}</span>
         </div>
         
         <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20">

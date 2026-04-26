@@ -5,8 +5,10 @@ import {
   assignUserToCenter,
   createCenter,
   createProgram,
+  deleteCenter,
   getCenterDetails,
   getProgramCenters,
+  getProgramDetails,
   listCenters,
   listPrograms,
   removeProgramFromCenter,
@@ -47,6 +49,15 @@ export async function createCenterController(req: Request, res: Response, next: 
   }
 }
 
+export async function deleteCenterController(req: Request, res: Response, next: NextFunction) {
+  try {
+    await deleteCenter(req.params.centerId as string);
+    return res.status(204).send();
+  } catch (error) {
+    return next(error);
+  }
+}
+
 export async function updateCenterController(req: Request, res: Response, next: NextFunction) {
   try {
     const center = await updateCenter(req.params.centerId as string, req.body);
@@ -82,7 +93,8 @@ export async function removeProgramController(req: Request, res: Response, next:
 
 export async function assignUserController(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await assignUserToCenter(req.params.centerId as string, req.body);
+    const user = (req as AuthenticatedRequest).user!;
+    const result = await assignUserToCenter(user.userId, req.params.centerId as string, req.body);
     return res.status(200).json(result);
   } catch (error) {
     return next(error);
@@ -132,6 +144,15 @@ export async function programCentersController(req: Request, res: Response, next
   try {
     const rows = await getProgramCenters(req.params.programId as string);
     return res.status(200).json(rows);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getProgramDetailsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const details = await getProgramDetails(req.params.programId as string);
+    return res.status(200).json(details);
   } catch (error) {
     return next(error);
   }
