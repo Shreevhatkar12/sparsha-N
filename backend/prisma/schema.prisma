@@ -61,6 +61,12 @@ enum ExamType {
   other
 }
 
+enum TransferStatus {
+  active
+  pending_transfer
+  transferred
+}
+
 // =============================================================================
 // 1. FOUNDATION TABLES
 // =============================================================================
@@ -229,6 +235,7 @@ model User {
   loggedEquipment       EquipmentLog[]           @relation("EquipmentLoggedBy")
   createdAnnouncements  Announcement[]           @relation("AnnouncementCreatedBy")
   changedActivityStatus ActivityStatusLog[]      @relation("StatusChangedBy")
+  createdStudents       Student[]                @relation("StudentCreatedBy")
 
   @@map("users")
 }
@@ -328,6 +335,7 @@ model Student {
   centerId       String    @map("center_id") @db.Uuid
   programId      String?   @map("program_id") @db.Uuid
   academicYearId String?   @map("academic_year_id") @db.Uuid
+  createdById    String?   @map("created_by") @db.Uuid
   fullName       String    @map("full_name")
   rollNumber     String?   @map("roll_number")
   dob            DateTime? @db.Date
@@ -337,12 +345,17 @@ model Student {
   address        String?
   enrollmentDate DateTime  @default(now()) @map("enrollment_date") @db.Date
   isActive       Boolean   @default(true) @map("is_active")
+  transferStatus TransferStatus @default(active) @map("transfer_status")
+  totalFees      Decimal?  @map("total_fees") @db.Decimal(10, 2)
+  feesPaid       Decimal   @default(0) @map("fees_paid") @db.Decimal(10, 2)
+  isFullyPaid    Boolean   @default(false) @map("is_fully_paid")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   center            Center             @relation(fields: [centerId], references: [id])
   program           Program?           @relation(fields: [programId], references: [id])
   academicYear      AcademicYear?      @relation(fields: [academicYearId], references: [id])
+  createdByUser     User?              @relation("StudentCreatedBy", fields: [createdById], references: [id])
   transfers         StudentTransfer[]
   batchEnrollments  BatchEnrollment[]
   parents           ParentStudent[]
@@ -352,6 +365,7 @@ model Student {
   formAssignments   FormAssignment[]
   formSubmissions   FormSubmission[]
   alerts            Alert[]
+  feePayments       FeePayment[]
 
   @@map("students")
 }
@@ -372,6 +386,19 @@ model StudentTransfer {
   approvedByUser User    @relation("TransferApprovedBy", fields: [approvedBy], references: [id])
 
   @@map("student_transfers")
+}
+
+model FeePayment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId String   @map("student_id") @db.Uuid
+  amount    Decimal  @db.Decimal(10, 2)
+  notes     String?
+  paidAt    DateTime @default(now()) @map("paid_at") @db.Timestamptz
+  createdBy String   @map("created_by") @db.Uuid
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@map("fee_payments")
 }
 
 model BatchEnrollment {

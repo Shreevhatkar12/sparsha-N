@@ -23,7 +23,9 @@ export type CreateUserPayload = {
   password: string;
   fullName: string;
   phone?: string;
+  centerIds: string[];
   role: UserRole;
+  
 };
 
 export type UpdateUserPayload = {
@@ -52,3 +54,6 @@ export const resetUserPassword = (userId: string, newPassword: string) =>
 
 export const deactivateUser = (userId: string) =>
   api.delete<UserAdminItem>(`/users/${userId}`).then((r) => r.data);
+
+export const updateUserCenters = (userId: string, centerIds: string[]) =>
+  api.put(`/users/${userId}/centers`, { centerIds }).then((r) => r.data);

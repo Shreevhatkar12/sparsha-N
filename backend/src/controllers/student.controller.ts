@@ -335,3 +335,115 @@ export const getDashboardStats = async (
     next(err);
   }
 };
+
+/* ─────────────────────────────────────────
+   TRANSFER WORKFLOW
+───────────────────────────────────────── */
+
+export const requestTransfer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { studentIds } = req.body;
+    const result = await studentService.requestTransfer(req.user, studentIds);
+    return res.status(200).json({ success: true, ...result });
+  } catch (err) {
+    console.error("Request Transfer Error:", err);
+    next(err);
+  }
+};
+
+export const getTransferRequests = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const students = await studentService.getTransferRequests(req.user);
+    return res.status(200).json({ success: true, data: students });
+  } catch (err) {
+    console.error("Get Transfer Requests Error:", err);
+    next(err);
+  }
+};
+
+export const completeTransfer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { studentIds, newTeacherId, newCenterId } = req.body;
+    const result = await studentService.completeTransfer(
+      req.user,
+      studentIds,
+      newTeacherId,
+      newCenterId
+    );
+    return res.status(200).json({ success: true, ...result });
+  } catch (err) {
+    console.error("Complete Transfer Error:", err);
+    next(err);
+  }
+};
+
+/* ─────────────────────────────────────────
+   FEE MANAGEMENT
+───────────────────────────────────────── */
+
+export const addFeePayment = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const { amount, notes } = req.body;
+    const payment = await studentService.addFeePayment(
+      req.user,
+      req.params.studentId as string,
+      Number(amount),
+      notes
+    );
+    return res.status(201).json({ success: true, data: payment });
+  } catch (err) {
+    console.error("Add Fee Payment Error:", err);
+    next(err);
+  }
+};
+
+export const getFeePayments = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const payments = await studentService.getFeePayments(
+      req.user,
+      req.params.studentId as string
+    );
+    return res.status(200).json({ success: true, data: payments });
+  } catch (err) {
+    console.error("Get Fee Payments Error:", err);
+    next(err);
+  }
+};
+
+export const updateStudentFees = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const student = await studentService.updateStudentFees(
+      req.user,
+      req.params.studentId as string,
+      req.body
+    );
+    return res.status(200).json({ success: true, data: student });
+  } catch (err) {
+    console.error("Update Student Fees Error:", err);
+    next(err);
+  }
+};

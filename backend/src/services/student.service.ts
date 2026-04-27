@@ -1,20 +1,30 @@
 import prisma from '../lib/prisma.js';
 import { z } from "zod";
-import type { TokenPayload } from '../utils/jwt.js';
-import { centerScope } from '../lib/centerScope.js';
+import type { JwtPayload as TokenPayload } from '../lib/auth.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 
+const phone10Digit = z
+  .string()
+  .optional()
+  .nullable()
+  .refine(
+    (val) => !val || /^\d{10}$/.test(val),
+    "Guardian phone must be exactly 10 digits"
+  );
+
 const studentCreateSchema = z.object({
-  fullName: z.string().min(1),
+  fullName: z.string().min(1, "Name is required"),
   dob: z
     .string()
-    .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date")
-    .optional(),
-  gender: z.enum(["male", "female", "other"]).optional(),
-  guardianName: z.string().optional(),
-  guardianPhone: z.string().optional(),
-  centerId: z.string().uuid(),
-  programId: z.string().uuid(),
+    .optional()
+    .nullable()
+    .transform((val) => (val === "" ? null : val))
+    .refine((val) => !val || !Number.isNaN(Date.parse(val)), "Invalid date format"),
+  gender: z.enum(["male", "female", "other"]).optional().nullable(),
+  guardianName: z.string().optional().nullable(),
+  guardianPhone: phone10Digit,
+  centerId: z.string().uuid("Invalid Center ID"),
+  programId: z.string().uuid("Invalid Program ID"),
 });
 
 const studentUpdateSchema = z.object({
@@ -25,13 +35,30 @@ const studentUpdateSchema = z.object({
     .optional(),
   gender: z.enum(["male", "female", "other"]).optional(),
   guardianName: z.string().optional(),
-  guardianPhone: z.string().optional(),
+  guardianPhone: phone10Digit,
 });
 
-const scopedWhere = (user: AuthUser, otherConditions: Record<string, unknown> = {}) => ({
-  ...centerScope(user),
-  ...otherConditions,
-});
+/**
+ * SCOPED WHERE: The core of the data visibility logic.
+ * Ensures users only see students they are authorized to see.
+ */
+const scopedWhere = (user: TokenPayload, otherConditions: Record<string, unknown> = {}) => {
+  const baseFilter: any = { isActive: true };
+  const userRole = user.role;
+  const effectiveUserId = user.userId;
+
+  // super_admin & tech_admin → NO restrictions, see everything globally
+  // center_admin → see everything in their centers
+  // teachers → see everything in their centers (can be restricted further if needed)
+  if (userRole !== 'super_admin' && userRole !== 'tech_admin') {
+     baseFilter.centerId = { in: user.centerIds || [] };
+  }
+
+  return {
+    ...baseFilter,
+    ...otherConditions,
+  };
+};
 
 /* ─────────────────────────────────────────
    STUDENTS
@@ -44,18 +71,25 @@ export const createStudent = async (user: TokenPayload, data: any) => {
   }
 
   const payload = parsed.data;
+  const userRole = user.role;
 
-  if (user.role !== 'super_admin') {
-    if (!user.centerIds || user.centerIds.length === 0) {
-      throw new ForbiddenError("You must be assigned to a center to create students");
+  // Authorization check for center assignment
+  if (userRole !== 'super_admin' && userRole !== 'tech_admin') {
+    const isAssigned = user.centerIds?.includes(payload.centerId);
+    if (!isAssigned) {
+      throw new ForbiddenError("You are not authorized to register students for this center.");
     }
-    // Override payload centerId from token explicitly
-    payload.centerId = user.centerIds[0];
   }
 
   return prisma.student.create({
     data: {
-      ...payload,
+      fullName: payload.fullName,
+      centerId: payload.centerId,
+      programId: payload.programId,
+      createdById: user.userId,
+      gender: payload.gender || null,
+      guardianName: payload.guardianName || null,
+      guardianPhone: payload.guardianPhone || null,
       dob: payload.dob ? new Date(payload.dob) : null,
     },
     include: {
@@ -68,33 +102,41 @@ export const createStudent = async (user: TokenPayload, data: any) => {
 export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
+
+  // Build the base 'where' using the scope helper
   const where = scopedWhere(user, {
+    isActive: isActive !== undefined ? isActive : true,
     ...(centerId ? { centerId } : {}),
     ...(programId ? { programId } : {}),
-    ...(isActive !== undefined ? { isActive } : {}),
-    ...(search
-      ? {
-          fullName: {
-            contains: search,
-            mode: "insensitive",
-          },
-        }
-      : {}),
+    ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
   });
+
+  // Handle center filter overrides
+  if (centerId && user.role !== 'super_admin' && user.role !== 'tech_admin') {
+     if (!user.centerIds.includes(centerId)) {
+        throw new ForbiddenError("You do not have access to this center");
+     }
+  }
+
+  // Sorting
+  let orderBy: any = { createdAt: 'desc' };
+  if (sortOrder === 'name_asc') orderBy = { fullName: 'asc' };
+  else if (sortOrder === 'name_desc') orderBy = { fullName: 'desc' };
+  else if (sortOrder === 'roll_asc') orderBy = { rollNumber: 'asc' };
+  else if (sortOrder === 'roll_desc') orderBy = { rollNumber: 'desc' };
 
   const [students, total] = await Promise.all([
     prisma.student.findMany({
       where,
       skip,
       take: safeLimit,
-      orderBy: (sortOrder === 'name_asc' ? { fullName: 'asc' } :
-                sortOrder === 'name_desc' ? { fullName: 'desc' } :
-                sortOrder === 'roll_asc' ? { rollNumber: 'asc' } :
-                sortOrder === 'roll_desc' ? { rollNumber: 'desc' } :
-                { createdAt: "desc" }) as any,
+      orderBy,
       include: {
         center: true,
         program: true,
+        createdByUser: {
+          select: { id: true, fullName: true },
+        },
       },
     }),
     prisma.student.count({ where }),
@@ -114,6 +156,12 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
         take: 10,
       },
       examScores: true,
+      feePayments: {
+        orderBy: { paidAt: 'desc' },
+      },
+      createdByUser: {
+        select: { id: true, fullName: true },
+      },
     },
   });
 
@@ -121,7 +169,7 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
     throw new NotFoundError("Student");
   }
 
-  if (user.role !== 'super_admin' && !user.centerIds.includes(student.centerId)) {
+  if (user.role !== 'super_admin' && user.role !== 'tech_admin' && !user.centerIds.includes(student.centerId)) {
     throw new ForbiddenError("Cannot access student from another center");
   }
 
@@ -129,6 +177,7 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
 };
 
 export const updateStudent = async (user: TokenPayload, id: string, data: any) => {
+  // Logic from Vansh: Prevent changing center/program after creation
   if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
     throw new ValidationError("centerId and programId cannot be changed after creation");
   }
@@ -139,6 +188,7 @@ export const updateStudent = async (user: TokenPayload, id: string, data: any) =
   }
 
   const payload = parsed.data;
+
   const result = await prisma.student.updateMany({
     where: scopedWhere(user, { id }),
     data: {
@@ -148,7 +198,7 @@ export const updateStudent = async (user: TokenPayload, id: string, data: any) =
   });
 
   if (result.count === 0) {
-    throw new NotFoundError("Student");
+    throw new NotFoundError("Student not found or access denied");
   }
 
   return prisma.student.findFirst({
@@ -192,16 +242,8 @@ export const filterStudents = async (user: TokenPayload, query: Record<string, a
   const where = scopedWhere(user, {
     ...(query.gender ? { gender: query.gender } : {}),
     ...(query.programId ? { programId: query.programId } : {}),
-    ...(user?.role === "super_admin" && query.centerId ? { centerId: query.centerId } : {}),
+    ...(query.centerId ? { centerId: query.centerId } : {}),
     ...(Object.keys(dobFilter).length ? { dob: dobFilter } : {}),
-    ...((query.enrolledAfter || query.enrolledBefore)
-      ? {
-          enrollmentDate: {
-            ...(query.enrolledAfter ? { gte: new Date(query.enrolledAfter) } : {}),
-            ...(query.enrolledBefore ? { lte: new Date(query.enrolledBefore) } : {}),
-          },
-        }
-      : {}),
   });
 
   const [students, total] = await Promise.all([
@@ -280,20 +322,12 @@ export const getStudentSummary = async (user: TokenPayload, id: string) => {
   };
 };
 
-/** Aggregated student dashboard payload (charts + tables) for `/students/:id/profile`. */
 export const getStudentProfile = async (user: TokenPayload, id: string) => {
   const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
     include: {
       center: true,
       program: true,
-      parents: {
-        include: {
-          parent: {
-            select: { id: true, fullName: true, email: true, phone: true },
-          },
-        },
-      },
       attendanceRecords: {
         include: { session: true },
         orderBy: { session: { sessionDate: "desc" } },
@@ -367,7 +401,7 @@ export const getStudentProfile = async (user: TokenPayload, id: string) => {
     endline: v.endline ?? null,
   }));
 
-  const { attendanceRecords: _ar, examScores: _ex, formSubmissions: _fs, parents, ...studentRest } =
+  const { attendanceRecords: _ar, examScores: _ex, formSubmissions: _fs, ...studentRest } =
     student;
 
   return {
@@ -381,7 +415,6 @@ export const getStudentProfile = async (user: TokenPayload, id: string) => {
     examComparison,
     skillRadar: [],
     formSubmissions: student.formSubmissions,
-    parents,
   };
 };
 
@@ -411,7 +444,7 @@ export const updateAttendance = async (id: string, data: any) => {
 };
 
 /* ─────────────────────────────────────────
-   SKILLS (STUBBED - Model missing from schema)
+   SKILLS
 ───────────────────────────────────────── */
 
 export const addSkill = async (user: TokenPayload, studentId: string, data: any) => {
@@ -449,13 +482,13 @@ export const updateSkill = async (id: string, data: any) => {
 };
 
 /* ─────────────────────────────────────────
-   CAREERS (STUBBED - Model missing from schema)
+   CAREERS (Linked to Forms)
 ───────────────────────────────────────── */
 
 export const addCareer = async (user: TokenPayload, studentId: string, data: any) => {
   const student = await getStudentById(user, studentId);
   
-  let template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking", targetEntity: "student" } });
+  let template = await prisma.formTemplate.findFirst({ where: { name: "Career Tracking" } });
   if (!template) {
     template = await prisma.formTemplate.create({
       data: {
@@ -478,12 +511,7 @@ export const addCareer = async (user: TokenPayload, studentId: string, data: any
     }
   });
 
-  return {
-    id: submission.id,
-    studentId: submission.studentId,
-    createdAt: submission.submittedAt,
-    ...(submission.data as Record<string, unknown>)
-  };
+  return { id: submission.id, studentId: submission.studentId, createdAt: submission.submittedAt, ...(submission.data as Record<string, unknown>) };
 };
 
 export const getCareersByStudent = async (user: TokenPayload, studentId: string) => {
@@ -496,12 +524,7 @@ export const getCareersByStudent = async (user: TokenPayload, studentId: string)
     orderBy: { submittedAt: 'desc' }
   });
   
-  return submissions.map(sub => ({
-    id: sub.id,
-    studentId: sub.studentId,
-    createdAt: sub.submittedAt,
-    ...(sub.data as Record<string, unknown>)
-  }));
+  return submissions.map(sub => ({ id: sub.id, studentId: sub.studentId, createdAt: sub.submittedAt, ...(sub.data as Record<string, unknown>) }));
 };
 
 export const updateCareer = async (id: string, data: any) => {
@@ -513,12 +536,158 @@ export const updateCareer = async (id: string, data: any) => {
     data: { data }
   });
 
-  return {
-    id: updated.id,
-    studentId: updated.studentId,
-    createdAt: updated.submittedAt,
-    ...(updated.data as Record<string, unknown>)
-  };
+  return { id: updated.id, studentId: updated.studentId, createdAt: updated.submittedAt, ...(updated.data as Record<string, unknown>) };
+};
+
+/* ─────────────────────────────────────────
+   TRANSFER WORKFLOW (FROM VANSH)
+───────────────────────────────────────── */
+
+export const requestTransfer = async (user: TokenPayload, studentIds: string[]) => {
+  const effectiveUserId = user.userId;
+
+  const result = await prisma.student.updateMany({
+    where: {
+      id: { in: studentIds },
+      isActive: true,
+      transferStatus: 'active',
+      // Teachers can only request for their own students if we enforce ownership
+      ...(user.role === 'teacher' ? { createdById: effectiveUserId } : {}),
+    },
+    data: {
+      transferStatus: 'pending_transfer',
+    },
+  });
+
+  return { updated: result.count };
+};
+
+export const getTransferRequests = async (user: TokenPayload) => {
+  const where = scopedWhere(user, {
+    transferStatus: 'pending_transfer',
+  });
+
+  return prisma.student.findMany({
+    where,
+    include: {
+      center: true,
+      program: true,
+      createdByUser: {
+        select: { id: true, fullName: true },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+};
+
+export const completeTransfer = async (
+  user: TokenPayload,
+  studentIds: string[],
+  newTeacherId: string,
+  newCenterId: string
+) => {
+  const effectiveUserId = user.userId;
+
+  const students = await prisma.student.findMany({
+    where: { id: { in: studentIds }, transferStatus: 'pending_transfer' },
+  });
+
+  if (students.length === 0) {
+    throw new NotFoundError('No pending transfer students found');
+  }
+
+  await prisma.$transaction(async (tx) => {
+    for (const s of students) {
+      await tx.studentTransfer.create({
+        data: {
+          studentId: s.id,
+          fromCenterId: s.centerId,
+          toCenterId: newCenterId,
+          transferDate: new Date(),
+          reason: 'Transfer via admin workflow',
+          approvedBy: effectiveUserId,
+        },
+      });
+    }
+
+    await tx.student.updateMany({
+      where: { id: { in: studentIds } },
+      data: {
+        centerId: newCenterId,
+        createdById: newTeacherId,
+        transferStatus: 'active',
+      },
+    });
+  });
+
+  return { transferred: students.length };
+};
+
+/* ─────────────────────────────────────────
+   FEE MANAGEMENT (FROM VANSH)
+───────────────────────────────────────── */
+
+export const addFeePayment = async (
+  user: TokenPayload,
+  studentId: string,
+  amount: number,
+  notes?: string
+) => {
+  const effectiveUserId = user.userId;
+  const student = await getStudentById(user, studentId);
+
+  const payment = await prisma.feePayment.create({
+    data: {
+      studentId: student.id,
+      amount,
+      notes: notes || null,
+      createdBy: effectiveUserId,
+    },
+  });
+
+  const agg = await prisma.feePayment.aggregate({
+    where: { studentId: student.id },
+    _sum: { amount: true },
+  });
+
+  const totalPaid = Number(agg._sum.amount || 0);
+  const totalFees = Number(student.totalFees || 0);
+
+  await prisma.student.update({
+    where: { id: student.id },
+    data: {
+      feesPaid: totalPaid,
+      isFullyPaid: totalFees > 0 && totalPaid >= totalFees,
+    },
+  });
+
+  return payment;
+};
+
+export const getFeePayments = async (user: TokenPayload, studentId: string) => {
+  await getStudentById(user, studentId);
+  return prisma.feePayment.findMany({
+    where: { studentId },
+    orderBy: { paidAt: 'desc' },
+  });
+};
+
+export const updateStudentFees = async (
+  user: TokenPayload,
+  studentId: string,
+  data: { totalFees?: number; isFullyPaid?: boolean }
+) => {
+  const student = await getStudentById(user, studentId);
+
+  const updateData: any = {};
+  if (data.totalFees !== undefined) updateData.totalFees = data.totalFees;
+  if (data.isFullyPaid !== undefined) updateData.isFullyPaid = data.isFullyPaid;
+
+  return prisma.student.update({
+    where: { id: student.id },
+    data: updateData,
+    include: { center: true, program: true },
+  });
 };
 
 /* ─────────────────────────────────────────
@@ -532,19 +701,12 @@ export const getDashboardStats = async () => {
     prisma.attendanceRecord.count({ where: { status: "present" } }),
   ]);
 
-  const attendanceRate =
-    totalAttendance > 0 ? Number(((presentCount / totalAttendance) * 100).toFixed(1)) : 0;
+  const attendanceRate = totalAttendance > 0 ? Number(((presentCount / totalAttendance) * 100).toFixed(1)) : 0;
 
   return {
     totalStudents,
     totalSessions: totalAttendance,
     attendanceRate: `${attendanceRate}%`,
-    avgSkills: {
-      communication: 0,
-      confidence: 0,
-      computerSkill: 0,
-      problemSolving: 0,
-      languageSkill: 0,
-    },
+    avgSkills: { communication: 0, confidence: 0, computerSkill: 0, problemSolving: 0, languageSkill: 0 },
   };
 };

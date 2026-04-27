@@ -9,6 +9,7 @@ import {
   resetUserPassword,
   softDeleteUser,
   updateUser,
+  updateUserCenters,
 } from '../services/userService.js';
 
 // Define the custom request type to access req.user
@@ -29,8 +30,10 @@ export async function listUsersController(req: Request, res: Response, next: Nex
       search: req.query.search as string | undefined,
       page: req.query.page ? Number(req.query.page) : 1,
       limit: req.query.limit ? Number(req.query.limit) : 50,
-      // 🔥 THE KEY FIX: Only filter by creator if NOT a super_admin
-      createdBy: requester?.role === 'super_admin' ? undefined : (requester?.userId || requester?.id)
+      // Admins see all users; other roles only see users they created
+      createdBy: (requester?.role === 'super_admin' || requester?.role === 'center_admin') 
+        ? undefined 
+        : (requester?.userId || requester?.id)
     });
 
     return res.status(200).json(result);
@@ -51,7 +54,8 @@ export async function getUserController(req: Request, res: Response, next: NextF
 export async function createUserController(req: Request, res: Response, next: NextFunction) {
   try {
     const requester = (req as AuthenticatedRequest).user;
-    const { role: targetRole } = req.body as { role: UserRole };
+    // Extract centerIds from the body along with other fields
+    const { role: targetRole, centerIds } = req.body as { role: UserRole, centerIds?: string[] };
 
     if (!requester || !requester.role) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -61,11 +65,11 @@ export async function createUserController(req: Request, res: Response, next: Ne
 
     // --- HIERARCHY LOGIC ---
     if (requesterRole === "super_admin") {
-      const allowedForSuper = ["super_admin", "center_admin"];
+      const allowedForSuper = ["super_admin", "center_admin", "teacher", "staff", "volunteer"];
       if (!allowedForSuper.includes(targetRole)) {
         return res.status(403).json({ 
           success: false, 
-          error: "Super Admins can only create Super Admins or Center Admins." 
+          error: "Invalid role assignment for Super Admin." 
         });
       }
     } else if (requesterRole === "center_admin") {
@@ -80,15 +84,17 @@ export async function createUserController(req: Request, res: Response, next: Ne
       return res.status(403).json({ success: false, error: "Access Denied." });
     }
 
-    // Attach the creator's ID to the new user data
+    // 🔥 THE FIX: Explicitly include centerIds in the data passed to the service
     const userData = {
       ...req.body,
-       createdBy: requester?.userId || requester?.id 
+      centerIds: centerIds || [], // Ensure this is an array
+      createdBy: requester?.userId || requester?.id 
     };
 
     const user = await createUser(userData);
     return res.status(201).json(user);
   } catch (error) {
+    // This will catch the Prisma nested-write errors if centerIds are malformed
     return next(error);
   }
 }
@@ -151,6 +157,26 @@ export async function deleteUserController(req: Request, res: Response, next: Ne
 export async function myCentersController(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await getMyCenters((req as AuthenticatedRequest).user!);
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateUserCentersController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const requester = (req as AuthenticatedRequest).user!;
+    const { centerIds } = req.body as { centerIds: string[] };
+
+    if (!Array.isArray(centerIds)) {
+      return res.status(400).json({ success: false, error: "centerIds must be an array" });
+    }
+
+    const result = await updateUserCenters(
+      requester.userId || (requester as any).id,
+      req.params.userId as string,
+      centerIds,
+    );
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

@@ -6,6 +6,14 @@ const optionalDateString = z
   .optional()
   .refine((s) => !s || !Number.isNaN(Date.parse(s)), "Invalid date");
 
+const phone10Digit = z
+  .string()
+  .optional()
+  .refine(
+    (val) => !val || /^\d{10}$/.test(val),
+    "Guardian phone must be exactly 10 digits"
+  );
+
 export const createStudentSchema = z.object({
   fullName: z.string().min(2),
   centerId: uuid,
@@ -13,7 +21,7 @@ export const createStudentSchema = z.object({
   dob: optionalDateString,
   gender: z.enum(["male", "female", "other"]).optional(),
   guardianName: z.string().optional(),
-  guardianPhone: z.string().optional(),
+  guardianPhone: phone10Digit,
 });
 
 export const updateStudentSchema = z.object({
@@ -21,7 +29,7 @@ export const updateStudentSchema = z.object({
   dob: optionalDateString,
   gender: z.enum(["male", "female", "other"]).optional(),
   guardianName: z.string().optional(),
-  guardianPhone: z.string().optional(),
+  guardianPhone: phone10Digit,
 });
 
 export const createAttendanceSessionSchema = z.object({
@@ -104,4 +112,17 @@ export const createCareerSchema = z.object({
   industry: z.string().min(2),
   milestones: z.array(z.string()).optional(),
   notes: z.string().optional(),
+});
+
+export const createCenterSchema = z.object({
+  name: z.string().min(2, "Center name must be at least 2 characters"),
+  location: z.string().optional(),
+});
+
+export const createProgramSchema = z.object({
+  code: z.string().min(1, "Program code is required"),
+  name: z.string().min(2, "Program name must be at least 2 characters"),
+  ageMin: z.number().int().min(0).optional(),
+  ageMax: z.number().int().min(0).optional(),
+  description: z.string().optional(),
 });

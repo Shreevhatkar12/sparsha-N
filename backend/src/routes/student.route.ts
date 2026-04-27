@@ -18,6 +18,12 @@ import {
   getCareersByStudent,
   updateCareer,
   getDashboardStats,
+  requestTransfer,
+  getTransferRequests,
+  completeTransfer,
+  addFeePayment,
+  getFeePayments,
+  updateStudentFees,
 } from '../controllers/student.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/requireRole.middleware.js';
@@ -29,11 +35,28 @@ const router = Router();
 // 1. All student routes are protected
 router.use(authenticate);
 
-// 2. Dashboards (Admins might still want to see stats, but not edit data)
+// 2. Dashboards & Filters (Admins/CEO can view these)
 router.get("/filter", filterStudents);
 router.get("/dashboard", getDashboardStats);
 
-// 3. Students CRUD (Strictly Teachers and Staff only for creation/update)
+// 3. Transfer Workflow (NEW FROM VANSH)
+router.post(
+  "/transfers/request",
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"),
+  requestTransfer
+);
+router.get(
+  "/transfers/pending",
+  requireRole("super_admin", "center_admin", "tech_admin"),
+  getTransferRequests
+);
+router.post(
+  "/transfers/complete",
+  requireRole("super_admin", "center_admin", "tech_admin"),
+  completeTransfer
+);
+
+// 4. Students CRUD
 router.post(
   "/", 
   requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
@@ -41,13 +64,12 @@ router.post(
   createStudent
 );
 
-// Admins/Super Admins can still "View" the list and profiles for reports
-router.get("/", requireRole("super_admin", "center_admin", "teacher", "staff"), getAllStudents);
+// Everyone can view lists and profiles
+router.get("/", getAllStudents);
 router.get("/:id/summary", getStudentSummary);
 router.get("/:id/profile", getStudentProfile);
 router.get("/:id", getStudentById);
 
-// Editing students is restricted to the people handling them
 router.put(
   "/:id", 
   requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), 
@@ -55,22 +77,35 @@ router.put(
   updateStudent
 );
 
-// Delete remains restricted (usually NGO admins handle deletions for data integrity)
-router.delete("/:id", requireRole("super_admin", "center_admin","teacher"), deleteStudent);
+// Delete remains restricted to Admins
+router.delete("/:id", requireRole("super_admin", "center_admin", "tech_admin"), deleteStudent);
 
-// 4. Attendance (Daily task for Teachers)
+// 5. Attendance
 router.post("/:studentId/attendance", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), addAttendance);
 router.get("/:studentId/attendance", getAttendanceByStudent);
 router.put("/attendance/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), updateAttendance);
 
-// 5. Skills (Pedagogical task for Teachers)
+// 6. Skills
 router.post("/:studentId/skills", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), addSkill);
 router.get("/:studentId/skills", getSkillsByStudent);
 router.put("/skills/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createSkillSchema), updateSkill);
 
-// 6. Careers (Guidance task for Teachers)
+// 7. Careers
 router.post("/:studentId/careers", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
 router.put("/careers/:id", requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"), validate(createCareerSchema), updateCareer);
+
+// 8. Fee Management (NEW FROM VANSH)
+router.post(
+  "/:studentId/fees",
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"),
+  addFeePayment
+);
+router.get("/:studentId/fees", getFeePayments);
+router.put(
+  "/:studentId/fees/update",
+  requireRole("super_admin", "tech_admin", "center_admin", "teacher", "staff"),
+  updateStudentFees
+);
 
 export default router;

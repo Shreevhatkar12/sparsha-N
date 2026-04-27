@@ -8,6 +8,7 @@ import {
   deleteCenter,
   getCenterDetails,
   getProgramCenters,
+  getProgramDetails,
   listCenters,
   listPrograms,
   removeProgramFromCenter,
@@ -143,6 +144,15 @@ export async function programCentersController(req: Request, res: Response, next
   try {
     const rows = await getProgramCenters(req.params.programId as string);
     return res.status(200).json(rows);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getProgramDetailsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const details = await getProgramDetails(req.params.programId as string);
+    return res.status(200).json(details);
   } catch (error) {
     return next(error);
   }

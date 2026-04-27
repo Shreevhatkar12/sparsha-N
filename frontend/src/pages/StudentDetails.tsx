@@ -20,11 +20,11 @@ import { Badge } from '../components/ui/Badge';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
-import { ArrowLeft, Edit2, Phone, MapPin, Calendar, Map, FileText } from 'lucide-react';
-import { getStudentProfile } from '../services/students.service';
+import { ArrowLeft, Edit2, Phone, MapPin, Calendar, Map, FileText, IndianRupee, Plus, CheckCircle2 } from 'lucide-react';
+import { getStudentProfile, getFeePayments, addFeePayment, updateStudentFees } from '../services/students.service';
 import { getSkillsByStudent } from '../services/skills.service';
 import { getCareersByStudent } from '../services/career.service';
-import type { StudentProfilePayload } from '../types';
+import type { StudentProfilePayload, FeePayment } from '../types';
 import type { SkillRecord, CareerRecord } from '../types';
 
 const CHART_RED = '#dc2626';
@@ -51,6 +51,21 @@ export const StudentDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Fee state
+  const [feePayments, setFeePayments] = useState<FeePayment[]>([]);
+  const [feeAmount, setFeeAmount] = useState('');
+  const [feeNotes, setFeeNotes] = useState('');
+  const [feeSaving, setFeeSaving] = useState(false);
+  const [totalFeesInput, setTotalFeesInput] = useState('');
+  const [totalFeesEditing, setTotalFeesEditing] = useState(false);
+
+  const loadFees = async (studentId: string) => {
+    try {
+      const payments = await getFeePayments(studentId);
+      setFeePayments(payments || []);
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => {
     if (!id) return;
     let alive = true;
@@ -61,12 +76,14 @@ export const StudentDetails: React.FC = () => {
         const p = await getStudentProfile(id);
         if (!alive) return;
         setProfile(p);
+        setTotalFeesInput(p.student.totalFees != null ? String(p.student.totalFees) : '');
         const [sk, cr] = await Promise.allSettled([getSkillsByStudent(id), getCareersByStudent(id)]);
         if (!alive) return;
         if (sk.status === 'fulfilled') setSkillsRows(sk.value as SkillRecord[]);
         else setSkillsRows(null);
         if (cr.status === 'fulfilled') setCareers(cr.value as CareerRecord[]);
         else setCareers(null);
+        await loadFees(id);
       } catch {
         if (alive) setError('Could not load student.');
       } finally {
@@ -77,6 +94,40 @@ export const StudentDetails: React.FC = () => {
       alive = false;
     };
   }, [id]);
+
+  const handleAddPayment = async () => {
+    if (!id || !feeAmount || Number(feeAmount) <= 0) return;
+    setFeeSaving(true);
+    try {
+      await addFeePayment(id, Number(feeAmount), feeNotes || undefined);
+      setFeeAmount('');
+      setFeeNotes('');
+      await loadFees(id);
+      // Reload profile to get updated totals
+      const p = await getStudentProfile(id);
+      setProfile(p);
+    } catch { /* ignore */ }
+    setFeeSaving(false);
+  };
+
+  const handleSaveTotalFees = async () => {
+    if (!id) return;
+    try {
+      await updateStudentFees(id, { totalFees: Number(totalFeesInput) || 0 });
+      const p = await getStudentProfile(id);
+      setProfile(p);
+      setTotalFeesEditing(false);
+    } catch { /* ignore */ }
+  };
+
+  const handleToggleFullyPaid = async () => {
+    if (!id || !profile) return;
+    try {
+      await updateStudentFees(id, { isFullyPaid: !profile.student.isFullyPaid });
+      const p = await getStudentProfile(id);
+      setProfile(p);
+    } catch { /* ignore */ }
+  };
 
   const radarData = useMemo(() => {
     if (!profile) return [];
@@ -188,6 +239,110 @@ export const StudentDetails: React.FC = () => {
           <p className="text-xs text-neutral-500 mt-1">Latest assessment</p>
         </Card>
       </div>
+
+      {/* ─── Fees Section ─── */}
+      <Card className="mb-6">
+        <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">
+          <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+            <IndianRupee size={20} /> Fees
+          </h2>
+          <button
+            onClick={() => void handleToggleFullyPaid()}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+              student.isFullyPaid
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+            }`}
+          >
+            <CheckCircle2 size={16} className={student.isFullyPaid ? 'text-emerald-600' : 'text-neutral-400'} />
+            {student.isFullyPaid ? 'Fully Paid ✓' : 'Mark as Entire Fees Paid'}
+          </button>
+        </div>
+
+        {/* Total fees & paid summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Total Fees</p>
+            {totalFeesEditing ? (
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={totalFeesInput}
+                  onChange={(e) => setTotalFeesInput(e.target.value)}
+                  className="w-full px-2 py-1 border border-neutral-300 rounded text-sm"
+                />
+                <Button size="sm" variant="primary" onClick={() => void handleSaveTotalFees()}>Save</Button>
+              </div>
+            ) : (
+              <p className="text-xl font-bold text-neutral-900 cursor-pointer" onClick={() => setTotalFeesEditing(true)}>
+                ₹{student.totalFees != null ? Number(student.totalFees).toLocaleString() : '—'}
+                <span className="text-xs text-neutral-400 ml-1">(click to edit)</span>
+              </p>
+            )}
+          </div>
+          <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Fees Paid</p>
+            <p className="text-xl font-bold text-neutral-900">₹{Number(student.feesPaid || 0).toLocaleString()}</p>
+          </div>
+          <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 mb-1">Balance</p>
+            <p className={`text-xl font-bold ${
+              student.isFullyPaid ? 'text-emerald-600' : 'text-amber-600'
+            }`}>
+              {student.isFullyPaid ? '₹0 (Cleared)' : `₹${Math.max(0, Number(student.totalFees || 0) - Number(student.feesPaid || 0)).toLocaleString()}`}
+            </p>
+          </div>
+        </div>
+
+        {/* Add payment form */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-4 p-3 bg-brand-50/30 rounded-lg border border-brand-100">
+          <input
+            type="number"
+            placeholder="Amount (₹)"
+            value={feeAmount}
+            onChange={(e) => setFeeAmount(e.target.value)}
+            className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-primary focus:border-primary"
+          />
+          <input
+            type="text"
+            placeholder="Notes (optional)"
+            value={feeNotes}
+            onChange={(e) => setFeeNotes(e.target.value)}
+            className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:ring-primary focus:border-primary"
+          />
+          <Button variant="primary" size="sm" isLoading={feeSaving} onClick={() => void handleAddPayment()} disabled={!feeAmount}>
+            <Plus size={16} className="mr-1" /> Add Payment
+          </Button>
+        </div>
+
+        {/* Payment history */}
+        {feePayments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                  <th className="py-2 pr-3 font-medium">Date & Time</th>
+                  <th className="py-2 pr-3 font-medium">Amount</th>
+                  <th className="py-2 pr-3 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {feePayments.map((p) => (
+                  <tr key={p.id} className="border-b border-neutral-100 even:bg-neutral-50/50">
+                    <td className="py-2 pr-3 text-neutral-600 whitespace-nowrap">
+                      {new Date(p.paidAt).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-3 font-medium text-neutral-900">₹{Number(p.amount).toLocaleString()}</td>
+                    <td className="py-2 pr-3 text-neutral-600">{p.notes || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-500 text-center py-3">No payment records yet.</p>
+        )}
+      </Card>
 
       <Card className="mb-6">
         <div className="flex justify-between items-center mb-4 border-b border-neutral-100 pb-3">

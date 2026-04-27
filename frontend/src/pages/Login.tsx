@@ -17,13 +17,15 @@ export const Login: React.FC = () => {
 
   const setAuth = useAuthStore((s) => s.setAuth);
   const accessToken = useAuthStore((s) => s.accessToken);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (accessToken) {
-      navigate('/dashboard', { replace: true });
+    if (accessToken && currentUser) {
+      const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser.role);
+      navigate(isAdmin ? '/dashboard' : '/students', { replace: true });
     }
-  }, [accessToken, navigate]);
+  }, [accessToken, currentUser, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,9 +33,9 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      const { token, accessToken, user } = await login(username, password);
-      const authToken = token || accessToken;
-      if (!authToken) throw new Error('No access token received');
+      const { accessToken: token, user } = await login(username, password);
+      if (!token) throw new Error('No access token received');
+      
       setAuth(
         {
           id: user.id,
@@ -42,21 +44,14 @@ export const Login: React.FC = () => {
           role: user.role,
           centerIds: user.centerIds ?? [],
         },
-        authToken,
+        token,
       );
-      navigate('/dashboard');
-    } catch (err: unknown) {
-      const data =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { status?: number; data?: { message?: string; error?: string } } }).response
-          : undefined;
-      const msg = data?.data?.message || data?.data?.error;
       
-      if (data?.status === 429) {
-        setError('Too many login attempts. Please try again later.');
-      } else {
-        setError(msg || 'Login failed. Check your credentials.');
-      }
+      const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(user.role);
+      navigate(isAdmin ? '/dashboard' : '/students');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Login failed. Check your credentials.';
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +65,7 @@ export const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-neutral-100">
       <Card className="max-w-md w-full shadow-lg border-primary/10">
         <div className="flex flex-col items-center mb-8">
-          <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4 text-primary relative overflow-hidden">
+          <div className="h-16 w-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-4 text-brand-600">
             <GraduationCap size={32} />
           </div>
           <h1 className="text-2xl font-bold text-neutral-900">SPARSHA System</h1>

@@ -15,6 +15,7 @@ export type JwtPayload = {
   email: string;
   role: UserRole;
   centerIds: string[];
+  isActive: boolean; // Added for the "Kill-switch"
 };
 
 type AuthenticatedRequest = Request & {
@@ -32,7 +33,7 @@ function getJwtAccessSecret(): string {
 
 const JWT_ACCESS_SECRET = getJwtAccessSecret();
 const JWT_EXPIRES_IN: SignOptions["expiresIn"] =
-  (process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"]) ?? "15m";
+  (process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"]) ?? "1d";
 
 export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
   const user = await prisma.user.findUnique({
@@ -41,6 +42,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
       id: true,
       email: true,
       role: true,
+      isActive: true,
       centerAssignments: {
         where: { validUntil: null },
         select: { centerId: true },
@@ -56,6 +58,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
     userId: user.id,
     email: user.email,
     role: user.role,
+    isActive: user.isActive,
     centerIds: user.centerAssignments.map((assignment) => assignment.centerId),
   };
 }
@@ -66,7 +69,8 @@ export function signToken(payload: JwtPayload): string {
   });
 }
 
-export function verifyToken(token: string): JwtPayload {
+// Renamed to verifyAccessToken to match middleware expectations
+export function verifyAccessToken(token: string): JwtPayload {
   try {
     const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as JwtPayload;
     return decoded;
@@ -87,7 +91,8 @@ export const requireAuth: RequestHandler = (
 
   const token = authHeader.split(" ")[1];
   try {
-    req.user = verifyToken(token) as unknown as AuthUser;
+    const decoded = verifyAccessToken(token);
+    (req as AuthenticatedRequest).user = decoded; 
     return next();
   } catch (error) {
     return next(error);
@@ -136,3 +141,5 @@ export function requireCenterAccess() {
     return next();
   };
 }
+
+export const authorize = requireRole;

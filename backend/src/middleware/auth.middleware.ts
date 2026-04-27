@@ -1,12 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyAccessToken, TokenPayload } from '../utils/jwt.js'; // 1. Added TokenPayload import
+import { verifyAccessToken, JwtPayload } from '../lib/auth.js'; 
 
-// 2. Updated this type to use your real TokenPayload from jwt.ts
-type AuthenticatedRequest = Request & { user?: TokenPayload };
+type AuthenticatedRequest = Request & { user?: JwtPayload };
 
 /**
  * AUTHENTICATE: The "Front Gate"
- * Checks if the user is logged in (has a valid JWT)
+ * Verifies the JWT token and checks if the account is active.
  */
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
@@ -23,13 +22,15 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   try {
     const decoded = verifyAccessToken(token);
     
+    // Check if account is still active (Kill-switch)
     if (decoded.isActive === false) {
       return res.status(403).json({
         success: false,
-        message: "Account is inactive.",
+        message: "Account is inactive. Please contact administrator.",
       });
     }
 
+    // Ensure user has at least one center assigned (unless super_admin)
     if (decoded.role !== 'super_admin' && (!decoded.centerIds || decoded.centerIds.length === 0)) {
       return res.status(403).json({
         success: false,
@@ -49,9 +50,8 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
 /**
  * AUTHORIZE: The "Internal Door"
- * Checks if the logged-in user has the right Role (e.g., super_admin)
+ * Checks if the user's role is permitted to access the route.
  */
-// 5. Added the authorize function below
 export const authorize = (...allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as AuthenticatedRequest;
@@ -59,13 +59,12 @@ export const authorize = (...allowedRoles: string[]) => {
     if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
       return res.status(403).json({
         success: false,
-        message: "Access Denied: You do not have the required permissions for this action.",
+        message: "Access Denied: You do not have the required permissions.",
       });
     }
     next();
   };
 };
 
-// 6. Helpful aliases for your route files
 export const protect = authenticate;
 export const requireRole = authorize;

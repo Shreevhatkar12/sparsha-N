@@ -18,7 +18,7 @@ export const StudentRegistration: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const isEditMode = Boolean(id);
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'center_admin';
   const defaultCenter = !isAdmin && selectedCenterId ? selectedCenterId : '';
 
   const [loading, setLoading] = useState(isEditMode);
@@ -37,23 +37,38 @@ export const StudentRegistration: React.FC = () => {
     programId: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
   });
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const [c, p] = await Promise.all([listCenters(), listPrograms()]);
-        if (!alive) return;
-        setCenters(c);
-        setPrograms(p);
-      } catch {
-        if (alive) setError('Could not load centers or programs.');
+  let alive = true;
+  const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
+  (async () => {
+    try {
+      const [c, p] = await Promise.all([listCenters(), listPrograms()]);
+      console.log("Centers received by Component:", c);
+      if (!alive) return;
+
+      // For teachers, filter to only their assigned centers
+      let filteredCenters = c;
+      if (isTeacher && currentUser?.centerIds?.length) {
+        filteredCenters = c.filter((center: any) =>
+          currentUser.centerIds.includes(center.id)
+        );
       }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
+
+      setCenters(filteredCenters);
+      setPrograms(p);
+      
+      // Auto-select if there's only one center available
+      if (filteredCenters.length === 1 && !formData.centerId) {
+        setFormData(prev => ({ ...prev, centerId: filteredCenters[0].id }));
+      }
+    } catch (err) {
+      if (alive) setError('Could not load centers or programs.');
+    }
+  })();
+  return () => { alive = false; };
+}, [currentUser?.centerIds]);
 
   useEffect(() => {
     if (!isEditMode || !id) return;
@@ -86,11 +101,28 @@ export const StudentRegistration: React.FC = () => {
   }, [id, isEditMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Real-time phone validation
+    if (name === 'guardianPhone') {
+      if (value && !/^\d{10}$/.test(value)) {
+        setPhoneError('Phone must be exactly 10 digits');
+      } else {
+        setPhoneError(null);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Final phone validation before submit
+    if (formData.guardianPhone && !/^\d{10}$/.test(formData.guardianPhone)) {
+      setPhoneError('Phone must be exactly 10 digits');
+      return;
+    }
+    
     setSaving(true);
     setError(null);
     try {
@@ -197,13 +229,20 @@ export const StudentRegistration: React.FC = () => {
               value={formData.guardianName}
               onChange={handleChange}
             />
-            <Input
-              label="Guardian Phone"
-              name="guardianPhone"
-              type="tel"
-              value={formData.guardianPhone}
-              onChange={handleChange}
-            />
+            <div>
+              <Input
+                label="Guardian Phone"
+                name="guardianPhone"
+                type="tel"
+                placeholder="10-digit number"
+                maxLength={10}
+                value={formData.guardianPhone}
+                onChange={handleChange}
+              />
+              {phoneError && (
+                <p className="text-xs text-danger mt-1">{phoneError}</p>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -241,7 +280,7 @@ export const StudentRegistration: React.FC = () => {
               <select
                 name="centerId"
                 required
-                disabled={!isAdmin || isEditMode}
+                disabled={isEditMode}
                 value={formData.centerId}
                 onChange={handleChange}
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm disabled:opacity-75 disabled:bg-neutral-100"
@@ -249,11 +288,11 @@ export const StudentRegistration: React.FC = () => {
                 <option value="" disabled>
                   Select center…
                 </option>
-                {centers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {Array.isArray(centers) && centers.map((c) => (
+  <option key={c.id} value={c.id}>
+    {c.name}
+  </option>
+))}
               </select>
             </div>
           </div>
