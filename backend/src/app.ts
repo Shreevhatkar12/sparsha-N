@@ -21,6 +21,9 @@ import equipmentRoutes from './routes/equipmentRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
 import koboRoutes from './routes/kobo.routes.js';
 
+import path from "path";
+import { fileURLToPath } from "url";
+
 const app = express();
 
 const limiter = rateLimit({
@@ -32,7 +35,10 @@ const limiter = rateLimit({
 
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin:
+  process.env.NODE_ENV === "production"
+    ? true
+    : "http://localhost:5173",
     credentials: true,
   })
 );
@@ -65,6 +71,23 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/kobo", koboRoutes);
+
+// Resolve __dirname in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Path to frontend build
+const frontendPath = path.join(process.cwd(), "frontend", "dist");
+
+if (process.env.NODE_ENV === "production") {
+  const frontendPath = path.join(process.cwd(), "frontend", "dist");
+
+  app.use(express.static(frontendPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendPath, "index.html"));
+  });
+}
 
 app.use(errorHandler);
 
