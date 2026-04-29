@@ -244,6 +244,93 @@ async function main() {
     }
   }
 
+  // 9. Equipment
+  console.log("💻 Seeding Equipment...");
+  const categories = ["Electronics", "Furniture", "Stationery"];
+  const equipNames = [
+    { name: "Dell Optiplex", cat: "Electronics" },
+    { name: "Lenovo Thinkpad", cat: "Electronics" },
+    { name: "Whiteboard", cat: "Furniture" },
+    { name: "Student Desk", cat: "Furniture" },
+    { name: "Epson Projector", cat: "Electronics" },
+  ];
+  for (const center of centers) {
+    for (const item of equipNames) {
+      await prisma.equipment.create({
+        data: {
+          name: `${item.name} - ${center.name}`,
+          category: item.cat,
+          quantity: Math.floor(Math.random() * 10) + 1,
+          condition: "good",
+          centerId: center.id,
+          createdBy: teachers[0].id,
+        }
+      });
+    }
+  }
+
+  console.log("🎯 Seeding Skills...");
+  const skillDefs = [
+    { name: "Basic Computing" },
+    { name: "Typing Speed" },
+    { name: "Spoken English" },
+    { name: "Public Speaking" },
+  ];
+  const createdSkills = [];
+  for (const s of skillDefs) {
+    const sk = await prisma.skillDefinition.create({
+      data: { name: s.name, programId: pMap.SWAYAM.id, description: "Standard evaluation" }
+    });
+    createdSkills.push(sk);
+  }
+
+  const logs = [];
+  for (const student of students) {
+    for (const sk of createdSkills) {
+      if (Math.random() > 0.5) {
+        logs.push({
+          studentId: student.id,
+          centerId: student.centerId,
+          skillId: sk.id,
+          level: Math.floor(Math.random() * 5) + 1,
+          assessedBy: teachers[0].id,
+          remarks: "Periodic assessment",
+        });
+      }
+    }
+  }
+  await prisma.studentSkillLog.createMany({ data: logs });
+
+  // 11. Fees
+  console.log("💰 Seeding Fees...");
+  const fees = [];
+  for (const student of students) {
+    if (Math.random() > 0.3) {
+      fees.push({
+        studentId: student.id,
+        amount: Math.floor(Math.random() * 500) + 100,
+        notes: "Monthly fee",
+        createdBy: teachers[0].id,
+      });
+    }
+  }
+  await prisma.feePayment.createMany({ data: fees });
+
+  // 12. Transfers
+  console.log("🚚 Seeding Student Transfers...");
+  const transfers = [];
+  for (let i = 0; i < 5; i++) {
+    transfers.push({
+      studentId: students[i].id,
+      fromCenterId: centers[0].id,
+      toCenterId: centers[1].id,
+      transferDate: new Date(),
+      reason: "Relocated",
+      approvedBy: superAdmin.id,
+    });
+  }
+  await prisma.studentTransfer.createMany({ data: transfers });
+
   console.log("✅ TOTAL REBUILD COMPLETE.");
 }
 

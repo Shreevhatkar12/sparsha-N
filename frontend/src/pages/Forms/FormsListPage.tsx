@@ -8,8 +8,8 @@ import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuthStore } from '../../store/useAuthStore';
-import { listFormTemplates, syncKoboForms, type FormTemplateListItem } from '../../services/forms.service';
-import { Plus, Pencil, FileText, Inbox } from 'lucide-react';
+import { listFormTemplates, syncKoboForms, syncKoboSubmissions, type FormTemplateListItem } from '../../services/forms.service';
+import { FileText, Inbox, RefreshCw, ExternalLink } from 'lucide-react';
 
 export const FormsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,7 +19,9 @@ export const FormsListPage: React.FC = () => {
   const [formTypeSlugs, setFormTypeSlugs] = useState<string[]>([]);
   const [formTypeFilter, setFormTypeFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [syncingTemplateId, setSyncingTemplateId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -36,10 +38,29 @@ export const FormsListPage: React.FC = () => {
 
   const handleSyncKobo = async () => {
     try {
-      await syncKoboForms();
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+      const result = await syncKoboForms();
+      setSuccess(result.message);
       await load();
-    } catch {
-      setError('Failed to sync Kobo forms.');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to sync Kobo forms.');
+      setLoading(false);
+    }
+  };
+
+  const handleSyncData = async (templateId: string, externalId: string) => {
+    try {
+      setSyncingTemplateId(templateId);
+      setError(null);
+      setSuccess(null);
+      const result = await syncKoboSubmissions(templateId, externalId);
+      setSuccess(result.message);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to sync submissions.');
+    } finally {
+      setSyncingTemplateId(null);
     }
   };
 
@@ -70,11 +91,11 @@ export const FormsListPage: React.FC = () => {
       actions={
         isAdmin ? (
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={handleSyncKobo}>
-              Sync Kobo
+            <Button variant="secondary" onClick={() => window.open(import.meta.env.VITE_KOBO_URL || 'https://kf.kobotoolbox.org', '_blank')}>
+              <ExternalLink size={16} className="mr-2" /> KoboToolbox Admin
             </Button>
-            <Button variant="primary" onClick={() => navigate('/forms/new')}>
-              <Plus size={16} className="mr-2" /> New template
+            <Button variant="primary" onClick={handleSyncKobo} isLoading={loading}>
+              <RefreshCw size={16} className="mr-2" /> Sync Forms from Kobo
             </Button>
           </div>
         ) : undefined
@@ -83,6 +104,12 @@ export const FormsListPage: React.FC = () => {
       {error && (
         <div className="mb-4">
           <ErrorMessage message={error} />
+        </div>
+      )}
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm flex items-center">
+          <span className="font-semibold mr-2">Success:</span> {success}
         </div>
       )}
 
@@ -105,12 +132,12 @@ export const FormsListPage: React.FC = () => {
       </div>
 
       <Card>
-        {loading ? (
+        {loading && !templates.length ? (
           <LoadingSpinner />
         ) : templates.length === 0 ? (
           <EmptyState
-            title="No form templates"
-            description={isAdmin ? 'Create a template to start collecting structured responses.' : 'Ask an admin to publish a form template.'}
+            title="No form templates synced"
+            description={isAdmin ? 'Click "Sync Forms from Kobo" to pull your surveys.' : 'Ask an admin to sync form templates.'}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -130,7 +157,7 @@ export const FormsListPage: React.FC = () => {
                     <td className="py-3 pr-4 font-medium text-neutral-900">
                       {t.name}
                       {t.externalSource === 'kobo' && (
-                        <span className="ml-2 text-xs bg-green-200 px-2 py-1 rounded">Kobo</span>
+                        <span className="ml-2 text-[10px] font-bold bg-[#145a85] text-white px-2 py-0.5 rounded-full uppercase tracking-wider">Kobo</span>
                       )}
                     </td>
                     <td className="py-3 pr-4 text-neutral-600">{t.formType}</td>
@@ -143,15 +170,17 @@ export const FormsListPage: React.FC = () => {
                       {new Date(t.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 text-right space-x-2">
-                      <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/fill`)}>
-                        <FileText size={16} className="mr-1" /> Fill
-                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/submissions`)}>
-                        <Inbox size={16} className="mr-1" /> Submissions
+                        <Inbox size={16} className="mr-1" /> View Submissions
                       </Button>
-                      {isAdmin && (
-                        <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/edit`)}>
-                          <Pencil size={16} className="mr-1" /> Edit
+                      {isAdmin && t.externalSource === 'kobo' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleSyncData(t.id, (t as any).externalId)}
+                          isLoading={syncingTemplateId === t.id}
+                        >
+                          <RefreshCw size={16} className="mr-1" /> Pull Data
                         </Button>
                       )}
                     </td>

@@ -19,7 +19,7 @@ export async function listThreads(userId: string, role?: string) {
         include: { sender: { select: { fullName: true } } },
       },
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { createdAt: "desc" },
   });
 }
 
@@ -60,10 +60,6 @@ export async function sendMessage(threadId: string, senderId: string, content: s
     },
   });
 
-  await prisma.messageThread.update({
-    where: { id: threadId },
-    data: { updatedAt: new Date() },
-  });
 
   return message;
 }

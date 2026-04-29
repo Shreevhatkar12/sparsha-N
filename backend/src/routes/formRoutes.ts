@@ -11,8 +11,6 @@ import {
   listSubmissionsController,
   listTemplatesController,
   submitFormController,
-  syncKoboFormsController,
-  syncKoboSubmissionsController,
   updateTemplateController,
 } from '../controllers/formController.js';
 import { validate } from '../middleware/validate.js';
@@ -28,12 +26,6 @@ formRoutes.use(authenticate);
 
 formRoutes.post("/templates", requireRole("super_admin"), validate(createFormTemplateSchema), createTemplateController);
 
-formRoutes.post("/kobo/sync-forms", syncKoboFormsController);
-
-formRoutes.post(
-  "/kobo/:formId/sync-submissions",
-  syncKoboSubmissionsController
-);
 
 formRoutes.get("/templates", listTemplatesController);
 formRoutes.get("/templates/:templateId", getTemplateController);

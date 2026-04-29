@@ -8,6 +8,7 @@ export type FormTemplateListItem = {
   createdAt: string;
 
   externalSource?: string;
+  externalId?: string;
 };
 
 export type FormSubmissionsResult = {
@@ -67,7 +68,7 @@ export const getPendingForms = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/forms/pending', { params }).then((r) => r.data);
 
 export const syncKoboForms = () =>
-  api.post('/forms/kobo/sync-forms').then((r) => r.data);
+  api.post('/kobo/sync/templates').then((r) => r.data);
 
-export const syncKoboSubmissions = (formId: string) =>
-  api.post(`/forms/kobo/${formId}/sync-submissions`).then((r) => r.data);
+export const syncKoboSubmissions = (templateId: string, assetUid: string) =>
+  api.post('/kobo/sync/submissions', { templateId, assetUid }).then((r) => r.data);

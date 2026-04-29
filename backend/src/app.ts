@@ -19,6 +19,7 @@ import skillRoutes from './routes/skillRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
 import equipmentRoutes from './routes/equipmentRoutes.js';
 import messageRoutes from './routes/messageRoutes.js';
+import koboRoutes from './routes/kobo.routes.js';
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use("/api/skills", skillRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/kobo", koboRoutes);
 
 app.use(errorHandler);
 

@@ -1,0 +1,120 @@
+[0] /home/seucra/Runes/projects/sparsha/backend/src/services/message.service.ts:10:31
+[0] 
+[0]    7   where.participants = { some: { userId } };
+[0]    8 }
+[0]    9 
+[0] → 10 return prisma.messageThread.findMany({
+[0]        where: {},
+[0]        include: {
+[0]          participants: {
+[0]            include: {
+[0]              user: {
+[0]                select: {
+[0]                  fullName: true,
+[0]                  email: true,
+[0]                  role: true
+[0]                }
+[0]              }
+[0]            }
+[0]          },
+[0]          messages: {
+[0]            orderBy: {
+[0]              createdAt: "desc"
+[0]            },
+[0]            take: 1,
+[0]            include: {
+[0]              sender: {
+[0]                select: {
+[0]                  fullName: true
+[0]                }
+[0]              }
+[0]            }
+[0]          }
+[0]        },
+[0]        orderBy: {
+[0]          updatedAt: "desc",
+[0]          ~~~~~~~~~
+[0]      ?   id?: SortOrder,
+[0]      ?   centerId?: SortOrder,
+[0]      ?   subject?: SortOrder | SortOrderInput,
+[0]      ?   createdBy?: SortOrder,
+[0]      ?   createdAt?: SortOrder,
+[0]      ?   center?: CenterOrderByWithRelationInput,
+[0]      ?   createdByUser?: UserOrderByWithRelationInput,
+[0]      ?   participants?: ThreadParticipantOrderByRelationAggregateInput,
+[0]      ?   messages?: MessageOrderByRelationAggregateInput
+[0]        }
+[0]      })
+[0] 
+[0] Unknown argument `updatedAt`. Did you mean `createdAt`? Available options are marked with ?.
+[0]     at throwValidationException (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/core/errorRendering/throwValidationException.ts:46:9)
+[0]     at Gr.handleRequestError (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:211:7)
+[0]     at Gr.handleAndLogRequestError (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:183:12)
+[0]     at Gr.request (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:152:12)
+[0]     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[0]     at async a (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:938:24)
+[0]     at async listThreads (/home/seucra/Runes/projects/sparsha/backend/src/controllers/messageController.ts:7:21) {
+[0]   clientVersion: '7.6.0'
+[0] }
+[0] GET /api/messages/threads 500 14.613 ms - 1460
+[0] Unhandled Error: PrismaClientValidationError: 
+[0] Invalid `prisma.messageThread.findMany()` invocation in
+[0] /home/seucra/Runes/projects/sparsha/backend/src/services/message.service.ts:10:31
+[0] 
+[0]    7   where.participants = { some: { userId } };
+[0]    8 }
+[0]    9 
+[0] → 10 return prisma.messageThread.findMany({
+[0]        where: {},
+[0]        include: {
+[0]          participants: {
+[0]            include: {
+[0]              user: {
+[0]                select: {
+[0]                  fullName: true,
+[0]                  email: true,
+[0]                  role: true
+[0]                }
+[0]              }
+[0]            }
+[0]          },
+[0]          messages: {
+[0]            orderBy: {
+[0]              createdAt: "desc"
+[0]            },
+[0]            take: 1,
+[0]            include: {
+[0]              sender: {
+[0]                select: {
+[0]                  fullName: true
+[0]                }
+[0]              }
+[0]            }
+[0]          }
+[0]        },
+[0]        orderBy: {
+[0]          updatedAt: "desc",
+[0]          ~~~~~~~~~
+[0]      ?   id?: SortOrder,
+[0]      ?   centerId?: SortOrder,
+[0]      ?   subject?: SortOrder | SortOrderInput,
+[0]      ?   createdBy?: SortOrder,
+[0]      ?   createdAt?: SortOrder,
+[0]      ?   center?: CenterOrderByWithRelationInput,
+[0]      ?   createdByUser?: UserOrderByWithRelationInput,
+[0]      ?   participants?: ThreadParticipantOrderByRelationAggregateInput,
+[0]      ?   messages?: MessageOrderByRelationAggregateInput
+[0]        }
+[0]      })
+[0] 
+[0] Unknown argument `updatedAt`. Did you mean `createdAt`? Available options are marked with ?.
+[0]     at throwValidationException (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/core/errorRendering/throwValidationException.ts:46:9)
+[0]     at Gr.handleRequestError (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:211:7)
+[0]     at Gr.handleAndLogRequestError (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:183:12)
+[0]     at Gr.request (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/RequestHandler.ts:152:12)
+[0]     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[0]     at async a (/home/seucra/Runes/projects/sparsha/backend/node_modules/@prisma/client/src/runtime/getPrismaClient.ts:938:24)
+[0]     at async listThreads (/home/seucra/Runes/projects/sparsha/backend/src/controllers/messageController.ts:7:21) {
+[0]   clientVersion: '7.6.0'
+[0] }
+

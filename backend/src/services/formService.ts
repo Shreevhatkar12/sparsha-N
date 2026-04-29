@@ -7,7 +7,6 @@ import {
   ValidationError,
 } from "../lib/errors.ts";
 
-import { getKoboForms, getKoboSubmissions } from "./kobo.service.ts";
 
 type FormFieldType =
   | "text"
@@ -377,63 +376,3 @@ export async function getPendingSubmissions(
   return students.filter((student) => !submittedIds.has(student.id));
 }
 
-export async function syncKoboForms() {
-  const forms = await getKoboForms();
-
-  for (const form of forms) {
-    await prisma.formTemplate.upsert({
-      where: {
-        externalId: form.uid,
-      },
-      update: {
-        name: form.name,
-        description: form.description,
-      },
-      create: {
-        name: form.name,
-        description: form.description,
-        formType: "kobo",
-        externalSource: "kobo",
-        externalId: form.uid,
-        targetEntity: "student",
-        schema: { fields: [] },
-        createdByUser: {
-          connect: { id: "SYSTEM_USER_ID" },
-        },
-      },
-    });
-  }
-}
-
-export async function syncKoboSubmissions(formId: string) {
-  const form = await prisma.formTemplate.findUnique({
-    where: { id: formId },
-  });
-
-  if (!form?.externalId) {
-    throw new Error("Not a Kobo form");
-  }
-
-  const submissions = await getKoboSubmissions(form.externalId);
-
-  for (const sub of submissions) {
-    // prevent duplicate
-    const exists = await prisma.formSubmission.findFirst({
-      where: {
-        koboSubmissionId: sub._id,
-      },
-    });
-
-    if (exists) continue;
-
-    await prisma.formSubmission.create({
-      data: {
-        templateId: form.id,
-        centerId: "REPLACE_CENTER_ID",
-        submittedBy: "REPLACE_USER_ID",
-        data: sub,
-        koboSubmissionId: sub._id,
-      },
-    });
-  }
-}
