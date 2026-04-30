@@ -7,7 +7,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate && tsc && tsc-alias",
     "start": "node dist/server.js",
-    "db:setup": "prisma db push && prisma db seed",
+    "db:setup": "prisma generate && prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
     "db:backup": "./scripts/db-backup.sh",
     "db:restore": "./scripts/db-restore.sh"
   },

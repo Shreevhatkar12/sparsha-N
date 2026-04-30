@@ -15,9 +15,7 @@ async function main() {
   console.log("🧹 Cleaning up old records in correct dependency order...");
   
   // Tier 1: Leaf nodes (No dependencies)
-  await prisma.message.deleteMany();
-  await prisma.threadParticipant.deleteMany();
-  await prisma.messageThread.deleteMany();
+
   await prisma.announcement.deleteMany();
   await prisma.formSubmission.deleteMany();
   await prisma.formAssignment.deleteMany();
@@ -332,6 +330,8 @@ async function main() {
   await prisma.studentTransfer.createMany({ data: transfers });
 
   console.log("✅ TOTAL REBUILD COMPLETE.");
+  const c = await prisma.user.count();
+  console.log("DB USER COUNT AT END:", c);
 }
 
 main().catch(e => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

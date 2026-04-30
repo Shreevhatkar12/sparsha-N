@@ -113,7 +113,8 @@ export const registerUser = async ({
 
 export const loginUser = async ({ email, password }: LoginInput) => {
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
     if (!user) {
       console.warn(`Login failed: User not found for email: ${email}`);

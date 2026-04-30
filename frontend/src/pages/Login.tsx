@@ -33,7 +33,7 @@ export const Login: React.FC = () => {
     setError('');
 
     try {
-      const { accessToken: token, user } = await login(username, password);
+      const { accessToken: token, user } = await login(username.trim(), password.trim());
       if (!token) throw new Error('No access token received');
       
       setAuth(

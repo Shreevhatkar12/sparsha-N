@@ -34,10 +34,13 @@ const limiter = rateLimit({
 
 app.use(
   cors({
-    origin:
-  process.env.NODE_ENV === "production"
-    ? true
-    : "http://localhost:5173",
+    origin: (origin, callback) => {
+      if (!origin || process.env.NODE_ENV === "production" || origin.startsWith("http://localhost:")) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
