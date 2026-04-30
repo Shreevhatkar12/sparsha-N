@@ -95,7 +95,7 @@ export function SegmentedSlider({
 
 export const Attendance: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = useAuthStore((s) => s.currentUser?.role === "admin");
+  const isAdmin = useAuthStore((s) => ["super_admin", "admin"].includes(s.currentUser?.role || ""));
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -203,6 +203,7 @@ export const Attendance: React.FC = () => {
       setIsEditing(true);
       setSuccess(false);
       setIsHoliday(full.isHoliday || false);
+      setDate(new Date().toISOString().split("T")[0]);
       
       setRows(
         (full.records ?? []).map((r: any) => ({

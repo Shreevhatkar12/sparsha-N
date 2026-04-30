@@ -133,16 +133,25 @@ export const Exams: React.FC = () => {
     setWorkspaceLoading(true);
     setError(null);
     try {
-      const res = (await getExamById(id)) as {
-        exam: { id: string; academicYear?: string; examType?: string };
-        students: Array<{
-          student: { id: string; fullName: string };
-          scores: Array<{ subject: string; marks: unknown; remarks?: string | null }>;
-        }>;
-      };
-      setExamId(res.exam.id);
-      setExamLabel(`${res.exam.examType ?? ''} · ${res.exam.academicYear ?? ''}`);
-      hydrateGrid(res.students);
+      const res = await getExamById(id) as any;
+      
+      setExamId(res.id);
+      setExamLabel(`${res.examType ?? ''} · ${res.academicYear?.label ?? ''}`);
+      
+      const studentMap = new Map();
+      for (const score of res.scores || []) {
+        if (!studentMap.has(score.student.id)) {
+          studentMap.set(score.student.id, { student: score.student, scores: [] });
+        }
+        studentMap.get(score.student.id).scores.push({
+          subject: score.subject.name,
+          marks: score.marks,
+          remarks: score.remarks,
+          isAbsent: score.isAbsent
+        });
+      }
+      
+      hydrateGrid(Array.from(studentMap.values()));
     } catch {
       setError('Could not load exam workspace.');
     } finally {
