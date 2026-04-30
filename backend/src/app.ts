@@ -74,11 +74,12 @@ app.use("/api/kobo", koboRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to frontend build
-const frontendPath = path.join(process.cwd(), "frontend", "dist");
-
 if (process.env.NODE_ENV === "production") {
-  const frontendPath = path.join(process.cwd(), "frontend", "dist");
+  // Use path relative to this file to be robust
+  // src/app.ts -> backend/src/app.ts
+  // dist/app.js -> backend/dist/app.js
+  // Both are 2 levels deep from backend root
+  const frontendPath = path.join(__dirname, "..", "..", "frontend", "dist");
 
   app.use(express.static(frontendPath));
 

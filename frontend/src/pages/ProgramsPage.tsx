@@ -29,7 +29,6 @@ export const ProgramsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedProgram, setSelectedProgram] = useState<ProgramDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [formCode, setFormCode] = useState('');
@@ -55,15 +54,12 @@ export const ProgramsPage: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   const handleSelectProgram = async (programId: string) => {
-    setDetailLoading(true);
     setError(null);
     try {
       const detail = await getProgramDetails(programId);
       setSelectedProgram(detail);
     } catch {
       setError('Failed to load program details.');
-    } finally {
-      setDetailLoading(false);
     }
   };
 
