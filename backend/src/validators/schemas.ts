@@ -52,11 +52,12 @@ export const updateAttendanceSessionRecordsSchema = z.object({
 });
 
 export const createExamSchema = z.object({
-  centerId: uuid,
+  centerIds: z.array(uuid).min(1),
   programId: uuid,
-  examType: z.enum(["baseline", "endline"]),
+  examType: z.string().min(1),
   academicYear: z.string().min(1),
   examDate: optionalDateString,
+  name: z.string().optional(),
 });
 
 const formFieldSchema = z.object({
@@ -93,7 +94,8 @@ export const upsertExamScoresSchema = z.object({
       z.object({
         studentId: uuid,
         subject: z.string().min(1),
-        marks: z.number(),
+        marks: z.number().optional(),
+        isAbsent: z.boolean().optional(),
         maxMarks: z.number().positive().optional(),
         remarks: z.string().optional(),
       }),

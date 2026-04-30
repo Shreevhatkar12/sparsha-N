@@ -10,6 +10,9 @@ import {
   getStudentAttendanceHistory,
   listSessions,
   parseHasIncomplete,
+  getTodayFreshSheet,
+  markHoliday,
+  getRecentAbsentees,
 } from "../services/attendanceService.js";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -183,6 +186,62 @@ export async function getPendingSessionsController(
       (req as AuthenticatedRequest).user!.userId,
     );
     return res.status(200).json({ sessions: result });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getTodayFreshSheetController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { centerId, programId } = req.query;
+    if (!centerId || !programId) {
+      return res.status(400).json({ error: "centerId and programId are required" });
+    }
+    const result = await getTodayFreshSheet(
+      (req as AuthenticatedRequest).user!,
+      centerId as string,
+      programId as string,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function markHolidayController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { isHoliday } = req.body;
+    const result = await markHoliday(
+      (req as AuthenticatedRequest).user!,
+      req.params.sessionId as string,
+      Boolean(isHoliday),
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getRecentAbsenteesController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const days = req.query.days ? parseInt(req.query.days as string, 10) : 7;
+    const result = await getRecentAbsentees(
+      (req as AuthenticatedRequest).user!,
+      days,
+    );
+    return res.status(200).json(result);
   } catch (error) {
     return next(error);
   }

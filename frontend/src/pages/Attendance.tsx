@@ -11,6 +11,9 @@ import {
   createAttendanceSession,
   getAttendanceSessionById,
   updateAttendanceSessionRecords,
+  getTodayFreshSheet,
+  markHoliday,
+  getRecentAbsentees,
 } from "../services/attendance.service";
 import type { CenterSummary, ProgramSummary } from "../types";
 
@@ -18,6 +21,7 @@ type Row = {
   recordId: string;
   studentId: string;
   name: string;
+  rollNumber: string;
   status: "pending" | "present" | "absent" | "late" | "excused";
 };
 
@@ -105,6 +109,11 @@ export const Attendance: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(true);
   const [success, setSuccess] = useState(false);
+  const [isHoliday, setIsHoliday] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<"mark" | "absentees">("mark");
+  const [absentees, setAbsentees] = useState<any[]>([]);
+  const [loadingAbsentees, setLoadingAbsentees] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -130,6 +139,24 @@ export const Attendance: React.FC = () => {
     };
   }, [isAdmin, selectedCenterId]);
 
+  useEffect(() => {
+    if (activeTab === "absentees") {
+      void loadAbsentees();
+    }
+  }, [activeTab]);
+
+  const loadAbsentees = async () => {
+    setLoadingAbsentees(true);
+    try {
+      const data = await getRecentAbsentees(7);
+      setAbsentees(data);
+    } catch {
+      setError("Could not load absentees.");
+    } finally {
+      setLoadingAbsentees(false);
+    }
+  };
+
   const loadSession = async () => {
     if (!centerId || !programId) return;
     setLoading(true);
@@ -139,20 +166,22 @@ export const Attendance: React.FC = () => {
         centerId,
         programId,
         sessionDate: date,
-      })) as { created?: boolean; session?: { id: string } };
+      })) as { created?: boolean; session?: { id: string; isHoliday?: boolean } };
       const sid = res.session?.id;
       if (!sid) throw new Error("No session id");
       setSessionId(sid);
       setIsEditing(true);
       setSuccess(false);
+      setIsHoliday(res.session?.isHoliday || false);
       await refreshRows(sid);
     } catch (e: unknown) {
       const ax = e as {
-        response?: { status?: number; data?: { session?: { id: string } } };
+        response?: { status?: number; data?: { session?: { id: string; isHoliday?: boolean } } };
       };
       if (ax.response?.status === 409 && ax.response.data?.session?.id) {
         const sid = ax.response.data.session.id;
         setSessionId(sid);
+        setIsHoliday(ax.response.data.session.isHoliday || false);
         await refreshRows(sid);
       } else {
         const msg = (e as any)?.response?.data?.message;
@@ -163,18 +192,49 @@ export const Attendance: React.FC = () => {
     }
   };
 
+  const loadFreshSheet = async () => {
+    if (!centerId || !programId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const full = await getTodayFreshSheet(centerId, programId) as any;
+      if (!full || !full.id) throw new Error("No session returned");
+      setSessionId(full.id);
+      setIsEditing(true);
+      setSuccess(false);
+      setIsHoliday(full.isHoliday || false);
+      
+      setRows(
+        (full.records ?? []).map((r: any) => ({
+          recordId: r.id ?? "",
+          studentId: r.student?.id ?? "",
+          name: r.student?.fullName ?? "Student",
+          rollNumber: r.student?.rollNumber ?? "",
+          status: r.status ?? "pending",
+        })),
+      );
+    } catch (e: any) {
+      setError(e?.response?.data?.message || "Could not load fresh sheet.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const refreshRows = async (sid: string) => {
     const full = (await getAttendanceSessionById(sid)) as {
+      isHoliday?: boolean;
       records?: Array<{
-        student?: { id: string; fullName: string };
+        student?: { id: string; fullName: string; rollNumber?: string };
         record?: { id: string; status: string | null };
       }>;
     };
+    setIsHoliday(full.isHoliday || false);
     setRows(
       (full.records ?? []).map((r) => ({
         recordId: r.record?.id ?? "",
         studentId: r.student?.id ?? "",
         name: r.student?.fullName ?? "Student",
+        rollNumber: r.student?.rollNumber ?? "",
         status: (r.record?.status as Row["status"]) ?? "pending",
       })),
     );
@@ -209,6 +269,19 @@ export const Attendance: React.FC = () => {
     }
   };
 
+  const handleToggleHoliday = async () => {
+    if (!sessionId) return;
+    setLoading(true);
+    try {
+      await markHoliday(sessionId, !isHoliday);
+      setIsHoliday(!isHoliday);
+    } catch {
+      setError("Failed to mark holiday.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (boot)
     return (
       <PageWrapper title="Attendance">
@@ -217,13 +290,29 @@ export const Attendance: React.FC = () => {
     );
 
   return (
-    <PageWrapper title="Mark Attendance">
+    <PageWrapper title="Attendance">
+      <div className="flex border-b border-neutral-200 mb-6 gap-4">
+        <button
+          className={`pb-2 text-sm font-medium ${activeTab === 'mark' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 hover:text-neutral-700'}`}
+          onClick={() => setActiveTab('mark')}
+        >
+          Mark Attendance
+        </button>
+        <button
+          className={`pb-2 text-sm font-medium ${activeTab === 'absentees' ? 'border-b-2 border-primary text-primary' : 'text-neutral-500 hover:text-neutral-700'}`}
+          onClick={() => setActiveTab('absentees')}
+        >
+          Absentees Tracker
+        </button>
+      </div>
+
       {error && (
         <div className="mb-4">
           <ErrorMessage message={error} />
         </div>
       )}
 
+      {activeTab === "mark" && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-4">
           <Card>
@@ -276,15 +365,35 @@ export const Attendance: React.FC = () => {
                 onClick={() => void loadSession()}
                 isLoading={loading}
               >
-                Load session
+                Load Session
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void loadFreshSheet()}
+                isLoading={loading}
+              >
+                Load Today's Sheet
               </Button>
             </div>
           </Card>
 
           {sessionId && (
             <Card>
-              <form onSubmit={handleSave} className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Students</h2>
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isHoliday}
+                    onChange={handleToggleHoliday}
+                    disabled={loading}
+                    className="rounded border-neutral-300 text-primary focus:ring-primary"
+                  />
+                  Mark as Holiday
+                </label>
+              </div>
+              <form onSubmit={handleSave} className="space-y-4">
                 <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-100">
                   {rows.length === 0 ? (
                     <p className="p-4 text-sm text-neutral-500">
@@ -298,7 +407,7 @@ export const Attendance: React.FC = () => {
                       >
                         <div>
                           <p className="font-medium text-neutral-900">
-                            {r.name}
+                            {r.name} {r.rollNumber ? <span className="text-xs text-neutral-400">({r.rollNumber})</span> : null}
                           </p>
                           <p className="text-xs text-neutral-500">
                             {r.status ?? "Pending"}
@@ -369,6 +478,44 @@ export const Attendance: React.FC = () => {
           </p>
         </Card>
       </div>
+      )}
+
+      {activeTab === "absentees" && (
+        <Card>
+          <h2 className="text-lg font-semibold mb-4">Absentees Tracker (Last 7 Days)</h2>
+          {loadingAbsentees ? (
+            <LoadingSpinner />
+          ) : absentees.length === 0 ? (
+            <p className="p-4 text-sm text-neutral-500">No absentees found in the last 7 days.</p>
+          ) : (
+            <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-100 max-h-[500px] overflow-y-auto">
+              {absentees.map((record) => (
+                <div key={record.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-neutral-900">
+                      {record.student?.fullName} {record.student?.rollNumber ? <span className="text-xs text-neutral-400">({record.student.rollNumber})</span> : null}
+                    </p>
+                    <p className="text-xs text-neutral-500">
+                      {record.session?.program?.name} • {record.session?.center?.name}
+                    </p>
+                    {record.student?.guardianPhone && (
+                      <p className="text-xs text-neutral-600 mt-1">📞 {record.student.guardianPhone}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                      Absent
+                    </span>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      {new Date(record.session?.sessionDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
     </PageWrapper>
   );
 };

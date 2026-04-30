@@ -29,6 +29,7 @@ export const StudentRegistration: React.FC = () => {
 
   const [formData, setFormData] = useState({
     fullName: '',
+    rollNumber: '',
     dob: '',
     gender: '' as '' | Gender,
     guardianName: '',
@@ -36,6 +37,10 @@ export const StudentRegistration: React.FC = () => {
     centerId: defaultCenter,
     programId: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
+    stream: '',
+    post12thChoice: '',
+    collegeName: '',
+    educationDiscontinued: false,
   });
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
@@ -81,6 +86,7 @@ export const StudentRegistration: React.FC = () => {
         if (!alive) return;
         setFormData({
           fullName: s.fullName,
+          rollNumber: s.rollNumber || '',
           dob: s.dob ? String(s.dob).slice(0, 10) : '',
           gender: (s.gender as Gender) || '',
           guardianName: s.guardianName || '',
@@ -88,6 +94,10 @@ export const StudentRegistration: React.FC = () => {
           centerId: s.centerId,
           programId: s.programId,
           enrollmentDate: s.enrollmentDate ? String(s.enrollmentDate).slice(0, 10) : new Date().toISOString().split('T')[0],
+          stream: (s as any).stream || '',
+          post12thChoice: (s as any).post12thChoice || '',
+          collegeName: (s as any).collegeName || '',
+          educationDiscontinued: (s as any).educationDiscontinued || false,
         });
       } catch {
         if (alive) setError('Student not found.');
@@ -101,7 +111,11 @@ export const StudentRegistration: React.FC = () => {
   }, [id, isEditMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      setFormData((prev) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+      return;
+    }
     setFormData((prev) => ({ ...prev, [name]: value }));
     
     // Real-time phone validation
@@ -129,21 +143,31 @@ export const StudentRegistration: React.FC = () => {
       if (isEditMode && id) {
         await updateStudent(id, {
           fullName: formData.fullName,
+          rollNumber: formData.rollNumber || undefined,
           dob: formData.dob || undefined,
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
+          stream: formData.stream || undefined,
+          post12thChoice: formData.post12thChoice || undefined,
+          collegeName: formData.collegeName || undefined,
+          educationDiscontinued: formData.educationDiscontinued,
         });
         navigate(`/students/${id}`);
       } else {
         await createStudent({
           fullName: formData.fullName,
+          rollNumber: formData.rollNumber || undefined,
           centerId: formData.centerId,
           programId: formData.programId,
           dob: formData.dob || undefined,
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
+          stream: formData.stream || undefined,
+          post12thChoice: formData.post12thChoice || undefined,
+          collegeName: formData.collegeName || undefined,
+          educationDiscontinued: formData.educationDiscontinued,
         });
         navigate('/students');
       }
@@ -191,16 +215,23 @@ export const StudentRegistration: React.FC = () => {
               onChange={handleChange}
               required
             />
-            <div className="flex gap-4">
+            <Input
+              label="Roll Number"
+              name="rollNumber"
+              placeholder="E.g. R-101"
+              value={formData.rollNumber}
+              onChange={handleChange}
+            />
+            <div className="flex gap-4 col-span-1 md:col-span-2">
               <Input
                 label="Date of Birth"
                 name="dob"
                 type="date"
-                className="flex-1"
+                className="flex-[2]"
                 value={formData.dob}
                 onChange={handleChange}
               />
-              <div className="flex flex-col gap-1.5 flex-1 touch-manipulation">
+              <div className="flex flex-col gap-1.5 flex-[1] touch-manipulation">
                 <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Gender</label>
                 <select
                   name="gender"
@@ -242,6 +273,70 @@ export const StudentRegistration: React.FC = () => {
               {phoneError && (
                 <p className="text-xs text-danger mt-1">{phoneError}</p>
               )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="mb-6">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-4 border-b border-neutral-100 pb-3">
+            Career Tracking
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Stream</label>
+              <input
+                type="text"
+                list="stream-options"
+                name="stream"
+                value={formData.stream}
+                onChange={handleChange}
+                placeholder="e.g. Science, Commerce, Arts"
+                className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <datalist id="stream-options">
+                <option value="Science" />
+                <option value="Commerce" />
+                <option value="Arts" />
+                <option value="Vocational" />
+              </datalist>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Post-12th Choice</label>
+              <input
+                type="text"
+                list="post12th-options"
+                name="post12thChoice"
+                value={formData.post12thChoice}
+                onChange={handleChange}
+                placeholder="e.g. Engineering, Medical, Degree"
+                className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <datalist id="post12th-options">
+                <option value="Engineering" />
+                <option value="Medical" />
+                <option value="Degree College" />
+                <option value="Diploma" />
+                <option value="Work" />
+              </datalist>
+            </div>
+            <Input
+              label="College Name"
+              name="collegeName"
+              placeholder="e.g. IIT Bombay"
+              value={formData.collegeName}
+              onChange={handleChange}
+            />
+            <div className="flex items-center mt-6">
+              <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="educationDiscontinued"
+                  checked={formData.educationDiscontinued}
+                  onChange={handleChange}
+                  className="rounded border-neutral-300 text-danger focus:ring-danger h-4 w-4"
+                />
+                Education Discontinued
+              </label>
             </div>
           </div>
         </Card>

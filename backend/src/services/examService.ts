@@ -1,28 +1,30 @@
-import { Prisma, ExamType, UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import prisma from "../lib/prisma.js";
 import type { JwtPayload } from "../lib/auth.js";
 
 // ================= TYPES =================
 
 type CreateExamInput = {
-  centerId: string;
+  centerIds: string[];
   programId: string;
-  examType: ExamType;
+  examType: string;
   academicYear: string; // academicYearId
   examDate?: string;
+  name?: string;
 };
 
 type ListExamQuery = {
   centerId?: string;
   programId?: string;
-  examType?: ExamType;
+  examType?: string;
   academicYearId?: string; // academicYearId
 };
 
 type ScoreInput = {
   studentId: string;
   subjectId: string;
-  marks: number;
+  marks?: number;
+  isAbsent?: boolean;
   remarks?: string;
 };
 
@@ -48,7 +50,9 @@ function applyCenterFilter(user: JwtPayload, where: any) {
 // ================= CREATE EXAM =================
 
 export async function createExam(user: JwtPayload, input: CreateExamInput) {
-  enforceCenterAccess(user, input.centerId);
+  for (const centerId of input.centerIds) {
+    enforceCenterAccess(user, centerId);
+  }
 
   let academicYearId = input.academicYear;
   // If not a UUID, try to find by label
@@ -58,32 +62,35 @@ export async function createExam(user: JwtPayload, input: CreateExamInput) {
     else throw new Error(`Academic year '${academicYearId}' not found`);
   }
 
-  const existing = await prisma.exam.findFirst({
-    where: {
-      centerId: input.centerId,
-      programId: input.programId,
-      examType: input.examType,
-      academicYearId: academicYearId,
-    },
-  });
+  const createdExams = [];
 
-  if (existing) {
-    return { created: false, exam: existing };
+  for (const centerId of input.centerIds) {
+    const existing = await prisma.exam.findFirst({
+      where: {
+        centerId: centerId,
+        programId: input.programId,
+        examType: input.examType,
+        academicYearId: academicYearId,
+      },
+    });
+
+    if (!existing) {
+      const exam = await prisma.exam.create({
+        data: {
+          centerId: centerId,
+          programId: input.programId,
+          examType: input.examType,
+          academicYearId: academicYearId,
+          examDate: input.examDate ? new Date(input.examDate) : null,
+          name: input.name || `${input.examType} exam`,
+          createdBy: user.userId,
+        },
+      });
+      createdExams.push(exam);
+    }
   }
 
-  const exam = await prisma.exam.create({
-    data: {
-      centerId: input.centerId,
-      programId: input.programId,
-      examType: input.examType,
-      academicYearId: academicYearId,
-      examDate: input.examDate ? new Date(input.examDate) : null,
-      name: `${input.examType} exam`,
-      createdBy: user.userId,
-    },
-  });
-
-  return { created: true, exam };
+  return { created: true, exams: createdExams };
 }
 
 // ================= LIST EXAMS =================
@@ -168,6 +175,7 @@ export async function upsertExamScores(
       studentId: s.studentId,
       subjectId: subjectId,
       marks: s.marks,
+      isAbsent: s.isAbsent || false,
       remarks: s.remarks,
     };
   });
@@ -183,7 +191,8 @@ export async function upsertExamScores(
           },
         },
         update: {
-          marks: new Prisma.Decimal(score.marks),
+          marks: score.marks != null ? new Prisma.Decimal(score.marks) : null,
+          isAbsent: score.isAbsent,
           remarks: score.remarks ?? null,
         },
         create: {
@@ -191,7 +200,8 @@ export async function upsertExamScores(
           studentId: score.studentId,
           subjectId: score.subjectId,
           centerId: exam.centerId,
-          marks: new Prisma.Decimal(score.marks),
+          marks: score.marks != null ? new Prisma.Decimal(score.marks) : null,
+          isAbsent: score.isAbsent,
           remarks: score.remarks ?? null,
           enteredBy: user.userId,
         },
@@ -299,10 +309,10 @@ export async function getExamComparison(
       }
 
       const val = score.marks ? Number(score.marks) : 0;
-      if (exam.examType === 'baseline') {
+      if (exam.examType.toLowerCase() === 'baseline') {
         subjectMap[subjectName].baselineTotal += val;
         subjectMap[subjectName].baselineCount++;
-      } else if (exam.examType === 'endline') {
+      } else if (exam.examType.toLowerCase() === 'endline') {
         subjectMap[subjectName].endlineTotal += val;
         subjectMap[subjectName].endlineCount++;
       }

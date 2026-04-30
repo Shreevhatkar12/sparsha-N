@@ -5,7 +5,7 @@ import type { NextFunction, Request, Response } from "express";
 // Import your authorize/requireRole middleware
 import { requireAuth as authenticate, authorize } from '../lib/auth.js'; 
 import type { JwtPayload } from '../lib/auth.js';
-import { getDashboardPendingCounts } from '../services/reportService.js';
+import { getDashboardPendingCounts, getDashboardSummary } from '../services/reportService.js';
 
 const dashboardRoutes = Router();
 
@@ -19,6 +19,16 @@ dashboardRoutes.get("/pending", async (req: Request, res: Response, next: NextFu
   try {
     const user = (req as Request & { user?: JwtPayload }).user!;
     const data = await getDashboardPendingCounts(user);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+dashboardRoutes.get("/summary", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = (req as Request & { user?: JwtPayload }).user!;
+    const data = await getDashboardSummary(user);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

@@ -1,5 +1,5 @@
 import request from 'supertest';
-import app from '../app';
+import app from '../app.js';
 
 describe('RBAC Integration Matrix Tests', () => {
   // Stubs for JWT generation per role mapped globally

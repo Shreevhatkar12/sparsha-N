@@ -103,28 +103,37 @@ export async function getActivity(user: JwtPayload, activityId: string) {
   return activity;
 }
 
-export async function createActivity(user: JwtPayload, data: { centerId: string; programId: string; name: string; description?: string; startDate?: string | Date; endDate?: string | Date }) {
-  const { centerId, programId, name, description, startDate, endDate } = data;
+export async function createActivity(user: JwtPayload, data: { centerIds: string[]; programId?: string; name: string; description?: string; volunteers?: string[]; startDate?: string | Date; endDate?: string | Date }) {
+  const { centerIds, programId, name, description, volunteers, startDate, endDate } = data;
 
-  if (!centerId || !programId || !name) {
-    throw new ValidationError("centerId, programId, and name are required");
+  if (!centerIds || !centerIds.length || !name) {
+    throw new ValidationError("centerIds and name are required");
   }
 
-  if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
-    throw new ForbiddenError("No access to create activity in this center");
+  for (const centerId of centerIds) {
+    if (user.role !== "super_admin" && !user.centerIds.includes(centerId)) {
+      throw new ForbiddenError("No access to create activity in this center");
+    }
   }
 
-  return prisma.activity.create({
-    data: {
-      centerId,
-      programId,
-      name,
-      description,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
-      createdBy: user.userId,
-    },
-  });
+  const createdActivities = [];
+  for (const centerId of centerIds) {
+    const activity = await prisma.activity.create({
+      data: {
+        centerId,
+        programId,
+        name,
+        description,
+        volunteers: volunteers || [],
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        createdBy: user.userId,
+      },
+    });
+    createdActivities.push(activity);
+  }
+
+  return createdActivities;
 }
 
 export async function updateActivity(user: JwtPayload, activityId: string, data: { name?: string; description?: string; startDate?: string | Date; endDate?: string | Date }) {
@@ -253,5 +262,51 @@ export async function getEligibleStudents(activityId: string) {
       isActive: true,
     },
     orderBy: { fullName: "asc" },
+  });
+}
+
+export async function requestActivityEnrollment(user: JwtPayload, activityId: string, studentIds: string[]) {
+  const activity = await prisma.activity.findUnique({ where: { id: activityId } });
+  if (!activity) throw new NotFoundError("Activity not found");
+
+  if (user.role !== "super_admin" && !user.centerIds.includes(activity.centerId)) {
+    throw new ForbiddenError("No access to this activity's center");
+  }
+
+  const results = [];
+  for (const studentId of studentIds) {
+    const existing = await prisma.activityEnrollment.findUnique({
+      where: { activityId_studentId: { activityId, studentId } }
+    });
+    if (!existing) {
+      const enrollment = await prisma.activityEnrollment.create({
+        data: {
+          activityId,
+          studentId,
+          requestedBy: user.userId,
+          status: "requested_by_teacher"
+        }
+      });
+      results.push(enrollment);
+    }
+  }
+  return results;
+}
+
+export async function approveActivityEnrollment(user: JwtPayload, activityId: string, studentId: string) {
+  if (user.role !== "super_admin") {
+    throw new ForbiddenError("Only admins can approve enrollments");
+  }
+
+  return prisma.activityEnrollment.update({
+    where: { activityId_studentId: { activityId, studentId } },
+    data: { status: "approved_by_admin" }
+  });
+}
+
+export async function getEnrollments(activityId: string) {
+  return prisma.activityEnrollment.findMany({
+    where: { activityId },
+    include: { student: true, requestedByUser: { select: { fullName: true } } }
   });
 }

@@ -105,10 +105,24 @@ export async function getDashboardSummary(user: JwtPayload) {
     };
   });
 
+  // Growth (new students this month)
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1);
+  firstOfMonth.setHours(0, 0, 0, 0);
+
+  const newStudentsThisMonth = await prisma.student.count({
+    where: { 
+      centerId: centerScope, 
+      isActive: true,
+      enrollmentDate: { gte: firstOfMonth }
+    }
+  });
+
   return {
     totalStudents,
     totalCenters: totalCentersList.length,
     overallAttendanceRate,
+    newStudentsThisMonth,
     pendingItems: pendingSummary,
     centerBreakdown,
     programBreakdown

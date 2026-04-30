@@ -8,7 +8,10 @@ import {
   deleteActivityController,
   assignVolunteerController,
   removeVolunteerAssignmentController,
-  getEligibleStudentsController
+  getEligibleStudentsController,
+  requestActivityEnrollmentController,
+  approveActivityEnrollmentController,
+  getEnrollmentsController
 } from '../controllers/activityController.js';
 
 const activityRoutes = Router();
@@ -25,5 +28,9 @@ activityRoutes.post("/:activityId/assign", requireRole("super_admin", "teacher")
 activityRoutes.delete("/:activityId/assign/:userId", requireRole("super_admin"), removeVolunteerAssignmentController);
 
 activityRoutes.get("/:activityId/students", getEligibleStudentsController);
+
+activityRoutes.post("/:activityId/enrollments", requireRole("teacher", "staff", "super_admin"), requestActivityEnrollmentController);
+activityRoutes.get("/:activityId/enrollments", getEnrollmentsController);
+activityRoutes.put("/:activityId/enrollments/:studentId/approve", requireRole("super_admin"), approveActivityEnrollmentController);
 
 export default activityRoutes;

@@ -53,14 +53,6 @@ enum AttendanceStatus {
   excused
 }
 
-enum ExamType {
-  baseline
-  endline
-  midterm
-  unit
-  other
-}
-
 enum TransferStatus {
   active
   pending_transfer
@@ -111,7 +103,6 @@ model Center {
   formSubmissions    FormSubmission[]
   alertRules         AlertRule[]
   alerts             Alert[]
-  messageThreads     MessageThread[]
   equipment          Equipment[]
   equipmentLogs      EquipmentLog[]
   announcements      Announcement[]
@@ -228,14 +219,12 @@ model User {
   createdAlertRules     AlertRule[]              @relation("RuleCreatedBy")
   receivedAlerts        Alert[]                  @relation("AlertRecipient")
   auditLogs             AuditLog[]               @relation("AuditUser")
-  createdMessageThreads MessageThread[]          @relation("ThreadCreatedBy")
-  threadParticipations  ThreadParticipant[]
-  sentMessages          Message[]                @relation("MessageSender")
   createdEquipment      Equipment[]              @relation("EquipmentCreatedBy")
   loggedEquipment       EquipmentLog[]           @relation("EquipmentLoggedBy")
   createdAnnouncements  Announcement[]           @relation("AnnouncementCreatedBy")
   changedActivityStatus ActivityStatusLog[]      @relation("StatusChangedBy")
   createdStudents       Student[]                @relation("StudentCreatedBy")
+  activityEnrollmentsRequested ActivityEnrollment[] @relation("ActivityRequestedBy")
 
   @@map("users")
 }
@@ -267,6 +256,7 @@ model Activity {
   programId       String?        @map("program_id") @db.Uuid
   name            String
   description     String?
+  volunteers      String[]       @default([])
   activityType    ActivityType   @default(general) @map("activity_type")
   startDate       DateTime?      @map("start_date") @db.Date
   endDate         DateTime?      @map("end_date") @db.Date
@@ -286,6 +276,7 @@ model Activity {
   attendanceSessions AttendanceSession[]
   exams              Exam[]
   activityStatusLogs ActivityStatusLog[]
+  activityEnrollments ActivityEnrollment[]
 
   @@map("activities")
 }
@@ -305,6 +296,22 @@ model UserActivityAssignment {
 
   @@unique([userId, activityId])
   @@map("user_activity_assignments")
+}
+
+model ActivityEnrollment {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  activityId  String   @map("activity_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  status      String   @default("requested_by_teacher") // requested_by_teacher, approved_by_admin
+  requestedBy String   @map("requested_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  activity        Activity @relation(fields: [activityId], references: [id])
+  student         Student  @relation(fields: [studentId], references: [id])
+  requestedByUser User     @relation("ActivityRequestedBy", fields: [requestedBy], references: [id])
+
+  @@unique([activityId, studentId])
+  @@map("activity_enrollments")
 }
 
 model Batch {
@@ -343,6 +350,10 @@ model Student {
   guardianName   String?   @map("guardian_name")
   guardianPhone  String?   @map("guardian_phone")
   address        String?
+  stream         String?
+  post12thChoice String?   @map("post_12th_choice")
+  collegeName    String?   @map("college_name")
+  educationDiscontinued Boolean @default(false) @map("education_discontinued")
   enrollmentDate DateTime  @default(now()) @map("enrollment_date") @db.Date
   isActive       Boolean   @default(true) @map("is_active")
   transferStatus TransferStatus @default(active) @map("transfer_status")
@@ -366,6 +377,7 @@ model Student {
   formSubmissions   FormSubmission[]
   alerts            Alert[]
   feePayments       FeePayment[]
+  activityEnrollments ActivityEnrollment[]
 
   @@map("students")
 }
@@ -438,6 +450,7 @@ model AttendanceSession {
   batchId        String?  @map("batch_id") @db.Uuid
   academicYearId String?  @map("academic_year_id") @db.Uuid
   sessionDate    DateTime @map("session_date") @db.Date
+  isHoliday      Boolean  @default(false) @map("is_holiday")
   createdBy      String   @map("created_by") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -482,7 +495,7 @@ model Exam {
   programId      String    @map("program_id") @db.Uuid
   activityId     String?   @map("activity_id") @db.Uuid
   academicYearId String?   @map("academic_year_id") @db.Uuid
-  examType       ExamType  @map("exam_type")
+  examType       String    @map("exam_type")
   name           String
   examDate       DateTime? @map("exam_date") @db.Date
   createdBy      String    @map("created_by") @db.Uuid
@@ -505,6 +518,7 @@ model ExamScore {
   centerId  String   @map("center_id") @db.Uuid
   subjectId String   @map("subject_id") @db.Uuid
   marks     Decimal? @db.Decimal(6, 2)
+  isAbsent  Boolean  @default(false) @map("is_absent")
   remarks   String?
   enteredBy String   @map("entered_by") @db.Uuid
   enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz
@@ -617,50 +631,6 @@ model FormSubmission {
   submittedByUser User            @relation("UserFormSubmissions", fields: [submittedBy], references: [id])
 
   @@map("form_submissions")
-}
-
-// =============================================================================
-// 9. MESSAGING
-// =============================================================================
-
-model MessageThread {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId  String   @map("center_id") @db.Uuid
-  subject   String?
-  createdBy String   @map("created_by") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  center        Center              @relation(fields: [centerId], references: [id])
-  createdByUser User                @relation("ThreadCreatedBy", fields: [createdBy], references: [id])
-  participants  ThreadParticipant[]
-  messages      Message[]
-
-  @@map("message_threads")
-}
-
-model ThreadParticipant {
-  threadId String @map("thread_id") @db.Uuid
-  userId   String @map("user_id") @db.Uuid
-
-  thread MessageThread @relation(fields: [threadId], references: [id])
-  user   User          @relation(fields: [userId], references: [id])
-
-  @@id([threadId, userId])
-  @@map("thread_participants")
-}
-
-model Message {
-  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  threadId String   @map("thread_id") @db.Uuid
-  senderId String   @map("sender_id") @db.Uuid
-  body     String
-  isRead   Boolean  @default(false) @map("is_read")
-  sentAt   DateTime @default(now()) @map("sent_at") @db.Timestamptz
-
-  thread MessageThread @relation(fields: [threadId], references: [id])
-  sender User          @relation("MessageSender", fields: [senderId], references: [id])
-
-  @@map("messages")
 }
 
 // =============================================================================

@@ -37,3 +37,12 @@ export const getAttendanceSummary = (params?: Record<string, string | undefined>
 
 export const getPendingAttendanceSessions = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/attendance/pending', { params }).then((r) => r.data);
+
+export const getTodayFreshSheet = (centerId: string, programId: string) =>
+  api.get<Record<string, unknown>>('/attendance/fresh-sheet', { params: { centerId, programId } }).then((r) => r.data);
+
+export const markHoliday = (sessionId: string, isHoliday: boolean) =>
+  api.put<Record<string, unknown>>(`/attendance/sessions/${sessionId}/holiday`, { isHoliday }).then((r) => r.data);
+
+export const getRecentAbsentees = (days: number = 7) =>
+  api.get<any[]>('/attendance/absentees', { params: { days } }).then((r) => r.data);

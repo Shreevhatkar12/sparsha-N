@@ -17,8 +17,9 @@ interface Activity {
   status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
   startDate: string;
   endDate: string;
-  center: { name: string };
-  program: { name: string };
+  volunteers: string[];
+  center: { id: string; name: string };
+  program: { id: string; name: string };
 }
 
 export const Activities: React.FC = () => {
@@ -35,9 +36,20 @@ export const Activities: React.FC = () => {
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     status: 'planned',
-    centerId: '',
-    programId: ''
+    centerIds: [] as string[],
+    programId: '',
+    volunteers: ''
   });
+
+  const [enrollmentModal, setEnrollmentModal] = useState<{ isOpen: boolean; activityId: string | null; activityName: string }>({
+    isOpen: false,
+    activityId: null,
+    activityName: ''
+  });
+  const [eligibleStudents, setEligibleStudents] = useState<any[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [enrollments, setEnrollments] = useState<any[]>([]);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
   useEffect(() => {
     fetchActivities();
@@ -52,7 +64,7 @@ export const Activities: React.FC = () => {
       ]);
       setCenters(cRes.data.centers || []);
       setPrograms(pRes.data || []);
-      if (cRes.data.centers?.[0]) setFormData(prev => ({ ...prev, centerId: cRes.data.centers[0].id }));
+      if (cRes.data.centers?.[0]) setFormData(prev => ({ ...prev, centerIds: [cRes.data.centers[0].id] }));
       if (pRes.data?.[0]) setFormData(prev => ({ ...prev, programId: pRes.data[0].id }));
     } catch (err) {
       console.error(err);
@@ -84,7 +96,11 @@ export const Activities: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/activities', formData);
+      const payload = {
+        ...formData,
+        volunteers: formData.volunteers.split(',').map(v => v.trim()).filter(v => v)
+      };
+      await api.post('/activities', payload);
       setIsModalOpen(false);
       setFormData({
         name: '',
@@ -92,14 +108,66 @@ export const Activities: React.FC = () => {
         startDate: format(new Date(), 'yyyy-MM-dd'),
         endDate: format(new Date(), 'yyyy-MM-dd'),
         status: 'planned',
-        centerId: centers[0]?.id || '',
-        programId: programs[0]?.id || ''
+        centerIds: centers[0]?.id ? [centers[0].id] : [],
+        programId: programs[0]?.id || '',
+        volunteers: ''
       });
       fetchActivities();
     } catch (err) {
       console.error(err);
     }
   };
+
+  const handleOpenEnrollment = async (activity: Activity) => {
+    setEnrollmentModal({ isOpen: true, activityId: activity.id, activityName: activity.name });
+    setEnrollmentLoading(true);
+    try {
+      const [eligibleRes, enrollmentRes] = await Promise.all([
+        api.get(`/activities/${activity.id}/eligible-students`),
+        api.get(`/activities/${activity.id}/enrollments`)
+      ]);
+      setEligibleStudents(eligibleRes.data);
+      setEnrollments(enrollmentRes.data);
+      setSelectedStudentIds([]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  const handleRequestEnrollment = async () => {
+    if (!enrollmentModal.activityId || selectedStudentIds.length === 0) return;
+    try {
+      setEnrollmentLoading(true);
+      await api.post(`/activities/${enrollmentModal.activityId}/enrollments/request`, { studentIds: selectedStudentIds });
+      // Refresh enrollments
+      const res = await api.get(`/activities/${enrollmentModal.activityId}/enrollments`);
+      setEnrollments(res.data);
+      setSelectedStudentIds([]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  const handleApproveEnrollment = async (studentId: string) => {
+    if (!enrollmentModal.activityId) return;
+    try {
+      setEnrollmentLoading(true);
+      await api.put(`/activities/${enrollmentModal.activityId}/enrollments/${studentId}/approve`);
+      // Refresh enrollments
+      const res = await api.get(`/activities/${enrollmentModal.activityId}/enrollments`);
+      setEnrollments(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEnrollmentLoading(false);
+    }
+  };
+
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
 
   if (loading) return <PageWrapper title="Activities"><LoadingSpinner /></PageWrapper>;
 
@@ -113,10 +181,12 @@ export const Activities: React.FC = () => {
           </h1>
           <p className="text-neutral-500">Plan and track developmental activities across centers</p>
         </div>
-        <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          Plan New Activity
-        </Button>
+        {isAdmin && (
+          <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
+            <Plus size={18} />
+            Plan New Activity
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -193,9 +263,12 @@ export const Activities: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="flex md:flex-col justify-center gap-2 min-w-[140px]">
+                <div className="flex md:flex-col justify-center gap-2 min-w-[160px]">
+                  <Button variant="primary" className="text-xs w-full" onClick={() => handleOpenEnrollment(activity)}>
+                    {isAdmin ? 'Manage Enrollments' : 'Enroll Students'}
+                  </Button>
                   <Button variant="outline" className="text-xs w-full">Manage Attendance</Button>
-                  <Button variant="ghost" className="text-xs w-full border border-neutral-100">Edit Details</Button>
+                  {isAdmin && <Button variant="ghost" className="text-xs w-full border border-neutral-100">Edit Details</Button>}
                 </div>
               </div>
             </Card>
@@ -227,12 +300,27 @@ export const Activities: React.FC = () => {
                 <Input type="date" required value={formData.endDate} onChange={e => setFormData({ ...formData, endDate: e.target.value })} />
              </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">Center</label>
-                <select className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" value={formData.centerId} onChange={e => setFormData({ ...formData, centerId: e.target.value })} required>
-                   {centers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Centers</label>
+                <div className="flex flex-wrap gap-2 p-3 border border-neutral-300 rounded-lg bg-white">
+                  {centers.map(c => (
+                    <label key={c.id} className="flex items-center gap-2 px-3 py-1 bg-neutral-50 rounded-full border border-neutral-200 cursor-pointer hover:bg-neutral-100">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.centerIds.includes(c.id)} 
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, centerIds: [...prev.centerIds, c.id] }));
+                          } else {
+                            setFormData(prev => ({ ...prev, centerIds: prev.centerIds.filter(id => id !== c.id) }));
+                          }
+                        }}
+                      />
+                      <span className="text-xs font-medium">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
              </div>
              <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Program</label>
@@ -241,11 +329,95 @@ export const Activities: React.FC = () => {
                 </select>
              </div>
           </div>
+          <div>
+             <label className="block text-sm font-medium text-neutral-700 mb-1">Volunteers (Comma separated)</label>
+             <Input value={formData.volunteers} onChange={e => setFormData({ ...formData, volunteers: e.target.value })} placeholder="E.g. John Doe, Sarah Smith" />
+          </div>
           <div className="flex justify-end gap-3 pt-4">
              <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
              <Button type="submit" variant="primary">Create Activity</Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={enrollmentModal.isOpen}
+        onClose={() => setEnrollmentModal({ ...enrollmentModal, isOpen: false })}
+        title={`Enrollments: ${enrollmentModal.activityName}`}
+      >
+        <div className="space-y-6">
+          {enrollmentLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              {/* Enrollment List */}
+              <div>
+                <h4 className="text-sm font-bold text-neutral-900 mb-3 uppercase tracking-wider">Current Enrollments</h4>
+                {enrollments.length === 0 ? (
+                  <p className="text-sm text-neutral-500 italic">No enrollments yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                    {enrollments.map(en => (
+                      <div key={en.id} className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                        <div>
+                          <p className="text-sm font-bold text-neutral-900">{en.student?.fullName}</p>
+                          <p className="text-[10px] text-neutral-500">Requested by {en.requestedByUser?.fullName}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${en.status === 'approved_by_admin' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                            {en.status === 'approved_by_admin' ? 'Approved' : 'Pending'}
+                          </span>
+                          {isAdmin && en.status === 'requested_by_teacher' && (
+                            <Button variant="primary" size="sm" className="text-[10px] py-1 h-auto" onClick={() => handleApproveEnrollment(en.studentId)}>Approve</Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add New Enrollments */}
+              <div>
+                <h4 className="text-sm font-bold text-neutral-900 mb-3 uppercase tracking-wider">Request New Enrollment</h4>
+                {eligibleStudents.length === 0 ? (
+                  <p className="text-sm text-neutral-500 italic">No more eligible students found.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-3 border border-neutral-200 rounded-lg bg-neutral-50">
+                      {eligibleStudents
+                        .filter(s => !enrollments.some(en => en.studentId === s.id))
+                        .map(student => (
+                        <label key={student.id} className="flex items-center gap-2 p-2 hover:bg-white rounded transition-colors cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedStudentIds.includes(student.id)} 
+                            onChange={e => {
+                              if (e.target.checked) setSelectedStudentIds(prev => [...prev, student.id]);
+                              else setSelectedStudentIds(prev => prev.filter(id => id !== student.id));
+                            }}
+                          />
+                          <span className="text-xs">{student.fullName}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="primary" 
+                      className="w-full" 
+                      disabled={selectedStudentIds.length === 0 || enrollmentLoading}
+                      onClick={handleRequestEnrollment}
+                    >
+                      Request Enrollment for {selectedStudentIds.length} Student(s)
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          <div className="flex justify-end pt-2 border-t border-neutral-100">
+            <Button variant="ghost" onClick={() => setEnrollmentModal({ ...enrollmentModal, isOpen: false })}>Close</Button>
+          </div>
+        </div>
       </Modal>
     </PageWrapper>
   );

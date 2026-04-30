@@ -23,7 +23,7 @@ import type { ExamType } from '../types';
 const SUBJECTS = ['english', 'science', 'maths'] as const;
 type SubjectKey = (typeof SUBJECTS)[number];
 
-type GridRow = Record<SubjectKey, string> & { remarks: string };
+type GridRow = Record<SubjectKey, string> & { remarks: string; isAbsent: boolean };
 
 export const Exams: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
@@ -32,8 +32,9 @@ export const Exams: React.FC = () => {
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [centerId, setCenterId] = useState('');
+  const [createCenterIds, setCreateCenterIds] = useState<string[]>([]);
   const [programId, setProgramId] = useState('');
-  const [examType, setExamType] = useState<ExamType>('baseline');
+  const [examType, setExamType] = useState<string>('baseline');
   const [academicYear, setAcademicYear] = useState(`${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`);
   const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
 
@@ -59,6 +60,7 @@ export const Exams: React.FC = () => {
         setPrograms(Array.isArray(p) ? p : []);
         const firstCenter = (!isAdmin && selectedCenterId ? selectedCenterId : c[0]?.id) ?? '';
         setCenterId(firstCenter);
+        setCreateCenterIds(firstCenter ? [firstCenter] : []);
         setProgramId(p[0]?.id ?? '');
       } catch {
         if (alive) setError('Failed to load centers or programs.');
@@ -105,6 +107,7 @@ export const Exams: React.FC = () => {
           science: '',
           maths: '',
           remarks: '',
+          isAbsent: row.scores.some((sc: any) => sc.isAbsent),
         };
         for (const sc of row.scores) {
           const subRaw = sc.subject.toLowerCase();
@@ -148,13 +151,13 @@ export const Exams: React.FC = () => {
   };
 
   const prepareExam = async () => {
-    if (!centerId || !programId) {
-      setError('Select center and program.');
+    if (createCenterIds.length === 0 || !programId || !examType) {
+      setError('Select center(s), program, and exam type.');
       return;
     }
     setError(null);
     const body = {
-      centerId,
+      centerIds: createCenterIds,
       programId,
       examType,
       academicYear,
@@ -163,18 +166,20 @@ export const Exams: React.FC = () => {
     try {
       try {
         const res = (await createExam(body)) as {
-          exam?: { id: string; examType?: string; academicYear?: string };
+          exams?: Array<{ id: string; examType?: string; academicYear?: string }>;
         };
-        if (res.exam?.id) {
-          setExamLabel(`${res.exam.examType ?? examType} · ${res.exam.academicYear ?? academicYear}`);
-          await loadWorkspace(res.exam.id);
+        const first = res.exams?.[0];
+        if (first?.id) {
+          setExamLabel(`${first.examType ?? examType} · ${first.academicYear ?? academicYear}`);
+          await loadWorkspace(first.id);
         }
       } catch (err: unknown) {
         if (axios.isAxiosError(err) && err.response?.status === 409) {
-          const d = err.response.data as { exam?: { id: string; examType?: string; academicYear?: string } };
-          if (d.exam?.id) {
-            setExamLabel(`${d.exam.examType ?? examType} · ${d.exam.academicYear ?? academicYear}`);
-            await loadWorkspace(d.exam.id);
+          const d = err.response.data as { exams?: Array<{ id: string; examType?: string; academicYear?: string }> };
+          const first = d.exams?.[0];
+          if (first?.id) {
+            setExamLabel(`${first.examType ?? examType} · ${first.academicYear ?? academicYear}`);
+            await loadWorkspace(first.id);
             return;
           }
         }
@@ -216,10 +221,24 @@ export const Exams: React.FC = () => {
           science: '',
           maths: '',
           remarks: '',
+          isAbsent: false,
         }),
         [key]: value,
       },
     }));
+  };
+
+  const toggleAbsent = (studentId: string) => {
+    setGrid((prev) => {
+      const existing = prev[studentId] ?? { english: '', science: '', maths: '', remarks: '', isAbsent: false };
+      return {
+        ...prev,
+        [studentId]: {
+          ...existing,
+          isAbsent: !existing.isAbsent,
+        },
+      };
+    });
   };
 
   const submitScores = async () => {
@@ -227,7 +246,8 @@ export const Exams: React.FC = () => {
     const scores: Array<{
       studentId: string;
       subject: string;
-      marks: number;
+      marks: number | null;
+      isAbsent: boolean;
       maxMarks: number;
       remarks?: string;
     }> = [];
@@ -236,17 +256,22 @@ export const Exams: React.FC = () => {
       const g = grid[studentId];
       if (!g) continue;
       for (const sub of SUBJECTS) {
-        const raw = (g[sub] ?? '').trim();
-        if (raw === '') continue;
-        const n = Number(raw);
-        if (Number.isNaN(n) || n < 0 || n > 50) {
-          setError(`Marks must be 0–50 for ${sub}.`);
-          return;
+        let n: number | null = null;
+        if (!g.isAbsent) {
+          const raw = (g[sub] ?? '').trim();
+          if (raw === '') continue; // Skip entirely blank if not absent
+          n = Number(raw);
+          if (Number.isNaN(n) || n < 0 || n > 50) {
+            setError(`Marks must be 0–50 for ${sub}.`);
+            return;
+          }
         }
+
         scores.push({
           studentId,
           subject: sub,
-          marks: n,
+          marks: n as any, // will be null if absent
+          isAbsent: g.isAbsent,
           maxMarks: 50,
           ...(sub === 'english' && g.remarks.trim() ? { remarks: g.remarks.trim() } : {}),
         });
@@ -274,6 +299,7 @@ export const Exams: React.FC = () => {
   const rowIncomplete = (studentId: string) => {
     const g = grid[studentId];
     if (!g) return true;
+    if (g.isAbsent) return false;
     return SUBJECTS.some((s) => (g[s] ?? '').trim() === '');
   };
 
@@ -297,18 +323,36 @@ export const Exams: React.FC = () => {
         <h2 className="text-lg font-semibold text-neutral-900 mb-4">Exam setup</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <div>
-            <label className="text-xs font-medium text-neutral-600">Center</label>
-            <select
-              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
-              value={centerId}
-              onChange={(e) => setCenterId(e.target.value)}
-            >
+            <label className="text-xs font-medium text-neutral-600">Centers (For Creation)</label>
+            <div className="mt-1 flex flex-col gap-1 max-h-32 overflow-y-auto border border-neutral-300 rounded-lg p-2 bg-white">
               {centers.map((c) => (
-                <option key={c.id} value={c.id}>
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={createCenterIds.includes(c.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setCreateCenterIds((prev) => [...prev, c.id]);
+                      else setCreateCenterIds((prev) => prev.filter((id) => id !== c.id));
+                    }}
+                  />
                   {c.name}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
+            <div className="mt-2">
+              <label className="text-xs font-medium text-neutral-600">Center (For Viewing)</label>
+              <select
+                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                value={centerId}
+                onChange={(e) => setCenterId(e.target.value)}
+              >
+                {centers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600">Program</label>
@@ -326,14 +370,17 @@ export const Exams: React.FC = () => {
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600">Exam type</label>
-            <select
+            <input
+              list="exam-types"
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
               value={examType}
-              onChange={(e) => setExamType(e.target.value as ExamType)}
-            >
-              <option value="baseline">Baseline</option>
-              <option value="endline">Endline</option>
-            </select>
+              onChange={(e) => setExamType(e.target.value)}
+              placeholder="e.g. baseline, endline, weekly test"
+            />
+            <datalist id="exam-types">
+              <option value="baseline" />
+              <option value="endline" />
+            </datalist>
           </div>
           <Input label="Academic year" value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} />
           <Input label="Exam date" type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
@@ -375,6 +422,7 @@ export const Exams: React.FC = () => {
             <thead className="sticky top-0 bg-white z-10 shadow-sm">
               <tr className="border-b border-neutral-200 text-left text-neutral-600">
                 <th className="py-2 pr-3 font-medium">Student</th>
+                <th className="py-2 pr-2 font-medium w-16 text-center">Absent</th>
                 <th className="py-2 pr-2 font-medium">English</th>
                 <th className="py-2 pr-2 font-medium">Science</th>
                 <th className="py-2 pr-2 font-medium">Maths</th>
@@ -398,12 +446,21 @@ export const Exams: React.FC = () => {
                     } hover:bg-brand-50/60`}
                   >
                     <td className="py-2 pr-3 font-medium text-neutral-900 whitespace-nowrap">{s.fullName}</td>
+                    <td className="py-1 pr-1 text-center">
+                      <input
+                        type="checkbox"
+                        checked={g.isAbsent}
+                        onChange={() => toggleAbsent(s.id)}
+                        className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500 border-neutral-300"
+                      />
+                    </td>
                     {SUBJECTS.map((sub) => (
                       <td key={sub} className="py-1 pr-1">
                         <input
-                          className="w-20 rounded border border-neutral-300 px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                          className={`w-20 rounded border border-neutral-300 px-2 py-1.5 text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent ${g.isAbsent ? 'bg-neutral-100 opacity-50 cursor-not-allowed' : ''}`}
                           inputMode="numeric"
                           value={g[sub]}
+                          disabled={g.isAbsent}
                           onChange={(e) => updateCell(s.id, sub, e.target.value)}
                         />
                       </td>

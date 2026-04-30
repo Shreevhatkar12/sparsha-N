@@ -34,10 +34,10 @@ export async function logAction(req: Request, res: Response, next: NextFunction)
     const { userId } = req.user!;
     
     // We need the centerId for the log entry
-    const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId } });
+    const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId as string } });
     if (!equipment) throw new Error("Equipment not found");
 
-    const log = await equipmentService.logEquipmentAction(equipmentId, equipment.centerId, userId, action, remarks);
+    const log = await equipmentService.logEquipmentAction(equipmentId as string, equipment.centerId, userId, action, remarks);
     res.status(201).json(log);
   } catch (err) {
     next(err);
@@ -47,7 +47,7 @@ export async function logAction(req: Request, res: Response, next: NextFunction)
 export async function getLogs(req: Request, res: Response, next: NextFunction) {
   try {
     const { equipmentId } = req.params;
-    const logs = await equipmentService.getEquipmentLogs(equipmentId);
+    const logs = await equipmentService.getEquipmentLogs(equipmentId as string);
     res.json(logs);
   } catch (err) {
     next(err);

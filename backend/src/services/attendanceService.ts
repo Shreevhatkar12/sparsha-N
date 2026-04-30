@@ -154,6 +154,72 @@ export async function createSession(
   return { created: true, ...created };
 }
 
+export async function getTodayFreshSheet(user: JwtPayload, centerId: string, programId: string) {
+  ensureCenterAccess(user, centerId);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let session = await prisma.attendanceSession.findFirst({
+    where: {
+      centerId,
+      programId,
+      sessionDate: today,
+    },
+    include: {
+      records: {
+        include: {
+          student: {
+            select: {
+              id: true,
+              fullName: true,
+              rollNumber: true
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (!session) {
+    const created = await createSession(user, {
+      centerId,
+      programId,
+      sessionDate: today.toISOString(),
+    });
+
+    session = await prisma.attendanceSession.findUnique({
+      where: { id: (created.session as any).id },
+      include: {
+        records: {
+          include: { 
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                rollNumber: true
+              }
+            } 
+          }
+        }
+      }
+    });
+  }
+
+  return session;
+}
+
+export async function markHoliday(user: JwtPayload, sessionId: string, isHoliday: boolean) {
+  const session = await prisma.attendanceSession.findUnique({ where: { id: sessionId } });
+  if (!session) throw new NotFoundError("Session not found");
+  ensureCenterAccess(user, session.centerId);
+
+  return prisma.attendanceSession.update({
+    where: { id: sessionId },
+    data: { isHoliday }
+  });
+}
+
 export async function listSessions(
   user: JwtPayload,
   query: {
@@ -506,4 +572,34 @@ export function parseHasIncomplete(value: unknown): boolean {
     return value.toLowerCase() === "true";
   }
   throw new AppError("hasIncomplete must be a boolean", 422);
+}
+
+export async function getRecentAbsentees(
+  user: JwtPayload,
+  days: number = 7
+) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setHours(0, 0, 0, 0);
+
+  const centerIds = user.role === "super_admin" ? undefined : user.centerIds;
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: {
+      status: "absent",
+      session: {
+        sessionDate: { gte: cutoff },
+        ...(centerIds ? { centerId: { in: centerIds } } : {})
+      }
+    },
+    include: {
+      student: { select: { id: true, fullName: true, rollNumber: true, guardianPhone: true } },
+      session: { select: { sessionDate: true, center: { select: { name: true } }, program: { select: { name: true } } } }
+    },
+    orderBy: {
+      session: { sessionDate: 'desc' }
+    }
+  });
+
+  return records;
 }
