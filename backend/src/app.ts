@@ -45,14 +45,14 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
-app.use(limiter);
-
 app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
     status: "ok",
   });
 });
+
+app.use(limiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
@@ -75,15 +75,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === "production") {
-  // Use path relative to this file to be robust
-  // src/app.ts -> backend/src/app.ts
-  // dist/app.js -> backend/dist/app.js
-  // Both are 2 levels deep from backend root
-  const frontendPath = path.join(__dirname, "..", "..", "frontend", "dist");
+  const frontendPath = path.join(process.cwd(), "frontend", "dist");
 
   app.use(express.static(frontendPath));
 
-  app.get("*", (req, res) => {
+  app.get("*path", (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
