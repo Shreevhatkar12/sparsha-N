@@ -1,20 +1,32 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('super_admin', 'center_admin', 'supervisor', 'teacher', 'staff', 'volunteer', 'student', 'parent', 'shareholder', 'tech_admin');
+DO $$ BEGIN
+    CREATE TYPE "UserRole" AS ENUM ('super_admin', 'center_admin', 'supervisor', 'teacher', 'staff', 'volunteer', 'student', 'parent', 'shareholder', 'tech_admin');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
-CREATE TYPE "Gender" AS ENUM ('male', 'female', 'other');
+DO $$ BEGIN
+    CREATE TYPE "Gender" AS ENUM ('male', 'female', 'other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
-CREATE TYPE "ActivityType" AS ENUM ('class', 'game', 'visit', 'camp', 'exam', 'general');
+DO $$ BEGIN
+    CREATE TYPE "ActivityType" AS ENUM ('class', 'game', 'visit', 'camp', 'exam', 'general');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
-CREATE TYPE "ActivityStatus" AS ENUM ('planned', 'ongoing', 'completed', 'cancelled');
+DO $$ BEGIN
+    CREATE TYPE "ActivityStatus" AS ENUM ('planned', 'ongoing', 'completed', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
-CREATE TYPE "AttendanceStatus" AS ENUM ('present', 'absent', 'late', 'excused');
+DO $$ BEGIN
+    CREATE TYPE "AttendanceStatus" AS ENUM ('present', 'absent', 'late', 'excused');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateEnum
-CREATE TYPE "ExamType" AS ENUM ('baseline', 'endline', 'midterm', 'unit', 'other');
+DO $$ BEGIN
+    CREATE TYPE "ExamType" AS ENUM ('baseline', 'endline', 'midterm', 'unit', 'other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CreateTable
 CREATE TABLE "academic_years" (

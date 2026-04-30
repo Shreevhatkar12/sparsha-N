@@ -1,5 +1,9 @@
 -- CreateEnum
-CREATE TYPE "TransferStatus" AS ENUM ('active', 'pending_transfer', 'transferred');
+DO $$ BEGIN
+    CREATE TYPE "TransferStatus" AS ENUM ('active', 'pending_transfer', 'transferred');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- AlterTable
 ALTER TABLE "students" ADD COLUMN     "created_by" UUID,
