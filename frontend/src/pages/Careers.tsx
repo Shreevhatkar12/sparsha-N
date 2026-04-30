@@ -5,7 +5,7 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
 import { getStudents } from '../services/students.service';
-import { getCareersByStudent, addCareer } from '../services/career.service';
+import { getCareersByStudent, addCareer, updateCareer, deleteCareer } from '../services/career.service';
 import type { Student } from '../types';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
@@ -23,6 +23,7 @@ export const Careers: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
   const [formData, setFormData] = useState({
+    id: '',
     careerGoal: '',
     industry: '',
     notes: '',
@@ -83,9 +84,13 @@ export const Careers: React.FC = () => {
         notes: formData.notes,
         milestones: formData.milestones.split(',').map(s => s.trim()).filter(Boolean)
       };
-      await addCareer(selectedId, payload);
+      if (formData.id) {
+        await updateCareer(formData.id, payload);
+      } else {
+        await addCareer(selectedId, payload);
+      }
       setIsModalOpen(false);
-      setFormData({ careerGoal: '', industry: '', notes: '', milestones: '' });
+      setFormData({ id: '', careerGoal: '', industry: '', notes: '', milestones: '' });
       // Reload
       const data = await getCareersByStudent(selectedId);
       setCareers(data);
@@ -93,6 +98,31 @@ export const Careers: React.FC = () => {
       setError('Failed to save career record. Check API payload constraints.');
     } finally {
       setSaveLoading(false);
+    }
+  };
+
+  const handleEdit = (career: any) => {
+    setFormData({
+      id: career.id,
+      careerGoal: career.careerGoal || career.stage || career.title || '',
+      industry: career.industry || '',
+      notes: career.notes || career.description || '',
+      milestones: Array.isArray(career.milestones) ? career.milestones.join(', ') : ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (careerId: string) => {
+    if (!window.confirm('Are you sure you want to delete this career record?')) return;
+    setDetailLoading(true);
+    try {
+      await deleteCareer(careerId);
+      const data = await getCareersByStudent(selectedId);
+      setCareers(data);
+    } catch (err) {
+      setError('Failed to delete career record.');
+    } finally {
+      setDetailLoading(false);
     }
   };
 
@@ -136,7 +166,10 @@ export const Careers: React.FC = () => {
             <div className="md:col-span-2">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Career History</h2>
-                <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)} disabled={!selectedId}>
+                <Button variant="primary" size="sm" onClick={() => {
+                  setFormData({ id: '', careerGoal: '', industry: '', notes: '', milestones: '' });
+                  setIsModalOpen(true);
+                }} disabled={!selectedId}>
                   <Plus size={16} className="mr-1" /> Add Record
                 </Button>
               </div>
@@ -166,6 +199,8 @@ export const Careers: React.FC = () => {
                           <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
                             {career.date ? new Date(career.date).toLocaleDateString() : 'Recent'}
                           </span>
+                          <Button variant="ghost" size="sm" className="text-xs px-2 h-7 text-neutral-500 hover:text-brand-600" onClick={() => handleEdit(career)}>Edit</Button>
+                          <Button variant="ghost" size="sm" className="text-xs px-2 h-7 text-danger hover:text-danger hover:bg-danger/10" onClick={() => handleDelete(career.id)}>Delete</Button>
                         </div>
                       </div>
                     </div>
@@ -182,7 +217,7 @@ export const Careers: React.FC = () => {
         )}
       </Card>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Career Record">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={formData.id ? "Edit Career Record" : "Add Career Record"}>
         <form onSubmit={handleSaveCareer} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">Career Goal</label>

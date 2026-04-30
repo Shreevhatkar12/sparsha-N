@@ -17,6 +17,8 @@ import {
   addCareer,
   getCareersByStudent,
   updateCareer,
+  deleteSkill,
+  deleteCareer,
   getDashboardStats,
   requestTransfer,
   getTransferRequests,
@@ -92,11 +94,13 @@ router.put("/attendance/:id", requirePermission(PERMISSIONS.MANAGE_ATTENDANCE), 
 router.post("/:studentId/skills", requirePermission(PERMISSIONS.MANAGE_SKILLS), validate(createSkillSchema), addSkill);
 router.get("/:studentId/skills", getSkillsByStudent);
 router.put("/skills/:id", requirePermission(PERMISSIONS.MANAGE_SKILLS), validate(createSkillSchema), updateSkill);
+router.delete("/skills/:id", requirePermission(PERMISSIONS.MANAGE_SKILLS), deleteSkill);
 
 // 7. Careers
 router.post("/:studentId/careers", requirePermission(PERMISSIONS.MANAGE_CAREERS), validate(createCareerSchema), addCareer);
 router.get("/:studentId/careers", getCareersByStudent);
 router.put("/careers/:id", requirePermission(PERMISSIONS.MANAGE_CAREERS), validate(createCareerSchema), updateCareer);
+router.delete("/careers/:id", requirePermission(PERMISSIONS.MANAGE_CAREERS), deleteCareer);
 
 // 8. Fee Management (NEW FROM VANSH)
 router.post(

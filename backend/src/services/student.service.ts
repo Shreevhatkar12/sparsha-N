@@ -107,7 +107,7 @@ export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50,
   const where = scopedWhere(user, {
     isActive: isActive !== undefined ? isActive : true,
     ...(centerId ? { centerId } : {}),
-    ...(programId ? { programId } : {}),
+    ...(programId ? { programId: programId.includes(',') ? { in: programId.split(',') } : programId } : {}),
     ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
   });
 
@@ -124,6 +124,8 @@ export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50,
   else if (sortOrder === 'name_desc') orderBy = { fullName: 'desc' };
   else if (sortOrder === 'roll_asc') orderBy = { rollNumber: 'asc' };
   else if (sortOrder === 'roll_desc') orderBy = { rollNumber: 'desc' };
+  else if (sortOrder === 'class_asc') orderBy = { program: { name: 'asc' } };
+  else if (sortOrder === 'class_desc') orderBy = { program: { name: 'desc' } };
 
   const [students, total] = await Promise.all([
     prisma.student.findMany({
@@ -481,6 +483,12 @@ export const updateSkill = async (id: string, data: any) => {
   });
 };
 
+export const deleteSkill = async (id: string) => {
+  const log = await prisma.studentSkillLog.findUnique({ where: { id } });
+  if (!log) throw new NotFoundError("Skill log");
+  return prisma.studentSkillLog.delete({ where: { id } });
+};
+
 /* ─────────────────────────────────────────
    CAREERS (Linked to Forms)
 ───────────────────────────────────────── */
@@ -537,6 +545,12 @@ export const updateCareer = async (id: string, data: any) => {
   });
 
   return { id: updated.id, studentId: updated.studentId, createdAt: updated.submittedAt, ...(updated.data as Record<string, unknown>) };
+};
+
+export const deleteCareer = async (id: string) => {
+  const submission = await prisma.formSubmission.findUnique({ where: { id } });
+  if (!submission) throw new NotFoundError("Career record");
+  return prisma.formSubmission.delete({ where: { id } });
 };
 
 /* ─────────────────────────────────────────

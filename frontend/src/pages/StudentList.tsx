@@ -33,7 +33,7 @@ export const StudentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCenterId, setFilterCenterId] = useState('');
   const [filterProgramId, setFilterProgramId] = useState('');
-  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | ''>('');
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'class_asc' | 'class_desc' | ''>('');
   
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -575,6 +575,18 @@ export const StudentList: React.FC = () => {
                   {sortOrder === 'name_asc' && <ArrowUp size={14} />}
                   {sortOrder === 'name_desc' && <ArrowDown size={14} />}
                 </button>
+                <button 
+                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('class') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+                  onClick={() => { 
+                    if (sortOrder === 'class_asc') setSortOrder('class_desc');
+                    else setSortOrder('class_asc');
+                    setPage(1); 
+                  }}
+                >
+                  Class
+                  {sortOrder === 'class_asc' && <ArrowUp size={14} />}
+                  {sortOrder === 'class_desc' && <ArrowDown size={14} />}
+                </button>
               </div>
               
               <select
@@ -626,29 +638,41 @@ export const StudentList: React.FC = () => {
               onClick={() => { setFilterProgramId(''); setPage(1); void load(); }}
             >All Classes</Button>
             <Button 
-              variant={filterProgramId === programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id ? 'primary' : 'secondary'} 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha') ? 'primary' : 'secondary'} 
               size="sm" 
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || ''); setPage(1); void load(); }}
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha'); setPage(1); void load(); }}
             >Shiksha (jr, sr)</Button>
             <Button 
-              variant={filterProgramId === 'sanskar' ? 'primary' : 'secondary'} 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1') ? 'primary' : 'secondary'} 
               size="sm" 
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId('sanskar'); setPage(1); void load(); }}
-            >Sanskar 1 and 2 (1-4, 4-6)</Button>
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1'); setPage(1); void load(); }}
+            >Sanskar 1 (1-4)</Button>
             <Button 
-              variant={filterProgramId === programs.find(p => p.name.toLowerCase().includes('swayam'))?.id ? 'primary' : 'secondary'} 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2') ? 'primary' : 'secondary'} 
               size="sm" 
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam'))?.id || ''); setPage(1); void load(); }}
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2'); setPage(1); void load(); }}
+            >Sanskar 2 (4-6)</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1'); setPage(1); void load(); }}
             >Swayam 1 (7-10)</Button>
             <Button 
-              variant={filterProgramId === 'swayam2' ? 'primary' : 'secondary'} 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2') ? 'primary' : 'secondary'} 
               size="sm" 
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId('swayam2'); setPage(1); void load(); }}
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2'); setPage(1); void load(); }}
             >Swayam 2 (10-12)</Button>
+            <Button 
+              variant={filterProgramId === ([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday'); setPage(1); void load(); }}
+            >Kusum & Uday</Button>
           </div>
 
           {/* Transfer request banner */}

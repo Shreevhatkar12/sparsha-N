@@ -119,6 +119,21 @@ export const Skills: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleDelete = async (skillId: string) => {
+    if (!selectedId || !window.confirm('Are you sure you want to delete this skill assessment?')) return;
+    try {
+      setDetailLoading(true);
+      await api.delete(`/students/skills/${skillId}`);
+      const res = await api.get(`/students/${selectedId}/skills`);
+      setSkillsPayload(res.data.data);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to delete skill assessment.');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   if (loading) return <PageWrapper title="Skills"><LoadingSpinner /></PageWrapper>;
 
   return (
@@ -170,6 +185,7 @@ export const Skills: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-brand-700 bg-brand-50 px-2 py-1 rounded-full">Level {skill.level || 0} / 5</span>
                         <Button variant="ghost" size="sm" className="text-xs py-0.5 px-2 h-auto text-neutral-500 hover:text-brand-600" onClick={() => handleEdit(skill)}>Edit</Button>
+                        <Button variant="ghost" size="sm" className="text-xs py-0.5 px-2 h-auto text-danger hover:text-danger hover:bg-danger/10" onClick={() => handleDelete(skill.id)}>Delete</Button>
                       </div>
                     </div>
                     <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden mb-2">

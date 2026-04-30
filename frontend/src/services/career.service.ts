@@ -22,3 +22,8 @@ export const updateCareer = (careerId: string, payload: Record<string, unknown>)
   api
     .put<ApiEnvelope<CareerRecord>>(`/students/careers/${careerId}`, payload)
     .then((r) => unwrap(r.data));
+
+export const deleteCareer = (careerId: string) =>
+  api
+    .delete<ApiEnvelope<CareerRecord>>(`/students/careers/${careerId}`)
+    .then((r) => unwrap(r.data));

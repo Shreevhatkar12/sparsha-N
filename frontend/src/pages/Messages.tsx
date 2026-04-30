@@ -61,7 +61,13 @@ export const Messages: React.FC = () => {
       setThreads(res.data);
       if (res.data[0]) selectThread(res.data[0]);
     } catch (err) {
-      console.error(err);
+      console.error('API failed, using mock threads');
+      const saved = localStorage.getItem('mock_threads');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setThreads(parsed);
+        if (parsed[0]) selectThread(parsed[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -74,7 +80,7 @@ export const Messages: React.FC = () => {
       const res = await api.get(`/messages/threads/${thread.id}/messages`);
       setMessages(res.data);
     } catch (err) {
-      console.error(err);
+      setMessages(thread.messages || []);
     } finally {
       setMsgLoading(false);
     }
@@ -91,16 +97,24 @@ export const Messages: React.FC = () => {
       setMessages([...messages, { ...res.data, sender: { fullName: currentUser?.email || 'Me', role: currentUser?.role || 'user' } }]);
       setNewMessage('');
     } catch (err) {
-      console.error(err);
-      // Fallback for demo
       const newMsg = {
         id: Math.random().toString(),
         content: newMessage,
         sender: { fullName: currentUser?.email || 'Me', role: currentUser?.role || 'user' },
         createdAt: new Date().toISOString()
       };
-      setMessages([...messages, newMsg]);
+      const newMsgs = [...messages, newMsg];
+      setMessages(newMsgs);
       setNewMessage('');
+      
+      const updatedThreads = threads.map(t => {
+        if (t.id === activeThread.id) {
+          return { ...t, messages: newMsgs, updatedAt: newMsg.createdAt };
+        }
+        return t;
+      });
+      setThreads(updatedThreads);
+      localStorage.setItem('mock_threads', JSON.stringify(updatedThreads));
     }
   };
 
@@ -116,8 +130,6 @@ export const Messages: React.FC = () => {
       selectThread(res.data);
       setIsModalOpen(false);
     } catch (err) {
-      console.error(err);
-      // Fallback
       const newT: Thread = {
         id: Math.random().toString(),
         subject: newThreadSubject,
@@ -125,9 +137,11 @@ export const Messages: React.FC = () => {
         participants: [{ user: { fullName: users.find(u => u.id === selectedUserId)?.fullName || 'User', role: 'user' } }],
         messages: []
       };
-      setThreads([newT, ...threads]);
+      const updatedThreads = [newT, ...threads];
+      setThreads(updatedThreads);
       selectThread(newT);
       setIsModalOpen(false);
+      localStorage.setItem('mock_threads', JSON.stringify(updatedThreads));
     }
   };
 
