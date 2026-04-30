@@ -175,8 +175,16 @@ export const StudentList: React.FC = () => {
     const dataToExport = rows.map((student) => ({
       ID: student.id,
       Name: student.fullName,
+      'Roll Number': student.rollNumber || '—',
       Program: student._programName,
       Center: student._centerName,
+      'Date of Birth': student.dob ? new Date(student.dob).toLocaleDateString() : '—',
+      Gender: student.gender || '—',
+      'Guardian Name': student.guardianName || '—',
+      'Guardian Phone': student.guardianPhone || '—',
+      'Enrollment Date': student.enrollmentDate ? new Date(student.enrollmentDate).toLocaleDateString() : '—',
+      'Total Fees': student.totalFees || 0,
+      'Fees Paid': student.feesPaid || 0,
       ...(isAdmin ? { 'Added By': student._addedBy } : {}),
       Status: student.isActive ? 'active' : 'inactive',
     }));
@@ -586,20 +594,9 @@ export const StudentList: React.FC = () => {
                   ))}
                 </select>
 
-              <select
-                id="program-filter"
-                className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                value={filterProgramId}
-                onChange={(e) => {
-                  setFilterProgramId(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">All Classes</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div className="hidden">
+                {/* Program dropdown hidden as requested in favor of quick filters */}
+              </div>
             </div>
             <div className="flex gap-2">
               {/* Transfer mode toggle for teachers */}
@@ -617,10 +614,41 @@ export const StudentList: React.FC = () => {
                   {transferMode ? 'Cancel Transfer' : 'Transfer'}
                 </Button>
               )}
-              <Button variant="secondary" size="sm" type="button" onClick={() => void load()}>
-                Apply Filters
-              </Button>
             </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 mb-4 px-1">
+            <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Quick Filters:</span>
+            <Button 
+              variant={filterProgramId === '' ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(''); setPage(1); void load(); }}
+            >All Classes</Button>
+            <Button 
+              variant={filterProgramId === programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || ''); setPage(1); void load(); }}
+            >Shiksha (jr, sr)</Button>
+            <Button 
+              variant={filterProgramId === 'sanskar' ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId('sanskar'); setPage(1); void load(); }}
+            >Sanskar 1 and 2 (1-4, 4-6)</Button>
+            <Button 
+              variant={filterProgramId === programs.find(p => p.name.toLowerCase().includes('swayam'))?.id ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam'))?.id || ''); setPage(1); void load(); }}
+            >Swayam 1 (7-10)</Button>
+            <Button 
+              variant={filterProgramId === 'swayam2' ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId('swayam2'); setPage(1); void load(); }}
+            >Swayam 2 (10-12)</Button>
           </div>
 
           {/* Transfer request banner */}

@@ -24,6 +24,7 @@ export const Skills: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [skillDefs, setSkillDefs] = useState<any[]>([]);
   const [newSkillLog, setNewSkillLog] = useState({
+    id: '',
     skillId: '',
     level: 3,
     remarks: ''
@@ -81,10 +82,22 @@ export const Skills: React.FC = () => {
     
     try {
       setDetailLoading(true);
-      await api.post(`/students/${selectedId}/skills`, {
-        ...newSkillLog,
-        centerId: students.find(s => s.id === selectedId)?.centerId
-      });
+      if (newSkillLog.id) {
+        // Edit existing
+        await api.put(`/students/skills/${newSkillLog.id}`, {
+          skillId: newSkillLog.skillId,
+          level: newSkillLog.level,
+          remarks: newSkillLog.remarks
+        });
+      } else {
+        // Create new
+        await api.post(`/students/${selectedId}/skills`, {
+          skillId: newSkillLog.skillId,
+          level: newSkillLog.level,
+          remarks: newSkillLog.remarks,
+          centerId: students.find(s => s.id === selectedId)?.centerId
+        });
+      }
       setIsModalOpen(false);
       const res = await api.get(`/students/${selectedId}/skills`);
       setSkillsPayload(res.data.data);
@@ -94,6 +107,16 @@ export const Skills: React.FC = () => {
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  const handleEdit = (skill: any) => {
+    setNewSkillLog({
+      id: skill.id,
+      skillId: skill.skillId || skill.skill?.id || '',
+      level: skill.level || 3,
+      remarks: skill.remarks || ''
+    });
+    setIsModalOpen(true);
   };
 
   if (loading) return <PageWrapper title="Skills"><LoadingSpinner /></PageWrapper>;
@@ -124,7 +147,10 @@ export const Skills: React.FC = () => {
             </select>
           )}
           <div className="mt-6 pt-6 border-t border-neutral-100">
-             <Button variant="primary" className="w-full flex items-center justify-center gap-2" onClick={() => setIsModalOpen(true)} disabled={!selectedId}>
+             <Button variant="primary" className="w-full flex items-center justify-center gap-2" onClick={() => {
+                setNewSkillLog({ id: '', skillId: skillDefs[0]?.id || '', level: 3, remarks: '' });
+                setIsModalOpen(true);
+             }} disabled={!selectedId}>
                 <Plus size={18} /> Record Assessment
              </Button>
           </div>
@@ -141,7 +167,10 @@ export const Skills: React.FC = () => {
                   <div key={i} className="p-4 bg-white border border-neutral-200 rounded-xl shadow-sm hover:border-primary/50 transition-all group">
                     <div className="flex justify-between items-center mb-3">
                       <span className="font-bold text-neutral-800 capitalize">{skill.skill?.name || 'Skill Area'}</span>
-                      <span className="text-xs font-bold text-brand-700 bg-brand-50 px-2 py-1 rounded-full">Level {skill.level || 0} / 5</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-brand-700 bg-brand-50 px-2 py-1 rounded-full">Level {skill.level || 0} / 5</span>
+                        <Button variant="ghost" size="sm" className="text-xs py-0.5 px-2 h-auto text-neutral-500 hover:text-brand-600" onClick={() => handleEdit(skill)}>Edit</Button>
+                      </div>
                     </div>
                     <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden mb-2">
                       <div className="bg-brand-600 h-2 rounded-full transition-all duration-1000" style={{ width: `${(skill.level || 0) * 20}%` }}></div>
@@ -165,7 +194,7 @@ export const Skills: React.FC = () => {
         </div>
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Skill Assessment">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={newSkillLog.id ? "Edit Assessment" : "Record Skill Assessment"}>
         <form onSubmit={handleSaveSkill} className="space-y-4">
            <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Skill Area</label>

@@ -5,8 +5,12 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
 import { getStudents } from '../services/students.service';
-import { getCareersByStudent } from '../services/career.service';
+import { getCareersByStudent, addCareer } from '../services/career.service';
 import type { Student } from '../types';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import { Plus } from 'lucide-react';
 
 export const Careers: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -15,6 +19,15 @@ export const Careers: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    careerGoal: '',
+    industry: '',
+    notes: '',
+    milestones: ''
+  });
 
   useEffect(() => {
     let alive = true;
@@ -59,6 +72,30 @@ export const Careers: React.FC = () => {
     };
   }, [selectedId]);
 
+  const handleSaveCareer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedId) return;
+    setSaveLoading(true);
+    try {
+      const payload = {
+        careerGoal: formData.careerGoal,
+        industry: formData.industry,
+        notes: formData.notes,
+        milestones: formData.milestones.split(',').map(s => s.trim()).filter(Boolean)
+      };
+      await addCareer(selectedId, payload);
+      setIsModalOpen(false);
+      setFormData({ careerGoal: '', industry: '', notes: '', milestones: '' });
+      // Reload
+      const data = await getCareersByStudent(selectedId);
+      setCareers(data);
+    } catch (err) {
+      setError('Failed to save career record. Check API payload constraints.');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageWrapper title="Career Tracking">
@@ -97,7 +134,12 @@ export const Careers: React.FC = () => {
               </select>
             </div>
             <div className="md:col-span-2">
-              <h2 className="text-lg font-semibold mb-2">API payload</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Career History</h2>
+                <Button variant="primary" size="sm" onClick={() => setIsModalOpen(true)} disabled={!selectedId}>
+                  <Plus size={16} className="mr-1" /> Add Record
+                </Button>
+              </div>
               {detailLoading ? (
                 <LoadingSpinner label="Loading careers…" />
               ) : Array.isArray(careers) && careers.length > 0 ? (
@@ -139,6 +181,31 @@ export const Careers: React.FC = () => {
           </div>
         )}
       </Card>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Add Career Record">
+        <form onSubmit={handleSaveCareer} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Career Goal</label>
+            <Input required value={formData.careerGoal} onChange={e => setFormData({ ...formData, careerGoal: e.target.value })} placeholder="E.g. Software Engineer" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Industry</label>
+            <Input required value={formData.industry} onChange={e => setFormData({ ...formData, industry: e.target.value })} placeholder="E.g. Technology" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Notes</label>
+            <textarea className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" rows={3} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Progress notes..." />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Milestones (comma separated)</label>
+            <Input value={formData.milestones} onChange={e => setFormData({ ...formData, milestones: e.target.value })} placeholder="E.g. Learn React, Build Portfolio" />
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="primary" isLoading={saveLoading}>Save Record</Button>
+          </div>
+        </form>
+      </Modal>
     </PageWrapper>
   );
 };

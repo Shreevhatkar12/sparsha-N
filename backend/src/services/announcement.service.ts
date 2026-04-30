@@ -60,3 +60,37 @@ export const listAnnouncements = async (
 
   return announcements;
 };
+
+export const updateAnnouncement = async (
+  id: string,
+  data: Partial<CreateAnnouncementData>,
+  { userId, role, allowedCenterIds }: { userId: string; role: string; allowedCenterIds: string[] }
+) => {
+  const existing = await prisma.announcement.findUnique({ where: { id } });
+  if (!existing) throw new AppError('Announcement not found', 404);
+
+  if (role !== 'super_admin' && existing.centerId && !allowedCenterIds.includes(existing.centerId)) {
+    throw new AppError('Not authorized to update this announcement', 403);
+  }
+
+  return prisma.announcement.update({
+    where: { id },
+    data,
+  });
+};
+
+export const deleteAnnouncement = async (
+  id: string,
+  { role, allowedCenterIds }: { role: string; allowedCenterIds: string[] }
+) => {
+  const existing = await prisma.announcement.findUnique({ where: { id } });
+  if (!existing) throw new AppError('Announcement not found', 404);
+
+  if (role !== 'super_admin' && existing.centerId && !allowedCenterIds.includes(existing.centerId)) {
+    throw new AppError('Not authorized to delete this announcement', 403);
+  }
+
+  return prisma.announcement.delete({
+    where: { id },
+  });
+};

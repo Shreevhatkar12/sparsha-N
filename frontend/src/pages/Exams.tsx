@@ -210,8 +210,8 @@ export const Exams: React.FC = () => {
         examType,
         academicYearId: academicYear,
       };
-      const res = (await listExams(params)) as { exams?: Array<{ id: string }> };
-      const first = res.exams?.[0];
+      const examsList = (await listExams(params)) as unknown as Array<{ id: string }>;
+      const first = examsList?.[0];
       if (first?.id) await loadWorkspace(first.id);
       else setError('No exam found for these filters. Use Prepare exam to create one.');
     } catch {
