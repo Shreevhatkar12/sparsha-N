@@ -18,7 +18,6 @@ import {
 import { listCenters, listPrograms } from '../services/centers.service';
 import { useAuthStore } from '../store/useAuthStore';
 import type { CenterSummary, ProgramSummary } from '../types';
-import type { ExamType } from '../types';
 
 const SUBJECTS = ['english', 'science', 'maths'] as const;
 type SubjectKey = (typeof SUBJECTS)[number];

@@ -14,7 +14,7 @@
 
     "build": "npm run install:all && npm run build:frontend && npm run build:backend",
 
-    "start": "npm start --prefix backend"
+    "start": "node backend/dist/server.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

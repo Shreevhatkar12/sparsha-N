@@ -18,8 +18,6 @@ export const Settings: React.FC = () => {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [centerName, setCenterName] = useState('');
-  const [centerLocation, setCenterLocation] = useState('');
 
   const refresh = async () => {
     if (!accessToken) return;

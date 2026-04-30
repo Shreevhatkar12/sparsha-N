@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
-import type { JwtPayload } from "../lib/auth.ts";
-import prisma from "../lib/prisma.ts";
+import type { JwtPayload } from "../lib/auth.js";
+import prisma from "../lib/prisma.js";
 import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
-} from "../lib/errors.ts";
+} from "../lib/errors.js";
 
 
 type FormFieldType =

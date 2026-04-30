@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Calendar, Plus, Filter, Search, Clock, MapPin, CheckCircle2, Circle } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle } from 'lucide-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -267,7 +267,7 @@ export const Activities: React.FC = () => {
                   <Button variant="primary" className="text-xs w-full" onClick={() => handleOpenEnrollment(activity)}>
                     {isAdmin ? 'Manage Enrollments' : 'Enroll Students'}
                   </Button>
-                  <Button variant="outline" className="text-xs w-full">Manage Attendance</Button>
+                  <Button variant="secondary" className="text-xs w-full">Manage Attendance</Button>
                   {isAdmin && <Button variant="ghost" className="text-xs w-full border border-neutral-100">Edit Details</Button>}
                 </div>
               </div>

@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'center_admin' | 'teacher' | 'staff' | 'volunteer' | 'parent' | 'shareholder';
+export type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
 export type Gender = 'male' | 'female' | 'other';
 export type AttendanceStatus = 'present' | 'absent' | 'late';
 export type ExamType = string;
@@ -158,6 +158,7 @@ export interface AuthResponse {
 export interface CenterSummary {
   id: string;
   name: string;
+  location?: string;
 }
 
 export interface ProgramSummary {

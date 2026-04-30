@@ -48,14 +48,14 @@ app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
-app.use(limiter);
-
 app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
     status: "ok",
   });
 });
+
+app.use(limiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
@@ -77,15 +77,12 @@ app.use("/api/kobo", koboRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to frontend build
-const frontendPath = path.join(process.cwd(), "frontend", "dist");
-
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(process.cwd(), "frontend", "dist");
 
   app.use(express.static(frontendPath));
 
-  app.get("*", (req, res) => {
+  app.get("*path", (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }

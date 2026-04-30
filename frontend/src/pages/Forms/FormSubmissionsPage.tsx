@@ -14,6 +14,7 @@ export const FormSubmissionsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
+  const [externalId, setExternalId] = useState<string | null>(null);
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -26,15 +27,16 @@ export const FormSubmissionsPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [tpl, res] = await Promise.all([
+      const [tpl, res] = (await Promise.all([
         getFormTemplate(templateId),
         listFormSubmissions({
           templateId,
           page: String(p),
           limit: '25',
         }),
-      ]);
-      setTitle((tpl as { name: string }).name);
+      ])) as [any, any];
+      setTitle(tpl.name);
+      setExternalId(tpl.externalId || null);
       setRows(res.submissions);
       setTotal(res.total);
       setPage(res.page);
@@ -47,9 +49,9 @@ export const FormSubmissionsPage: React.FC = () => {
   };
 
   const handleSync = async () => {
-    if (!templateId) return;
+    if (!templateId || !externalId) return;
     try {
-      await syncKoboSubmissions(templateId);
+      await syncKoboSubmissions(templateId, externalId);
       await load(1);
     } catch {
       setError('Failed to sync Kobo submissions.');
