@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
+import { requireAuth as authenticate } from '../lib/auth.js';
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import {
   listActivitiesController,
   getActivityController,
@@ -17,20 +20,21 @@ import {
 const activityRoutes = Router();
 
 activityRoutes.use(authenticate);
+activityRoutes.use(requireCenterAccess());
 
 activityRoutes.get("/", listActivitiesController);
 activityRoutes.get("/:activityId", getActivityController);
-activityRoutes.post("/", requireRole("super_admin", "teacher", "staff"), createActivityController);
-activityRoutes.put("/:activityId", requireRole("super_admin", "teacher", "staff"), updateActivityController);
-activityRoutes.delete("/:activityId", requireRole("super_admin"), deleteActivityController);
+activityRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), createActivityController);
+activityRoutes.put("/:activityId", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), updateActivityController);
+activityRoutes.delete("/:activityId", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), deleteActivityController);
 
-activityRoutes.post("/:activityId/assign", requireRole("super_admin", "teacher"), assignVolunteerController);
-activityRoutes.delete("/:activityId/assign/:userId", requireRole("super_admin"), removeVolunteerAssignmentController);
+activityRoutes.post("/:activityId/assign", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), assignVolunteerController);
+activityRoutes.delete("/:activityId/assign/:userId", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), removeVolunteerAssignmentController);
 
 activityRoutes.get("/:activityId/students", getEligibleStudentsController);
 
-activityRoutes.post("/:activityId/enrollments", requireRole("teacher", "staff", "super_admin"), requestActivityEnrollmentController);
+activityRoutes.post("/:activityId/enrollments", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), requestActivityEnrollmentController);
 activityRoutes.get("/:activityId/enrollments", getEnrollmentsController);
-activityRoutes.put("/:activityId/enrollments/:studentId/approve", requireRole("super_admin"), approveActivityEnrollmentController);
+activityRoutes.put("/:activityId/enrollments/:studentId/approve", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), approveActivityEnrollmentController);
 
 export default activityRoutes;

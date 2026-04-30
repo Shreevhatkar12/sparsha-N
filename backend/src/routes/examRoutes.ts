@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
+import { requireAuth as authenticate } from '../lib/auth.js';
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import {
   createExamController,
   getExamByIdController,
@@ -15,15 +18,16 @@ import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.
 const examRoutes = Router();
 
 examRoutes.use(authenticate);
+examRoutes.use(requireCenterAccess());
 
-examRoutes.post("/", requireRole("super_admin", "teacher", "staff"), validate(createExamSchema), createExamController);
+examRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_EXAMS), validate(createExamSchema), createExamController);
 examRoutes.get("/", listExamsController);
 examRoutes.get("/comparison", getExamComparisonController);
 examRoutes.get("/students/:studentId", getStudentExamScoresController);
 examRoutes.get("/:examId", getExamByIdController);
 examRoutes.post(
   "/:examId/scores",
-  requireRole("super_admin", "teacher", "staff"),
+  requirePermission(PERMISSIONS.MANAGE_EXAMS),
   validate(upsertExamScoresSchema),
   upsertExamScoresController,
 );

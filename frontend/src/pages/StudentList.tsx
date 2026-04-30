@@ -24,7 +24,7 @@ export const StudentList: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
 
-  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'center_admin';
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
 
   const [rows, setRows] = useState<Row[]>([]);

@@ -95,7 +95,7 @@ export function SegmentedSlider({
 
 export const Attendance: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = useAuthStore((s) => ["super_admin", "admin"].includes(s.currentUser?.role || ""));
+  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);

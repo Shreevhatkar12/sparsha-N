@@ -32,7 +32,7 @@ export async function createAnnouncement(req: Request, res: Response, next: Next
 export async function updateAnnouncement(req: Request, res: Response, next: NextFunction) {
   try {
     const { userId, role, centerIds } = req.user!;
-    const announcement = await announcementService.updateAnnouncement(req.params.id, req.body, {
+    const announcement = await announcementService.updateAnnouncement(req.params.id as string, req.body, {
       userId,
       role,
       allowedCenterIds: centerIds,
@@ -46,7 +46,7 @@ export async function updateAnnouncement(req: Request, res: Response, next: Next
 export async function deleteAnnouncement(req: Request, res: Response, next: NextFunction) {
   try {
     const { role, centerIds } = req.user!;
-    await announcementService.deleteAnnouncement(req.params.id, {
+    await announcementService.deleteAnnouncement(req.params.id as string, {
       role,
       allowedCenterIds: centerIds,
     });

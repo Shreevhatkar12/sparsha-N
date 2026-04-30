@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { authenticate, requireRole } from '../middleware/auth.middleware.js';
+import { authenticate } from '../middleware/auth.middleware.js';
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import {
   createUserController,
   deleteUserController,
@@ -20,16 +23,19 @@ userRoutes.use(authenticate);
 userRoutes.get("/me/centers", myCentersController);
 
 // 3. User Management - Restricted to Admins
-userRoutes.get("/", requireRole("super_admin", "tech_admin", "center_admin"), listUsersController);
-userRoutes.get("/:userId", requireRole("super_admin", "tech_admin", "center_admin"), getUserController);
-userRoutes.post("/", requireRole("super_admin", "tech_admin", "center_admin"), createUserController);
-userRoutes.put("/:userId", requireRole("super_admin", "tech_admin", "center_admin"), updateUserController);
-userRoutes.post("/:userId/reset-password", requireRole("super_admin", "tech_admin", "center_admin"), resetPasswordController);
+userRoutes.use(requirePermission(PERMISSIONS.MANAGE_USERS));
+userRoutes.use(requireCenterAccess());
+
+userRoutes.get("/", listUsersController);
+userRoutes.get("/:userId", getUserController);
+userRoutes.post("/", createUserController);
+userRoutes.put("/:userId", updateUserController);
+userRoutes.post("/:userId/reset-password", resetPasswordController);
 
 // NEW FROM VANSH: Update which centers a user is assigned to
-userRoutes.put("/:userId/centers", requireRole("super_admin", "tech_admin", "center_admin"), updateUserCentersController);
+userRoutes.put("/:userId/centers", updateUserCentersController);
 
 // 4. Deletion
-userRoutes.delete("/:userId", requireRole("super_admin", "tech_admin"), deleteUserController);
+userRoutes.delete("/:userId", deleteUserController);
 
 export default userRoutes;

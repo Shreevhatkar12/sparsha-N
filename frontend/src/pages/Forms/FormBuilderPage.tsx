@@ -33,7 +33,7 @@ const defaultField = (): FormFieldDefinition => ({
 export const FormBuilderPage: React.FC = () => {
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const isAdmin = useAuthStore((s) => ['super_admin', 'tech_admin', 'center_admin'].includes(s.currentUser?.role || ''));
+  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
   const isEdit = Boolean(templateId);
 
   const [name, setName] = useState('');

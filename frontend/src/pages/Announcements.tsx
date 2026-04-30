@@ -98,7 +98,7 @@ export const Announcements: React.FC = () => {
     }
   };
 
-    const isManagement = currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin' || currentUser?.role === 'center_admin';
+    const isManagement = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
 
     if (loading) return <PageWrapper title="Announcements"><LoadingSpinner /></PageWrapper>;
 

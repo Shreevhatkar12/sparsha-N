@@ -13,7 +13,7 @@ import { FileText, Inbox, RefreshCw, ExternalLink } from 'lucide-react';
 
 export const FormsListPage: React.FC = () => {
   const navigate = useNavigate();
-  const isAdmin = useAuthStore((s) => ['super_admin', 'tech_admin', 'center_admin'].includes(s.currentUser?.role || ''));
+  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
 
   const [templates, setTemplates] = useState<FormTemplateListItem[]>([]);
   const [formTypeSlugs, setFormTypeSlugs] = useState<string[]>([]);

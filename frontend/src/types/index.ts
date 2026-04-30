@@ -158,6 +158,7 @@ export interface AuthResponse {
 export interface CenterSummary {
   id: string;
   name: string;
+  location?: string | null;
 }
 
 export interface ProgramSummary {

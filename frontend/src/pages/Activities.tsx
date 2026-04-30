@@ -280,7 +280,7 @@ export const Activities: React.FC = () => {
                   <Button variant="primary" className="text-xs w-full" onClick={() => handleOpenEnrollment(activity)}>
                     {isAdmin ? 'Manage Enrollments' : 'Enroll Students'}
                   </Button>
-                  <Button variant="outline" className="text-xs w-full" onClick={() => alert("Manage attendance module coming soon")}>Manage Attendance</Button>
+                  <Button variant="secondary" className="text-xs w-full" onClick={() => alert("Manage attendance module coming soon")}>Manage Attendance</Button>
                   {isAdmin && (
                     <div className="flex gap-2">
                       <Button variant="ghost" className="text-xs flex-1 border border-neutral-100" onClick={() => alert("Edit activity module coming soon")}>Edit Details</Button>

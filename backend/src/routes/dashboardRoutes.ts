@@ -3,7 +3,10 @@
 import { Router } from "express";
 import type { NextFunction, Request, Response } from "express";
 // Import your authorize/requireRole middleware
-import { requireAuth as authenticate, authorize } from '../lib/auth.js'; 
+import { requireAuth as authenticate } from '../lib/auth.js'; 
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import type { JwtPayload } from '../lib/auth.js';
 import { getDashboardPendingCounts, getDashboardSummary } from '../services/reportService.js';
 
@@ -13,7 +16,8 @@ const dashboardRoutes = Router();
 dashboardRoutes.use(authenticate);
 
 // 2. RESTRICT: Only allow these roles to access ANY dashboard route
-dashboardRoutes.use(authorize('super_admin', 'center_admin'));
+dashboardRoutes.use(requirePermission(PERMISSIONS.VIEW_DASHBOARD));
+dashboardRoutes.use(requireCenterAccess());
 
 dashboardRoutes.get("/pending", async (req: Request, res: Response, next: NextFunction) => {
   try {

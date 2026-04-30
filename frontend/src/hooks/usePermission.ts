@@ -18,7 +18,7 @@ const PERMISSIONS: Record<string, string[]> = {
 };
 
 export function usePermission() {
-  const role = useAuthStore((s) => s.user?.role);
+  const role = useAuthStore((s) => s.currentUser?.role);
   
   return {
     can: (action: string, resource: string) => {

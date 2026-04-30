@@ -27,7 +27,7 @@ type GridRow = Record<SubjectKey, string> & { remarks: string; isAbsent: boolean
 
 export const Exams: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = useAuthStore((s) => ['super_admin', 'tech_admin', 'center_admin'].includes(s.currentUser?.role || ''));
+  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);

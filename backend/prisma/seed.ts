@@ -129,6 +129,14 @@ async function main() {
         data: { userId: t.id, centerId: centers[i].id, createdBy: ca.id, validFrom: new Date() }
       });
     }
+
+    // Add a staff member for each center
+    const st = await prisma.user.create({
+      data: { email: `staff_${i + 1}@sparsha.org`, fullName: `Staff - ${centers[i].name}`, passwordHash: staffPassword, role: 'staff', createdBy: ca.id, isActive: true },
+    });
+    await prisma.userCenterAssignment.create({
+      data: { userId: st.id, centerId: centers[i].id, createdBy: ca.id, validFrom: new Date() }
+    });
   }
 
   // 🔥 ADDING VANSH'S TEST USERS

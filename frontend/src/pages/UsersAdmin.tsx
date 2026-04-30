@@ -32,14 +32,12 @@ type UserWithCenters = UserAdminItem & {
 export const UsersAdmin: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   
-  const isSuperAdmin = currentUser?.role === 'super_admin';
-  const isCenterAdmin = currentUser?.role === 'center_admin';
-  const isTechAdmin = currentUser?.role === 'tech_admin';
-  const canAccess = isSuperAdmin || isCenterAdmin || isTechAdmin;
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
+  const canAccess = isAdmin;
 
-  const roleOptions: UserRole[] = isSuperAdmin 
+  const roleOptions: UserRole[] = currentUser?.role === 'super_admin' 
     ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'volunteer'] 
-    : isTechAdmin
+    : currentUser?.role === 'tech_admin'
     ? ['teacher', 'staff', 'volunteer']
     : ['teacher', 'staff', 'volunteer'];
 

@@ -49,7 +49,7 @@ export const Equipment: React.FC = () => {
   }, [centerFilter, searchQuery, categoryFilter]);
 
   useEffect(() => {
-    if (currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') {
+    if (['super_admin', 'tech_admin', 'center_admin'].includes(currentUser?.role || '')) {
       fetchCenters();
     }
   }, []);
@@ -123,7 +123,7 @@ export const Equipment: React.FC = () => {
                />
             </div>
             <div className="flex flex-wrap items-center gap-4">
-               {(currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin') && (
+               {['super_admin', 'tech_admin', 'center_admin'].includes(currentUser?.role || '') && (
                  <select 
                    className="px-4 py-2 border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20"
                    value={centerFilter}

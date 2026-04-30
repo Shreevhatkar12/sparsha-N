@@ -14,6 +14,7 @@ export const FormSubmissionsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
+  const [assetUid, setAssetUid] = useState<string | undefined>();
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -35,6 +36,7 @@ export const FormSubmissionsPage: React.FC = () => {
         }),
       ]);
       setTitle((tpl as { name: string }).name);
+      setAssetUid((tpl as { externalId?: string }).externalId);
       setRows(res.submissions);
       setTotal(res.total);
       setPage(res.page);
@@ -49,7 +51,7 @@ export const FormSubmissionsPage: React.FC = () => {
   const handleSync = async () => {
     if (!templateId) return;
     try {
-      await syncKoboSubmissions(templateId);
+      await syncKoboSubmissions(templateId, assetUid || '');
       await load(1);
     } catch {
       setError('Failed to sync Kobo submissions.');
