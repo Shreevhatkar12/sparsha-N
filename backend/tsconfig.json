@@ -4,8 +4,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": "src",
@@ -22,7 +22,6 @@
         "middleware/*"
       ]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
