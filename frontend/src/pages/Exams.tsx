@@ -246,8 +246,14 @@ export const Exams: React.FC = () => {
         examDate,
       });
 
-      if (!list.length) {
-        setError("No exam found for selected date. Create one.");
+      if (!list?.length) {
+        setError('No exam found. Ask an admin to create one first.');
+      } else if (list.length === 1) {
+        await loadWorkspace(list[0].id);
+      } else {
+        // Show picker for multiple exams
+        setAvailableExams(list);
+        setWorkspaceLoading(false);
         return;
       }
 
