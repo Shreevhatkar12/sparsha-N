@@ -9,7 +9,7 @@ import { getStudents } from '../services/students.service';
 import type { Student } from '../types';
 import api from '../services/api';
 import { User, Megaphone, Plus } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDate } from '../utils/date';
 import { Modal } from '../components/ui/Modal';
 
 export const Skills: React.FC = () => {
@@ -191,7 +191,7 @@ export const Skills: React.FC = () => {
                       <div className="bg-brand-600 h-2 rounded-full transition-all duration-1000" style={{ width: `${(skill.level || 0) * 20}%` }}></div>
                     </div>
                     <div className="flex justify-between items-center text-[10px] text-neutral-400">
-                       <span>{skill.assessedOn ? format(new Date(skill.assessedOn), 'MMM d, yyyy') : 'Recently'}</span>
+                       <span>{skill.assessedOn ? formatDate(new Date(skill.assessedOn), 'MMM d, yyyy') : 'Recently'}</span>
                        {skill.assessedByUser && <span>By: {skill.assessedByUser.fullName}</span>}
                     </div>
                     {skill.remarks && <p className="text-xs text-neutral-500 mt-3 p-2 bg-neutral-50 border border-neutral-100 rounded-lg italic">"{skill.remarks}"</p>}

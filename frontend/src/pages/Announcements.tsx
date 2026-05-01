@@ -6,7 +6,7 @@ import { Megaphone, Plus, Bell, Pin, Clock, User } from 'lucide-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { format } from 'date-fns';
+import { formatDate } from '../utils/date';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 
@@ -143,7 +143,7 @@ export const Announcements: React.FC = () => {
                         <div className="flex items-center gap-4 mt-1">
                            <span className="text-xs text-neutral-400 flex items-center gap-1">
                               <Clock size={12} />
-                              {format(new Date(a.createdAt), 'MMM d, yyyy • h:mm a')}
+                              {formatDate(new Date(a.createdAt), 'MMM d, yyyy • h:mm a')}
                            </span>
                            <span className="text-xs text-neutral-400 flex items-center gap-1">
                               <User size={12} />

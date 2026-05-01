@@ -6,7 +6,7 @@ import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle, Trash2 } from 'luc
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { format } from 'date-fns';
+import { formatDate } from '../utils/date';
 import { Input } from '../components/ui/Input';
 import { Modal } from '../components/ui/Modal';
 import { listCenters, listPrograms } from '../services/centers.service';
@@ -35,8 +35,8 @@ export const Activities: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    startDate: format(new Date(), 'yyyy-MM-dd'),
-    endDate: format(new Date(), 'yyyy-MM-dd'),
+    startDate: formatDate(new Date(), 'yyyy-MM-dd'),
+    endDate: formatDate(new Date(), 'yyyy-MM-dd'),
     status: 'planned',
     centerIds: [] as string[],
     programId: '',
@@ -93,8 +93,8 @@ export const Activities: React.FC = () => {
       setFormData({
         name: '',
         description: '',
-        startDate: format(new Date(), 'yyyy-MM-dd'),
-        endDate: format(new Date(), 'yyyy-MM-dd'),
+        startDate: formatDate(new Date(), 'yyyy-MM-dd'),
+        endDate: formatDate(new Date(), 'yyyy-MM-dd'),
         status: 'planned',
         centerIds: [],
         programId: programs[0]?.id || '',
@@ -220,7 +220,7 @@ export const Activities: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-6 mt-4">
                     <div className="flex items-center gap-2 text-xs text-neutral-500">
                       <Clock size={14} className="text-neutral-400" />
-                      {format(new Date(activity.startDate), 'MMM d, yyyy')} - {format(new Date(activity.endDate), 'MMM d, yyyy')}
+                      {formatDate(new Date(activity.startDate), 'MMM d, yyyy')} - {formatDate(new Date(activity.endDate), 'MMM d, yyyy')}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-neutral-500">
                       <MapPin size={14} className="text-neutral-400" />
