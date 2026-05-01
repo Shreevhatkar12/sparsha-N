@@ -85,7 +85,15 @@ if (process.env.NODE_ENV === "production") {
 
   app.use(express.static(frontendPath));
 
-  app.get('/:path(.*)', (req, res) => {
+  // app.get('/:path(.*)', (req, res) => {
+  //   res.sendFile(path.join(frontendPath, "index.html"));
+  // });
+  app.get('*', (req, res, next) => {
+    // If the request is for an API route that wasn't found, 
+    // pass it to the error handler instead of sending index.html
+    if (req.url.startsWith('/api')) {
+      return next();
+    }
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
