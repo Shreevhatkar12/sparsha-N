@@ -181,7 +181,7 @@ export const Exams: React.FC = () => {
     setError(null);
     setAvailableExams([]);
     try {
-      const list = (await listExams({ centerId, programId, examType, academicYearId: academicYear })) as any[];
+      const list = (await listExams({ centerId, programId, examType, academicYearId: academicYear })) as unknown as any[];
       if (!list?.length) {
         setError('No exam found. Ask an admin to create one first.');
       } else if (list.length === 1) {
