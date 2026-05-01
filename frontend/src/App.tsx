@@ -18,8 +18,6 @@ import { FormsListPage } from './pages/Forms/FormsListPage';
 import { FormBuilderPage } from './pages/Forms/FormBuilderPage';
 import { FormRendererPage } from './pages/Forms/FormRendererPage';
 import { FormSubmissionsPage } from './pages/Forms/FormSubmissionsPage';
-import { Equipment } from './pages/Equipment';
-import { Messages } from './pages/Messages';
 import { Announcements } from './pages/Announcements';
 import { Activities } from './pages/Activities';
 
@@ -84,8 +82,6 @@ function App() {
           <Route path="/forms/:templateId/fill" element={<FormRendererPage />} />
           <Route path="/forms/:templateId/submissions" element={<FormSubmissionsPage />} />
           <Route path="/activities" element={<Activities />} />
-          <Route path="/equipment" element={<Equipment />} />
-          <Route path="/messages" element={<Messages />} />
           <Route path="/announcements" element={<Announcements />} />
         </Route>
 

@@ -17,7 +17,6 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import studentRoutes from './routes/student.route.js';
 import skillRoutes from './routes/skillRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
-import equipmentRoutes from './routes/equipmentRoutes.js';
 import koboRoutes from './routes/kobo.routes.js';
 
 import path from "path";
@@ -70,7 +69,6 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/skills", skillRoutes);
 app.use("/api/announcements", announcementRoutes);
-app.use("/api/equipment", equipmentRoutes);
 app.use("/api/kobo", koboRoutes);
 
 // Resolve __dirname in ES modules

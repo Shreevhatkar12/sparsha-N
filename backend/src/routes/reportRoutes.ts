@@ -9,7 +9,6 @@ import {
   examsController,
   skillsReportController,
   studentsFilterController,
-  pendingItemsController,
   exportCsvController
 } from '../controllers/reportController.js';
 
@@ -23,7 +22,6 @@ reportRoutes.get("/attendance", attendanceController);
 reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);
 reportRoutes.get("/students", studentsFilterController);
-reportRoutes.get("/pending", pendingItemsController);
 reportRoutes.get("/export", requirePermission(PERMISSIONS.VIEW_REPORTS), exportCsvController);
 
 export default reportRoutes;

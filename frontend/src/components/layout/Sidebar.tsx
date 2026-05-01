@@ -17,61 +17,30 @@ import {
   Building2,
   BookOpen,
 } from 'lucide-react';
-import { getDashboardPending, type DashboardPendingCounts } from '../../services/reports.service';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const initialPending: DashboardPendingCounts = {
-  missingAttendance: 0,
-  incompleteExams: 0,
-  pendingForms: 0,
-};
-
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const currentUser = useAuthStore((state) => state.currentUser);
-  const [pending, setPending] = useState<DashboardPendingCounts>(initialPending);
-
-  useEffect(() => {
-    let alive = true;
-    getDashboardPending()
-      .then((p) => { if (alive) setPending(p); })
-      .catch(() => { if (alive) setPending(initialPending); });
-    
-    const t = window.setInterval(() => {
-      getDashboardPending()
-        .then((p) => { if (alive) setPending(p); })
-        .catch(() => {});
-    }, 120000);
-
-    return () => {
-      alive = false;
-      window.clearInterval(t);
-    };
-  }, []);
-
-  const totalPending = pending.missingAttendance + pending.incompleteExams + pending.pendingForms;
 
   // Define Nav Items with detailed role-based access
   const navItems: Array<{
     name: string;
     path: string;
     icon: React.ReactNode;
-    badge?: number;
     viewRoles: string[];
   }> = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
-    { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, badge: pending.missingAttendance, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
-    { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, badge: pending.incompleteExams, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
+    { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+    { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Skills', path: '/skills', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Careers', path: '/careers', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
-    { name: 'Forms', path: '/forms', icon: <FileText size={20} />, badge: pending.pendingForms, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+    { name: 'Forms', path: '/forms', icon: <FileText size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Activities', path: '/activities', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
-    { name: 'Equipment', path: '/equipment', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
-    { name: 'Messages', path: '/messages', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Centers', path: '/centers', icon: <Building2 size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Programs', path: '/programs', icon: <BookOpen size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
@@ -114,40 +83,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all group',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
                   isActive
                     ? 'bg-brand-50 text-brand-800 border border-brand-100'
                     : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900',
                 )
               }
             >
-              <span className="flex items-center gap-3 min-w-0">
-                <span className="transition-colors shrink-0">{item.icon}</span>
-                <span className="truncate">{item.name}</span>
-              </span>
-              {item.badge != null && item.badge > 0 && (
-                <span className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-brand-600 text-white text-[10px] font-semibold flex items-center justify-center">
-                  {item.badge > 99 ? '99+' : item.badge}
-                </span>
-              )}
+              <span className="transition-colors shrink-0">{item.icon}</span>
+              <span className="truncate">{item.name}</span>
             </NavLink>
           ))}
         </nav>
-
-        <div className="p-4 border-t border-neutral-100 bg-brand-50/40">
-          <div className="bg-white rounded-xl p-3 border border-brand-100 shadow-sm">
-            <span className="text-xs uppercase tracking-wider text-brand-800 font-bold flex items-center gap-1 mb-1">
-              <span className="w-2 h-2 rounded-full bg-brand-600 animate-pulse" />
-              Pending Actions
-            </span>
-            <p className="text-xs text-neutral-600">
-              {totalPending > 0
-                ? `You have ${totalPending} items needing attention.`
-                : 'All caught up!'}
-            </p>
-          </div>
-        </div>
       </aside>
     </>
   );
-};
+};
