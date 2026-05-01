@@ -1,7 +1,8 @@
 import { Prisma, UserRole } from "@prisma/client";
-import { NotFoundError, ForbiddenError } from '../lib/errors.js';
+import { NotFoundError, ForbiddenError } from "../lib/errors.js";
 import prisma from "../lib/prisma.js";
 import type { JwtPayload } from "../lib/auth.js";
+import { resolveAcademicYearId } from "../utils/academicYear.js";
 
 // ================= TYPES =================
 
@@ -20,72 +21,70 @@ type ListExamQuery = {
   programId?: string;
   examType?: string;
   academicYearId?: string;
+  examDate?: string;
 };
 
 // ================= HELPERS =================
 
 function enforceCenterAccess(user: JwtPayload, centerId: string) {
-  // super_admin and tech_admin can access all centers
-  if (user.role === UserRole.super_admin || user.role === UserRole.tech_admin) {
+  if (user.role === UserRole.super_admin || user.role === UserRole.tech_admin)
     return;
-  }
-  // All other roles must be assigned to the center
   if (!user.centerIds.includes(centerId)) {
     throw new ForbiddenError("Unauthorized access to this center");
   }
 }
 
 function applyCenterFilter(user: JwtPayload, where: any) {
-  // super_admin and tech_admin see all centers
-  if (user.role === UserRole.super_admin || user.role === UserRole.tech_admin) {
+  if (user.role === UserRole.super_admin || user.role === UserRole.tech_admin)
     return;
-  }
-  where.centerId = {
-    in: user.centerIds,
-  };
+  where.centerId = { in: user.centerIds };
 }
 
 // ================= CREATE EXAM =================
 
 export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
-  // 1. Resolve academicYearId (could be UUID or label like "2025-26")
-  let academicYearId = data.academicYearId;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  if (academicYearId && !uuidRegex.test(academicYearId)) {
-    const ay = await prisma.academicYear.findFirst({ where: { label: academicYearId } });
-    if (!ay) {
-      // Auto-create the academic year if it doesn't exist
-      const parts = academicYearId.split('-');
-      const startYear = parseInt(parts[0]);
-      const created = await prisma.academicYear.create({
-        data: {
-          label: academicYearId,
-          startDate: new Date(`${startYear}-04-01`),
-          endDate: new Date(`${startYear + 1}-03-31`),
-        },
-      });
-      academicYearId = created.id;
-    } else {
-      academicYearId = ay.id;
-    }
+  if (!data.examDate) {
+    throw new Error("examDate is required");
   }
 
-  // Admin creates the exam — no score rows pre-created.
-  // Teachers will add subjects dynamically when entering marks.
+  const examDate = new Date(data.examDate);
+
   const createdExams = [];
+
+  let academicYearId = await resolveAcademicYearId(data.academicYearId);
+
+  if (!academicYearId) {
+    throw new Error("Invalid academic year");
+  }
 
   for (const centerId of data.centerIds) {
     enforceCenterAccess(user, centerId);
 
+    // ✅ Prevent duplicate exam for same date
+    const existing = await prisma.exam.findFirst({
+      where: {
+        centerId,
+        programId: data.programId,
+        examType: data.examType,
+        academicYearId: data.academicYearId,
+        examDate,
+      },
+    });
+
+    if (existing) {
+      createdExams.push(existing);
+      continue;
+    }
+
     const exam = await prisma.exam.create({
       data: {
-        name: data.name || `${data.examType} - ${new Date().toLocaleDateString()}`,
+        name:
+          data.name || `${data.examType} - ${examDate.toLocaleDateString()}`,
         examType: data.examType,
-        centerId: centerId,
+        centerId,
         programId: data.programId,
-        academicYearId: academicYearId,
-        examDate: data.examDate ? new Date(data.examDate) : new Date(),
+        academicYearId: data.academicYearId,
+        examDate,
         createdBy: user.userId,
         status: "DRAFT",
       },
@@ -149,49 +148,45 @@ export async function listExams(user: JwtPayload, query: ListExamQuery) {
 
   applyCenterFilter(user, where);
 
-  // If a specific centerId is requested, use it (but only if user has access)
-  if (query.centerId) {
-    // For scoped users, verify they have access to the requested center
-    if (user.role !== UserRole.super_admin && user.role !== UserRole.tech_admin) {
-      if (!user.centerIds.includes(query.centerId)) {
-        return []; // No access to this center
-      }
-    }
-    where.centerId = query.centerId;
-  }
+  if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
   if (query.examType) where.examType = query.examType;
 
-  // 🔥 Update: Handle UUID vs Label for Academic Year in List view
-  if (query.academicYearId) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const academicYearId = await resolveAcademicYearId(query.academicYearId);
 
-    if (uuidRegex.test(query.academicYearId)) {
-      where.academicYearId = query.academicYearId;
-    } else {
-      const year = await prisma.academicYear.findFirst({
-        where: { label: query.academicYearId }
-      });
-      if (year) {
-        where.academicYearId = year.id;
-      } else {
-        // If label doesn't exist, return empty array to prevent 500 error
-        return [];
-      }
-    }
+  if (query.academicYearId && !academicYearId) {
+    return []; // invalid label → no results
   }
 
-  const exams = await prisma.exam.findMany({
+  if (academicYearId) {
+    where.academicYearId = academicYearId;
+  }
+
+  // ✅ CRITICAL FIX: filter by DATE RANGE
+  if (query.examDate) {
+    const d = new Date(query.examDate);
+
+    const start = new Date(d);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(d);
+    end.setHours(23, 59, 59, 999);
+
+    where.examDate = {
+      gte: start,
+      lte: end,
+    };
+  }
+
+  return prisma.exam.findMany({
     where,
     orderBy: { createdAt: "desc" },
     include: {
       academicYear: true,
       program: true,
-      center: true
+      center: true,
     },
   });
-
-  return exams;
 }
 
 // ================= GET EXAM BY ID =================
@@ -244,9 +239,10 @@ export async function upsertExamScores(
   // Resolve each score's subjectId — auto-create if subject name is new
   const processedScores = [];
   for (const s of input.scores) {
-    let subjectId = s.subjectId && subjectMap.has(s.subjectId)
-      ? s.subjectId
-      : subjectMap.get((s.subject || "").toLowerCase());
+    let subjectId =
+      s.subjectId && subjectMap.has(s.subjectId)
+        ? s.subjectId
+        : subjectMap.get((s.subject || "").toLowerCase());
 
     // Auto-create subject if it doesn't exist yet
     if (!subjectId && s.subject && exam.programId) {
@@ -270,7 +266,9 @@ export async function upsertExamScores(
     }
 
     if (!subjectId) {
-      throw new Error(`Subject '${s.subject || s.subjectId}' could not be resolved`);
+      throw new Error(
+        `Subject '${s.subject || s.subjectId}' could not be resolved`,
+      );
     }
 
     // Safely convert marks
@@ -323,10 +321,7 @@ export async function upsertExamScores(
 
 // ================= PENDING SCORES =================
 
-export async function getPendingExamScores(
-  user: JwtPayload,
-  examId: string,
-) {
+export async function getPendingExamScores(user: JwtPayload, examId: string) {
   const exam = await prisma.exam.findUnique({
     where: { id: examId },
   });
@@ -339,7 +334,7 @@ export async function getPendingExamScores(
     where: {
       centerId: exam.centerId,
       programId: exam.programId,
-      isActive: true
+      isActive: true,
     },
   });
 
@@ -388,21 +383,14 @@ export async function getExamComparison(
   if (query.centerId) where.centerId = query.centerId;
   if (query.programId) where.programId = query.programId;
 
-  if (query.academicYearId) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const academicYearId = await resolveAcademicYearId(query.academicYearId);
 
-    if (uuidRegex.test(query.academicYearId)) {
-      where.academicYearId = query.academicYearId;
-    } else {
-      const year = await prisma.academicYear.findFirst({
-        where: { label: query.academicYearId }
-      });
-      if (year) {
-        where.academicYearId = year.id;
-      } else {
-        return { perSubject: [] };
-      }
-    }
+  if (query.academicYearId && !academicYearId) {
+    return { perSubject: [] };
+  }
+
+  if (academicYearId) {
+    where.academicYearId = academicYearId;
   }
 
   const exams = await prisma.exam.findMany({
@@ -418,21 +406,31 @@ export async function getExamComparison(
 
   const subjectMap: Record<
     string,
-    { baselineTotal: number; baselineCount: number; endlineTotal: number; endlineCount: number }
+    {
+      baselineTotal: number;
+      baselineCount: number;
+      endlineTotal: number;
+      endlineCount: number;
+    }
   > = {};
 
   for (const exam of exams) {
     for (const score of exam.scores) {
       const subjectName = score.subject.name.toLowerCase();
       if (!subjectMap[subjectName]) {
-        subjectMap[subjectName] = { baselineTotal: 0, baselineCount: 0, endlineTotal: 0, endlineCount: 0 };
+        subjectMap[subjectName] = {
+          baselineTotal: 0,
+          baselineCount: 0,
+          endlineTotal: 0,
+          endlineCount: 0,
+        };
       }
 
       const val = score.marks ? Number(score.marks) : 0;
-      if (exam.examType.toLowerCase() === 'baseline') {
+      if (exam.examType.toLowerCase() === "baseline") {
         subjectMap[subjectName].baselineTotal += val;
         subjectMap[subjectName].baselineCount++;
-      } else if (exam.examType.toLowerCase() === 'endline') {
+      } else if (exam.examType.toLowerCase() === "endline") {
         subjectMap[subjectName].endlineTotal += val;
         subjectMap[subjectName].endlineCount++;
       }
@@ -440,8 +438,10 @@ export async function getExamComparison(
   }
 
   const perSubject = Object.entries(subjectMap).map(([subject, data]) => {
-    const bAvg = data.baselineCount > 0 ? data.baselineTotal / data.baselineCount : 0;
-    const eAvg = data.endlineCount > 0 ? data.endlineTotal / data.endlineCount : 0;
+    const bAvg =
+      data.baselineCount > 0 ? data.baselineTotal / data.baselineCount : 0;
+    const eAvg =
+      data.endlineCount > 0 ? data.endlineTotal / data.endlineCount : 0;
     const growth = bAvg > 0 ? ((eAvg - bAvg) / bAvg) * 100 : 0;
 
     return {
