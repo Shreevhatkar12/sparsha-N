@@ -87,7 +87,7 @@ if (process.env.NODE_ENV === "production") {
 
   // Use a named parameter with a regex to catch everything
   // This satisfies the new 'path-to-regexp' requirements
-  app.get('*', (req, res) => {
+  app.get('/{*path}', (req, res) => {
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
