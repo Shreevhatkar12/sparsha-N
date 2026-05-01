@@ -239,12 +239,19 @@ export const Exams: React.FC = () => {
   };
 
   const updateCell = (studentId: string, key: string, value: string) => {
-    setGrid((p) => ({ ...p, [studentId]: { ...(p[studentId] ?? emptyRow(subjects)), [key]: value } }));
+    setGrid((p) => ({
+      ...p,
+      [studentId]: { ...(p[studentId] ?? emptyRow(subjects)), [key]: value } as GridRow
+    }));
   };
+
   const toggleAbsent = (studentId: string) => {
     setGrid((p) => {
       const row = p[studentId] ?? emptyRow(subjects);
-      return { ...p, [studentId]: { ...row, isAbsent: !row.isAbsent } };
+      return {
+        ...p,
+        [studentId]: { ...row, isAbsent: !row.isAbsent } as GridRow
+      };
     });
   };
 
