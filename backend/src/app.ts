@@ -77,7 +77,7 @@ const __dirname = path.dirname(__filename);
 
 // Path to frontend build — only used in production
 if (process.env.NODE_ENV === "production") {
-  const frontendPath = path.join(process.cwd(), "frontend", "dist");
+  const frontendPath = path.join(__dirname, "../../frontend/dist");
 
   app.use(express.static(frontendPath));
 
