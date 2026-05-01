@@ -13,14 +13,13 @@ import {
   getExamComparison,
   listExams,
   upsertExamScores,
-  type ListExamsQuery,
 } from '../services/exams.service';
 import { listCenters, listPrograms } from '../services/centers.service';
 import { useAuthStore } from '../store/useAuthStore';
 import type { CenterSummary, ProgramSummary } from '../types';
 
 type SubjectCol = { id: string; name: string; maxMarks: number; isNew?: boolean };
-type GridRow = Record<string, string> & { remarks: string; isAbsent: boolean };
+type GridRow = { [key: string]: any } & { remarks: string; isAbsent: boolean };
 
 const emptyRow = (cols: SubjectCol[]): GridRow => {
   const r: any = { remarks: '', isAbsent: false };

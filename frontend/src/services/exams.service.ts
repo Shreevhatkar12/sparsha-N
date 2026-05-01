@@ -12,7 +12,7 @@ export const createExam = (body: Record<string, unknown>) =>
   api.post<Record<string, unknown>>('/exams', body).then((r) => r.data);
 
 export const listExams = (params?: ListExamsQuery) =>
-  api.get<Record<string, unknown>>('/exams', { params }).then((r) => r.data);
+  api.get<any>('/exams', { params }).then((r) => r.data);
 
 export const getExamComparison = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/exams/comparison', { params }).then((r) => r.data);

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Calendar, Plus, Filter, Search, Clock, MapPin, CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
