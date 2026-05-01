@@ -62,7 +62,7 @@ function App() {
     );
   }
 
-  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'center_admin' || currentUser?.role === 'tech_admin';
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
 
   return (
     <BrowserRouter>

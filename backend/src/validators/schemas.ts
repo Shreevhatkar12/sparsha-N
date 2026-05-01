@@ -55,7 +55,7 @@ export const createExamSchema = z.object({
   centerIds: z.array(uuid).min(1),
   programId: uuid,
   examType: z.string().min(1),
-  academicYear: z.string().min(1),
+  academicYearId: z.string().min(1),
   examDate: optionalDateString,
   name: z.string().optional(),
 });
@@ -93,8 +93,9 @@ export const upsertExamScoresSchema = z.object({
     .array(
       z.object({
         studentId: uuid,
-        subject: z.string().min(1),
-        marks: z.number().optional(),
+        subjectId: uuid.optional(),
+        subject: z.string().min(1).optional(),
+        marks: z.number().nullable().optional(),
         isAbsent: z.boolean().optional(),
         maxMarks: z.number().positive().optional(),
         remarks: z.string().optional(),

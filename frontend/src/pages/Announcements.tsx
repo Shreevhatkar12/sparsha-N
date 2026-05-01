@@ -27,6 +27,7 @@ export const Announcements: React.FC = () => {
   const { currentUser } = useAuthStore();
   
   const [formData, setFormData] = useState({
+    id: '',
     title: '',
     body: '',
     targetRoles: ['teacher', 'center_admin', 'tech_admin', 'volunteer'],
@@ -52,19 +53,52 @@ export const Announcements: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/announcements', {
-        ...formData,
-        centerId: currentUser?.centerIds[0]
-      });
+      if (formData.id) {
+        await api.put(`/announcements/${formData.id}`, {
+          title: formData.title,
+          body: formData.body,
+          targetRoles: formData.targetRoles,
+          isPinned: formData.isPinned
+        });
+      } else {
+        await api.post('/announcements', {
+          title: formData.title,
+          body: formData.body,
+          targetRoles: formData.targetRoles,
+          isPinned: formData.isPinned,
+          centerId: currentUser?.centerIds[0]
+        });
+      }
       setIsModalOpen(false);
-      setFormData({ title: '', body: '', targetRoles: ['teacher', 'center_admin', 'tech_admin', 'volunteer'], isPinned: false });
+      setFormData({ id: '', title: '', body: '', targetRoles: ['teacher', 'center_admin', 'tech_admin', 'volunteer'], isPinned: false });
       fetchAnnouncements();
     } catch (err) {
       console.error(err);
     }
   };
 
-    const isManagement = currentUser?.role === 'super_admin' || currentUser?.role === 'tech_admin' || currentUser?.role === 'center_admin';
+  const handleEdit = (announcement: Announcement) => {
+    setFormData({
+      id: announcement.id,
+      title: announcement.title,
+      body: announcement.body,
+      targetRoles: announcement.targetRoles,
+      isPinned: announcement.isPinned
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    try {
+      await api.delete(`/announcements/${id}`);
+      fetchAnnouncements();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+    const isManagement = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
 
     if (loading) return <PageWrapper title="Announcements"><LoadingSpinner /></PageWrapper>;
 
@@ -79,7 +113,10 @@ export const Announcements: React.FC = () => {
             <p className="text-neutral-500">Stay updated with the latest news and notifications</p>
           </div>
           {isManagement && (
-            <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
+            <Button variant="primary" className="flex items-center gap-2" onClick={() => {
+              setFormData({ id: '', title: '', body: '', targetRoles: ['teacher', 'center_admin', 'tech_admin', 'volunteer'], isPinned: false });
+              setIsModalOpen(true);
+            }}>
               <Plus size={18} />
               Post New Announcement
             </Button>
@@ -115,6 +152,12 @@ export const Announcements: React.FC = () => {
                         </div>
                      </div>
                   </div>
+                  {isManagement && (
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" className="text-neutral-500 hover:text-brand-600 px-2" onClick={() => handleEdit(a)}>Edit</Button>
+                      <Button variant="ghost" size="sm" className="text-neutral-500 hover:text-red-600 px-2" onClick={() => handleDelete(a.id)}>Delete</Button>
+                    </div>
+                  )}
                </div>
                <div className="text-neutral-700 whitespace-pre-wrap leading-relaxed">
                   {a.body}
@@ -127,7 +170,7 @@ export const Announcements: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Post Announcement"
+        title={formData.id ? "Edit Announcement" : "Post Announcement"}
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
@@ -162,7 +205,7 @@ export const Announcements: React.FC = () => {
           </div>
           <div className="flex justify-end gap-3 mt-6">
             <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="primary">Post Announcement</Button>
+            <Button type="submit" variant="primary">{formData.id ? "Save Changes" : "Post Announcement"}</Button>
           </div>
         </form>
       </Modal>

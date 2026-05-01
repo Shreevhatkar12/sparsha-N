@@ -262,6 +262,20 @@ export const updateSkill = async (
   }
 };
 
+export const deleteSkill = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const record = await studentService.deleteSkill(req.params.id as string);
+    return res.status(200).json({ success: true, data: record });
+  } catch (err) {
+    console.error("Delete Skill Error:", err);
+    next(err);
+  }
+};
+
 /* ─────────────────────────────────────────
    CAREERS
 ───────────────────────────────────────── */
@@ -314,6 +328,20 @@ export const updateCareer = async (
     return res.status(200).json({ success: true, data: record });
   } catch (err) {
     console.error("Update Career Error:", err);
+    next(err);
+  }
+};
+
+export const deleteCareer = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<Response | void> => {
+  try {
+    const record = await studentService.deleteCareer(req.params.id as string);
+    return res.status(200).json({ success: true, data: record });
+  } catch (err) {
+    console.error("Delete Career Error:", err);
     next(err);
   }
 };

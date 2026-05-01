@@ -95,13 +95,19 @@ export function SegmentedSlider({
 
 export const Attendance: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
-  const isAdmin = useAuthStore((s) => s.currentUser?.role === "admin");
+  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [centerId, setCenterId] = useState("");
   const [programId, setProgramId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  
+  const getLocalDateStr = () => {
+    const d = new Date();
+    return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+  };
+  
+  const [date, setDate] = useState(getLocalDateStr());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
@@ -203,6 +209,7 @@ export const Attendance: React.FC = () => {
       setIsEditing(true);
       setSuccess(false);
       setIsHoliday(full.isHoliday || false);
+      setDate(getLocalDateStr());
       
       setRows(
         (full.records ?? []).map((r: any) => ({
@@ -326,7 +333,7 @@ export const Attendance: React.FC = () => {
                   className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                   value={centerId}
                   onChange={(e) => setCenterId(e.target.value)}
-                  disabled={!isAdmin}
+                  disabled={centers.length <= 1}
                 >
                   {centers.map((c) => (
                     <option key={c.id} value={c.id}>

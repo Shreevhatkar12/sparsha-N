@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, JwtPayload } from '../lib/auth.js'; 
+import { ADMIN_ROLES, Role } from '../config/rbac.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 
@@ -30,8 +31,8 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       });
     }
 
-    // Ensure user has at least one center assigned (unless super_admin)
-    if (decoded.role !== 'super_admin' && (!decoded.centerIds || decoded.centerIds.length === 0)) {
+    // Ensure user has at least one center assigned (unless admin)
+    if (!ADMIN_ROLES.includes(decoded.role as Role) && (!decoded.centerIds || decoded.centerIds.length === 0)) {
       return res.status(403).json({
         success: false,
         message: "No centers assigned to user.",
@@ -48,23 +49,4 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
-/**
- * AUTHORIZE: The "Internal Door"
- * Checks if the user's role is permitted to access the route.
- */
-export const authorize = (...allowedRoles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const authReq = req as AuthenticatedRequest;
-
-    if (!authReq.user || !allowedRoles.includes(authReq.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access Denied: You do not have the required permissions.",
-      });
-    }
-    next();
-  };
-};
-
 export const protect = authenticate;
-export const requireRole = authorize;

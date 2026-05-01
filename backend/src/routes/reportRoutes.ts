@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
+import { requireAuth as authenticate } from '../lib/auth.js';
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import {
   dashboardController,
   attendanceController,
@@ -13,6 +16,7 @@ import {
 const reportRoutes = Router();
 
 reportRoutes.use(authenticate);
+reportRoutes.use(requireCenterAccess());
 
 reportRoutes.get("/dashboard", dashboardController);
 reportRoutes.get("/attendance", attendanceController);
@@ -20,6 +24,6 @@ reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);
 reportRoutes.get("/students", studentsFilterController);
 reportRoutes.get("/pending", pendingItemsController);
-reportRoutes.get("/export", requireRole("super_admin", "staff"), exportCsvController);
+reportRoutes.get("/export", requirePermission(PERMISSIONS.VIEW_REPORTS), exportCsvController);
 
 export default reportRoutes;

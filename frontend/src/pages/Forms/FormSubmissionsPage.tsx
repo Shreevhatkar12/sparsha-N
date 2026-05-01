@@ -14,7 +14,7 @@ export const FormSubmissionsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
-  const [externalId, setExternalId] = useState<string | null>(null);
+  const [externalId, setExternalId] = useState<string | undefined>();
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -36,7 +36,7 @@ export const FormSubmissionsPage: React.FC = () => {
         }),
       ])) as [any, any];
       setTitle(tpl.name);
-      setExternalId(tpl.externalId || null);
+      setExternalId(tpl.externalId);
       setRows(res.submissions);
       setTotal(res.total);
       setPage(res.page);

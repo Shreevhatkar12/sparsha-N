@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireAuth as authenticate, requireRole } from '../lib/auth.js';
+import { requireAuth as authenticate } from '../lib/auth.js';
+import { requirePermission } from '../middleware/permission.middleware.js';
+import { requireCenterAccess } from '../middleware/center.middleware.js';
+import { PERMISSIONS } from '../config/rbac.js';
 import { validate } from '../middleware/validate.js';
 import { createCenterSchema, createProgramSchema } from '../validators/schemas.js';
 import {
@@ -23,29 +26,31 @@ const centerRoutes = Router();
 const programRoutes = Router();
 
 centerRoutes.use(authenticate);
+centerRoutes.use(requireCenterAccess());
 programRoutes.use(authenticate);
+programRoutes.use(requireCenterAccess());
 
 centerRoutes.get("/", listCentersController);
 centerRoutes.get("/:centerId", getCenterController);
 
-centerRoutes.post("/", requireRole("super_admin","center_admin"), validate(createCenterSchema), createCenterController);
-centerRoutes.delete("/:centerId", requireRole("super_admin","center_admin"), deleteCenterController);
-centerRoutes.put("/:centerId", requireRole("super_admin","center_admin"), updateCenterController);
+centerRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_CENTERS), validate(createCenterSchema), createCenterController);
+centerRoutes.delete("/:centerId", requirePermission(PERMISSIONS.MANAGE_CENTERS), deleteCenterController);
+centerRoutes.put("/:centerId", requirePermission(PERMISSIONS.MANAGE_CENTERS), updateCenterController);
 
-centerRoutes.post("/:centerId/programs", requireRole("super_admin","center_admin","teacher"), assignProgramController);
+centerRoutes.post("/:centerId/programs", requirePermission(PERMISSIONS.MANAGE_CENTERS), assignProgramController);
 centerRoutes.delete(
   "/:centerId/programs/:programId",
-  requireRole("super_admin","center_admin"),
+  requirePermission(PERMISSIONS.MANAGE_CENTERS),
   removeProgramController,
 );
-centerRoutes.post("/:centerId/users", requireRole("super_admin","center_admin"), assignUserController);
-centerRoutes.delete("/:centerId/users/:userId", requireRole("super_admin","center_admin"), removeUserController);
+centerRoutes.post("/:centerId/users", requirePermission(PERMISSIONS.MANAGE_CENTERS), assignUserController);
+centerRoutes.delete("/:centerId/users/:userId", requirePermission(PERMISSIONS.MANAGE_CENTERS), removeUserController);
 
 programRoutes.get("/", listProgramsController);
 programRoutes.get("/:programId", getProgramDetailsController);
-programRoutes.post("/", requireRole("super_admin","center_admin"), validate(createProgramSchema), createProgramController);
-programRoutes.put("/:programId", requireRole("super_admin","center_admin"), updateProgramController);
-programRoutes.get("/:programId/centers", requireRole("super_admin","center_admin"), programCentersController);
+programRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_CENTERS), validate(createProgramSchema), createProgramController);
+programRoutes.put("/:programId", requirePermission(PERMISSIONS.MANAGE_CENTERS), updateProgramController);
+programRoutes.get("/:programId/centers", requirePermission(PERMISSIONS.MANAGE_CENTERS), programCentersController);
 
 export { programRoutes };
 export default centerRoutes;

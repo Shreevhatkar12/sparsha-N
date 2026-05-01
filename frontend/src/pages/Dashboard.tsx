@@ -11,7 +11,7 @@ import { getDashboardPending, getReportsDashboard, type DashboardPendingCounts }
 
 export const Dashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const navigate = useNavigate();
 
   const [data, setData] = useState<Record<string, unknown> | null>(null);

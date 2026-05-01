@@ -24,7 +24,7 @@ export const StudentList: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
 
-  const isAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'center_admin';
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -33,7 +33,7 @@ export const StudentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCenterId, setFilterCenterId] = useState('');
   const [filterProgramId, setFilterProgramId] = useState('');
-  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | ''>('');
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'class_asc' | 'class_desc' | ''>('');
   
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -175,8 +175,16 @@ export const StudentList: React.FC = () => {
     const dataToExport = rows.map((student) => ({
       ID: student.id,
       Name: student.fullName,
+      'Roll Number': student.rollNumber || '—',
       Program: student._programName,
       Center: student._centerName,
+      'Date of Birth': student.dob ? new Date(student.dob).toLocaleDateString() : '—',
+      Gender: student.gender || '—',
+      'Guardian Name': student.guardianName || '—',
+      'Guardian Phone': student.guardianPhone || '—',
+      'Enrollment Date': student.enrollmentDate ? new Date(student.enrollmentDate).toLocaleDateString() : '—',
+      'Total Fees': student.totalFees || 0,
+      'Fees Paid': student.feesPaid || 0,
       ...(isAdmin ? { 'Added By': student._addedBy } : {}),
       Status: student.isActive ? 'active' : 'inactive',
     }));
@@ -567,6 +575,18 @@ export const StudentList: React.FC = () => {
                   {sortOrder === 'name_asc' && <ArrowUp size={14} />}
                   {sortOrder === 'name_desc' && <ArrowDown size={14} />}
                 </button>
+                <button 
+                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('class') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+                  onClick={() => { 
+                    if (sortOrder === 'class_asc') setSortOrder('class_desc');
+                    else setSortOrder('class_asc');
+                    setPage(1); 
+                  }}
+                >
+                  Class
+                  {sortOrder === 'class_asc' && <ArrowUp size={14} />}
+                  {sortOrder === 'class_desc' && <ArrowDown size={14} />}
+                </button>
               </div>
               
               <select
@@ -586,20 +606,9 @@ export const StudentList: React.FC = () => {
                   ))}
                 </select>
 
-              <select
-                id="program-filter"
-                className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                value={filterProgramId}
-                onChange={(e) => {
-                  setFilterProgramId(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">All Classes</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div className="hidden">
+                {/* Program dropdown hidden as requested in favor of quick filters */}
+              </div>
             </div>
             <div className="flex gap-2">
               {/* Transfer mode toggle for teachers */}
@@ -617,10 +626,53 @@ export const StudentList: React.FC = () => {
                   {transferMode ? 'Cancel Transfer' : 'Transfer'}
                 </Button>
               )}
-              <Button variant="secondary" size="sm" type="button" onClick={() => void load()}>
-                Apply Filters
-              </Button>
             </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 mb-4 px-1">
+            <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Quick Filters:</span>
+            <Button 
+              variant={filterProgramId === '' ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(''); setPage(1); void load(); }}
+            >All Classes</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha'); setPage(1); void load(); }}
+            >Shiksha (jr, sr)</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1'); setPage(1); void load(); }}
+            >Sanskar 1 (1-4)</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2'); setPage(1); void load(); }}
+            >Sanskar 2 (4-6)</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1'); setPage(1); void load(); }}
+            >Swayam 1 (7-10)</Button>
+            <Button 
+              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2'); setPage(1); void load(); }}
+            >Swayam 2 (10-12)</Button>
+            <Button 
+              variant={filterProgramId === ([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday') ? 'primary' : 'secondary'} 
+              size="sm" 
+              className="text-xs rounded-full"
+              onClick={() => { setFilterProgramId([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday'); setPage(1); void load(); }}
+            >Kusum & Uday</Button>
           </div>
 
           {/* Transfer request banner */}

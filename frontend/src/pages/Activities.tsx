@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle } from 'lucide-react';
+import { Calendar, Plus, Filter, Search, Clock, MapPin, CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -140,7 +140,7 @@ export const Activities: React.FC = () => {
     if (!enrollmentModal.activityId || selectedStudentIds.length === 0) return;
     try {
       setEnrollmentLoading(true);
-      await api.post(`/activities/${enrollmentModal.activityId}/enrollments/request`, { studentIds: selectedStudentIds });
+      await api.post(`/activities/${enrollmentModal.activityId}/enrollments`, { studentIds: selectedStudentIds });
       // Refresh enrollments
       const res = await api.get(`/activities/${enrollmentModal.activityId}/enrollments`);
       setEnrollments(res.data);
@@ -164,6 +164,19 @@ export const Activities: React.FC = () => {
       console.error(err);
     } finally {
       setEnrollmentLoading(false);
+    }
+  };
+
+  const handleDeleteActivity = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this activity?")) return;
+    try {
+      setLoading(true);
+      await api.delete(`/activities/${id}`);
+      await fetchActivities();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete activity.");
+      setLoading(false);
     }
   };
 
@@ -267,8 +280,15 @@ export const Activities: React.FC = () => {
                   <Button variant="primary" className="text-xs w-full" onClick={() => handleOpenEnrollment(activity)}>
                     {isAdmin ? 'Manage Enrollments' : 'Enroll Students'}
                   </Button>
-                  <Button variant="secondary" className="text-xs w-full">Manage Attendance</Button>
-                  {isAdmin && <Button variant="ghost" className="text-xs w-full border border-neutral-100">Edit Details</Button>}
+                  <Button variant="secondary" className="text-xs w-full" onClick={() => alert("Manage attendance module coming soon")}>Manage Attendance</Button>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      <Button variant="ghost" className="text-xs flex-1 border border-neutral-100" onClick={() => alert("Edit activity module coming soon")}>Edit Details</Button>
+                      <Button variant="ghost" className="text-xs text-danger border border-danger/20 hover:bg-danger/10" onClick={() => handleDeleteActivity(activity.id)}>
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
