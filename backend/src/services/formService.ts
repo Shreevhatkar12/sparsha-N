@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import type { JwtPayload } from "../lib/auth.ts";
-import prisma from "../lib/prisma.ts";
+import prisma from "../lib/prisma.js";
 import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
-} from "../lib/errors.ts";
+} from "../lib/errors.js";
 
 
 type FormFieldType =
@@ -246,11 +246,11 @@ export async function listSubmissions(
     ...(query.studentId ? { studentId: query.studentId } : {}),
     ...(from || to
       ? {
-          submittedAt: {
-            ...(from ? { gte: from } : {}),
-            ...(to ? { lte: to } : {}),
-          },
-        }
+        submittedAt: {
+          ...(from ? { gte: from } : {}),
+          ...(to ? { lte: to } : {}),
+        },
+      }
       : {}),
   };
 

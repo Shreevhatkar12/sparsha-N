@@ -12,7 +12,7 @@ import {
   softDeleteTemplate,
   submitForm,
   updateTemplate
-} from '../services/formService.ts';
+} from '../services/formService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
 
