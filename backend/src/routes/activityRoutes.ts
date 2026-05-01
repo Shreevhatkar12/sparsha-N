@@ -31,9 +31,9 @@ activityRoutes.delete("/:activityId", requirePermission(PERMISSIONS.MANAGE_ACTIV
 activityRoutes.post("/:activityId/assign", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), assignVolunteerController);
 activityRoutes.delete("/:activityId/assign/:userId", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), removeVolunteerAssignmentController);
 
-activityRoutes.get("/:activityId/students", getEligibleStudentsController);
+activityRoutes.get("/:activityId/eligible-students", getEligibleStudentsController);
 
-activityRoutes.post("/:activityId/enrollments", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), requestActivityEnrollmentController);
+activityRoutes.post("/:activityId/enrollments", requestActivityEnrollmentController);
 activityRoutes.get("/:activityId/enrollments", getEnrollmentsController);
 activityRoutes.put("/:activityId/enrollments/:studentId/approve", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), approveActivityEnrollmentController);
 

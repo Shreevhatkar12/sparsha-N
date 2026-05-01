@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { ADMIN_ROLES, Role } from "../config/rbac.js";
 
 export const requireCenterAccess = () => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: any, res: Response, next: NextFunction) => {
+    // 1. Check if user exists (Safety Check)
     if (!req.user) {
       return res.status(401).json({ success: false, message: "Authentication is required" });
     }
@@ -14,17 +15,18 @@ export const requireCenterAccess = () => {
       return next();
     }
 
-    // Extract centerId from req.params or req.body or req.query
-    const targetCenterId = req.params.centerId || req.body.centerId || req.query.centerId;
+    // 2. Extract centerId with optional chaining to prevent crashes
+    const targetCenterId = req.params?.centerId || req.body?.centerId || req.query?.centerId;
 
     if (!targetCenterId) {
-      // If no centerId is provided, we can either allow or rely on scoped queries.
-      // Usually, if a specific center operation is done, it has centerId.
       return next();
     }
 
-    const userCenters = req.user.centerIds || [];
-    
+    // 3. Robust check for center permissions
+    // Your error log suggested 'centerId' might be single, while this code uses 'centerIds' array.
+    // We use optional chaining and a fallback array to be safe.
+    const userCenters = req.user.centerIds || (req.user.centerId ? [req.user.centerId] : []);
+
     if (!userCenters.includes(targetCenterId as string)) {
       return res.status(403).json({
         success: false,

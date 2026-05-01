@@ -11,26 +11,43 @@ import {
   getStudentExamScoresController,
   listExamsController,
   upsertExamScoresController,
+  getExamSheetController, // ✅ Merged into the main import block
 } from '../controllers/examController.js';
 import { validate } from '../middleware/validate.js';
 import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.js';
 
 const examRoutes = Router();
 
+// Apply global middleware to all routes in this file
 examRoutes.use(authenticate);
 examRoutes.use(requireCenterAccess());
 
-examRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_EXAMS), validate(createExamSchema), createExamController);
+// --- Routes ---
+
+examRoutes.post("/",
+  requirePermission(PERMISSIONS.MANAGE_EXAMS),
+  validate(createExamSchema),
+  createExamController
+);
+
 examRoutes.get("/", listExamsController);
 examRoutes.get("/comparison", getExamComparisonController);
 examRoutes.get("/students/:studentId", getStudentExamScoresController);
+
+// ✅ FIX: Changed 'router' to 'examRoutes'
+// ✅ CLEANUP: Removed duplicate authenticate/requireCenterAccess as they are applied globally above
+examRoutes.get("/:examId/sheet", getExamSheetController);
+
 examRoutes.get("/:examId", getExamByIdController);
+
 examRoutes.post(
   "/:examId/scores",
-  requirePermission(PERMISSIONS.MANAGE_EXAMS),
+  requirePermission(PERMISSIONS.ENTER_EXAM_SCORES),
   validate(upsertExamScoresSchema),
   upsertExamScoresController,
 );
+
 examRoutes.get("/:examId/pending", getPendingExamScoresController);
 
+// ✅ FIX: Only one default export
 export default examRoutes;

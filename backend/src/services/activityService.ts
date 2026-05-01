@@ -246,7 +246,7 @@ export async function removeVolunteerAssignment(activityId: string, userId: stri
   });
 }
 
-export async function getEligibleStudents(activityId: string) {
+export async function getEligibleStudents(user: JwtPayload, activityId: string) {
   const activity = await prisma.activity.findUnique({
     where: { id: activityId },
   });
@@ -255,12 +255,25 @@ export async function getEligibleStudents(activityId: string) {
     throw new NotFoundError("Activity not found");
   }
 
+  const where: any = {
+    centerId: activity.centerId,
+    isActive: true,
+  };
+
+  // Only filter by program if the activity has one
+  if (activity.programId) {
+    where.programId = activity.programId;
+  }
+
+  // Teachers see only students they created
+  const isAdmin = ['super_admin', 'tech_admin', 'center_admin'].includes(user.role);
+  if (!isAdmin) {
+    where.createdById = user.userId;
+  }
+
   return prisma.student.findMany({
-    where: {
-      centerId: activity.centerId,
-      programId: activity.programId,
-      isActive: true,
-    },
+    where,
+    select: { id: true, fullName: true, rollNumber: true },
     orderBy: { fullName: "asc" },
   });
 }
@@ -294,7 +307,8 @@ export async function requestActivityEnrollment(user: JwtPayload, activityId: st
 }
 
 export async function approveActivityEnrollment(user: JwtPayload, activityId: string, studentId: string) {
-  if (user.role !== "super_admin") {
+  const isAdmin = ['super_admin', 'tech_admin', 'center_admin'].includes(user.role);
+  if (!isAdmin) {
     throw new ForbiddenError("Only admins can approve enrollments");
   }
 

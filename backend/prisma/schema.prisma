@@ -59,6 +59,12 @@ enum TransferStatus {
   transferred
 }
 
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+}
+
 // =============================================================================
 // 1. FOUNDATION TABLES
 // =============================================================================
@@ -498,6 +504,7 @@ model Exam {
   examType       String    @map("exam_type")
   name           String
   examDate       DateTime? @map("exam_date") @db.Date
+  status         SubmissionStatus @default(DRAFT)
   createdBy      String    @map("created_by") @db.Uuid
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
 
@@ -520,6 +527,7 @@ model ExamScore {
   marks     Decimal? @db.Decimal(6, 2)
   isAbsent  Boolean  @default(false) @map("is_absent")
   remarks   String?
+  status    SubmissionStatus @default(DRAFT)
   enteredBy String   @map("entered_by") @db.Uuid
   enteredAt DateTime @default(now()) @map("entered_at") @db.Timestamptz
 
@@ -782,3 +790,8 @@ model ActivityStatusLog {
 
   @@map("activity_status_log")
 }
+
+
+
+
+ 

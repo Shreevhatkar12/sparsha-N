@@ -25,10 +25,12 @@ const studentCreateSchema = z.object({
   guardianPhone: phone10Digit,
   centerId: z.string().uuid("Invalid Center ID"),
   programId: z.string().uuid("Invalid Program ID"),
+  rollNumber: z.string().optional().nullable(),
 });
 
 const studentUpdateSchema = z.object({
   fullName: z.string().min(1).optional(),
+  rollNumber: z.string().optional().nullable(),
   dob: z
     .string()
     .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid date")
@@ -91,6 +93,7 @@ export const createStudent = async (user: TokenPayload, data: any) => {
       guardianName: payload.guardianName || null,
       guardianPhone: payload.guardianPhone || null,
       dob: payload.dob ? new Date(payload.dob) : null,
+      rollNumber: payload.rollNumber || null,
     },
     include: {
       center: true,
@@ -403,6 +406,46 @@ export const getStudentProfile = async (user: TokenPayload, id: string) => {
     endline: v.endline ?? null,
   }));
 
+  // Fetch skill logs for this student
+  const skillLogs = await prisma.studentSkillLog.findMany({
+    where: { studentId: student.id },
+    include: { skill: true },
+    orderBy: { assessedOn: 'desc' },
+  });
+
+  // Build skill radar from latest skill logs
+  const skillRadar: { skill: string; score: number }[] = [];
+  const seenSkills = new Set<string>();
+  for (const log of skillLogs) {
+    const skillName = log.skill?.name || 'Unknown';
+    if (!seenSkills.has(skillName)) {
+      seenSkills.add(skillName);
+      skillRadar.push({ skill: skillName, score: log.level ?? 0 });
+    }
+  }
+  const skillScore = skillRadar.length > 0
+    ? Number((skillRadar.reduce((sum, s) => sum + s.score, 0) / skillRadar.length).toFixed(1))
+    : null;
+
+  // Fetch career entries
+  const careerTemplate = await prisma.formTemplate.findFirst({ where: { name: 'Career Tracking' } });
+  const careerEntries = careerTemplate
+    ? await prisma.formSubmission.findMany({
+        where: { studentId: student.id, templateId: careerTemplate.id },
+        orderBy: { submittedAt: 'desc' },
+        take: 10,
+      })
+    : [];
+
+  // Fetch parent links
+  let parents: any[] = [];
+  try {
+    parents = await prisma.parentStudent.findMany({
+      where: { studentId: student.id },
+      include: { parent: { select: { id: true, fullName: true, email: true, phone: true } } },
+    });
+  } catch { /* ParentStudent may not have data */ }
+
   const { attendanceRecords: _ar, examScores: _ex, formSubmissions: _fs, ...studentRest } =
     student;
 
@@ -411,12 +454,14 @@ export const getStudentProfile = async (user: TokenPayload, id: string) => {
     stats: {
       attendancePct,
       avgExamPct,
-      skillScore: null,
+      skillScore,
     },
     attendanceTrend,
     examComparison,
-    skillRadar: [],
+    skillRadar,
     formSubmissions: student.formSubmissions,
+    parents,
+    careers: careerEntries.map(sub => ({ id: sub.id, studentId: sub.studentId, createdAt: sub.submittedAt, ...(sub.data as Record<string, unknown>) })),
   };
 };
 

@@ -156,57 +156,62 @@ export async function createSession(
 
 export async function getTodayFreshSheet(user: JwtPayload, centerId: string, programId: string) {
   ensureCenterAccess(user, centerId);
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // 1. Find or Create the session
   let session = await prisma.attendanceSession.findFirst({
-    where: {
-      centerId,
-      programId,
-      sessionDate: today,
-    },
-    include: {
-      records: {
-        include: {
-          student: {
-            select: {
-              id: true,
-              fullName: true,
-              rollNumber: true
-            }
-          }
-        }
-      }
-    }
+    where: { centerId, programId, sessionDate: today },
   });
 
   if (!session) {
-    const created = await createSession(user, {
+    await createSession(user, {
       centerId,
       programId,
       sessionDate: today.toISOString(),
     });
+  }
 
-    session = await prisma.attendanceSession.findUnique({
-      where: { id: (created.session as any).id },
-      include: {
-        records: {
-          include: { 
-            student: {
-              select: {
-                id: true,
-                fullName: true,
-                rollNumber: true
-              }
-            } 
-          }
-        }
-      }
+  // 2. Sync missing students (Crucial for students added later in the day)
+  // Fetch all active students for this center/program
+  const activeStudents = await prisma.student.findMany({
+    where: { centerId, programId, isActive: true },
+    select: { id: true }
+  });
+
+  // Fetch students already in today's session
+  const existingRecords = await prisma.attendanceRecord.findMany({
+    where: { sessionId: session?.id || (await prisma.attendanceSession.findFirst({ where: { centerId, programId, sessionDate: today } }))?.id },
+    select: { studentId: true }
+  });
+
+  const existingStudentIds = new Set(existingRecords.map(r => r.studentId));
+  const missingStudents = activeStudents.filter(s => !existingStudentIds.has(s.id));
+
+  // 3. Create records for missing students
+  if (missingStudents.length > 0 && session) {
+    await prisma.attendanceRecord.createMany({
+      data: missingStudents.map(s => ({
+        sessionId: session!.id,
+        studentId: s.id,
+        centerId: centerId,
+        status: "pending" as AttendanceStatus
+      }))
     });
   }
 
-  return session;
+  // 4. Return the fully updated session with all students
+  return prisma.attendanceSession.findFirst({
+    where: { centerId, programId, sessionDate: today },
+    include: {
+      records: {
+        include: {
+          student: { select: { id: true, fullName: true, rollNumber: true } }
+        }
+      }
+    }
+  });
 }
 
 export async function markHoliday(user: JwtPayload, sessionId: string, isHoliday: boolean) {
@@ -415,11 +420,11 @@ export async function getStudentAttendanceHistory(
         ...(query.programId ? { programId: query.programId } : {}),
         ...((from || to)
           ? {
-              sessionDate: {
-                ...(from ? { gte: from } : {}),
-                ...(to ? { lte: to } : {}),
-              },
-            }
+            sessionDate: {
+              ...(from ? { gte: from } : {}),
+              ...(to ? { lte: to } : {}),
+            },
+          }
           : {}),
       },
     } as never),

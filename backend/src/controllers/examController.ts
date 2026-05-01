@@ -6,6 +6,7 @@ import {
   getExamComparison,
   getPendingExamScores,
   getStudentExamScores,
+  getExamSheet,
   listExams,
   upsertExamScores,
 } from '../services/examService.js';
@@ -15,12 +16,20 @@ type AuthenticatedRequest = Request & { user?: JwtPayload };
 export async function createExamController(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await createExam((req as AuthenticatedRequest).user!, req.body);
-    if (!result.created) {
-      return res.status(409).json(result);
-    }
+
     return res.status(201).json(result);
   } catch (error) {
     return next(error);
+  }
+}
+
+export async function getExamSheetController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { examId } = req.params;
+    const result = await getExamSheet((req as any).user, examId as string);
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
   }
 }
 

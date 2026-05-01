@@ -93,7 +93,8 @@ export async function removeVolunteerAssignmentController(req: Request, res: Res
 
 export async function getEligibleStudentsController(req: Request, res: Response, next: NextFunction) {
   try {
-    const students = await getEligibleStudents(req.params.activityId as string);
+    const user = (req as AuthenticatedRequest).user!;
+    const students = await getEligibleStudents(user, req.params.activityId as string);
     return res.status(200).json(students);
   } catch (error) {
     return next(error);

@@ -140,7 +140,7 @@ export const Activities: React.FC = () => {
     if (!enrollmentModal.activityId || selectedStudentIds.length === 0) return;
     try {
       setEnrollmentLoading(true);
-      await api.post(`/activities/${enrollmentModal.activityId}/enrollments/request`, { studentIds: selectedStudentIds });
+      await api.post(`/activities/${enrollmentModal.activityId}/enrollments`, { studentIds: selectedStudentIds });
       // Refresh enrollments
       const res = await api.get(`/activities/${enrollmentModal.activityId}/enrollments`);
       setEnrollments(res.data);
