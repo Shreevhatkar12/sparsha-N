@@ -17,7 +17,6 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import studentRoutes from './routes/student.route.js';
 import skillRoutes from './routes/skillRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
-import equipmentRoutes from './routes/equipmentRoutes.js';
 import koboRoutes from './routes/kobo.routes.js';
 
 import path from "path";
@@ -70,19 +69,23 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/skills", skillRoutes);
 app.use("/api/announcements", announcementRoutes);
-app.use("/api/equipment", equipmentRoutes);
 app.use("/api/kobo", koboRoutes);
 
 // Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Path to frontend build — only used in production
 if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(process.cwd(), "frontend", "dist");
 
   app.use(express.static(frontendPath));
 
-  app.get("*path", (req, res) => {
+  app.use((req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ message: 'API route not found' });
+    }
+
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }

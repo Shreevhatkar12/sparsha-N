@@ -47,14 +47,6 @@ export async function getDashboardSummary(user: JwtPayload) {
   }
   const overallAttendanceRate = totalAtt === 0 ? 0 : Math.round(((present + late) / totalAtt) * 100);
 
-  // Pending Items
-  const pendingItems = await getPendingItemsData(user);
-  const pendingSummary = {
-    incompleteSessions: pendingItems.incompleteSessions.length,
-    missingExamScores: pendingItems.missingExamScores.length,
-    pendingFormSubmissions: pendingItems.pendingFormSubmissions.length,
-  };
-
   // Center Breakdown
   const centerBreakdown = [];
   for (const center of totalCentersList) {
@@ -123,7 +115,6 @@ export async function getDashboardSummary(user: JwtPayload) {
     totalCenters: totalCentersList.length,
     overallAttendanceRate,
     newStudentsThisMonth,
-    pendingItems: pendingSummary,
     centerBreakdown,
     programBreakdown
   };
@@ -489,115 +480,6 @@ export async function getFilteredStudents(user: JwtPayload, query: any) {
 
   return results;
 }
-
-
-// ----------------------------------------------------------------------
-// PENDING ITEMS
-// ----------------------------------------------------------------------
-export async function getPendingItemsData(user: JwtPayload) {
-  const scope = getCenterScope(user);
-
-  // Group active students by center+program to check against sessions
-  const activeStudentsGroup = await prisma.student.groupBy({
-    by: ['centerId', 'programId'],
-    where: { isActive: true, centerId: scope },
-    _count: { id: true }
-  });
-
-  const studentCountMap = new Map();
-  for (const g of activeStudentsGroup) studentCountMap.set(`${g.centerId}-${g.programId}`, g._count.id);
-
-  const incompleteSessions = [];
-  const missingExamScores = [];
-  const pendingFormSubmissions = []; // Mock logic for forms: just check if forms don't equal active template expectations
-
-  const recentSessions = await prisma.attendanceSession.findMany({
-    where: { centerId: scope },
-    include: { _count: { select: { records: true } } }
-  });
-
-  for (const s of recentSessions) {
-    const expected = studentCountMap.get(`${s.centerId}-${s.programId}`) || 0;
-    if (s._count.records < expected) {
-      incompleteSessions.push({
-        sessionId: s.id,
-        centerId: s.centerId,
-        date: s.sessionDate,
-        studentsUnmarked: expected - s._count.records
-      });
-    }
-  }
-
-  const exams = await prisma.exam.findMany({
-    where: { centerId: scope },
-    include: { _count: { select: { scores: true } } }
-  });
-
-  for (const e of exams) {
-    const expected = studentCountMap.get(`${e.centerId}-${e.programId}`) || 0;
-    // Assuming 3 subjects per exam is standard, _count.scores might be expected * 3
-    // We will just do a simple check: if scores == 0 but students exist, it's missing OR if < expected.
-    if (e._count.scores < expected) {
-      missingExamScores.push({
-        examId: e.id,
-        centerId: e.centerId,
-        examType: e.examType,
-        year: e.academicYearId,
-        studentsWithoutScore: expected - e._count.scores // simplified
-      });
-    }
-  }
-
-  const activeTemplates = await prisma.formTemplate.findMany({ where: { isActive: true }});
-  
-  if (activeTemplates.length > 0) {
-    const groupedSubs = await prisma.formSubmission.groupBy({
-      by: ['centerId', 'templateId'],
-      _count: { id: true }
-    });
-
-    const subMap = new Map();
-    for (const sub of groupedSubs) {
-      subMap.set(`${sub.centerId}-${sub.templateId}`, sub._count.id);
-    }
-
-    for (const group of activeStudentsGroup) {
-      const centerId = group.centerId;
-      for (const tpl of activeTemplates) {
-        const subs = subMap.get(`${centerId}-${tpl.id}`) || 0;
-        if (subs < group._count.id) {
-          pendingFormSubmissions.push({
-            templateId: tpl.id,
-            formName: tpl.name,
-            studentsWithoutSubmission: group._count.id - subs
-          });
-        }
-      }
-    }
-  }
-
-  return { incompleteSessions, missingExamScores, pendingFormSubmissions };
-}
-
-/** Compact counts for `GET /api/dashboard/pending` (attendance = incomplete sessions in last 7 days). */
-export async function getDashboardPendingCounts(user: JwtPayload) {
-  const data = await getPendingItemsData(user);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const missingAttendance = data.incompleteSessions.filter((s) => {
-    const d = new Date(s.date);
-    return d >= sevenDaysAgo;
-  }).length;
-
-  return {
-    missingAttendance,
-    incompleteExams: data.missingExamScores.length,
-    pendingForms: data.pendingFormSubmissions.length,
-  };
-}
-
 
 // ----------------------------------------------------------------------
 // EXPORT (CSV)

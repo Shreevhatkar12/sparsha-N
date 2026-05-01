@@ -5,7 +5,6 @@ import {
   getAttendanceAnalytics,
   getExamAnalytics,
   getFilteredStudents,
-  getPendingItemsData,
   exportStudentDataCsv,
   getSkillsReport,
 } from '../services/reportService.js';
@@ -59,16 +58,6 @@ export async function studentsFilterController(req: Request, res: Response, next
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getFilteredStudents(user, req.query);
-    return res.status(200).json(data);
-  } catch (err) {
-    return next(err);
-  }
-}
-
-export async function pendingItemsController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as AuthenticatedRequest).user!;
-    const data = await getPendingItemsData(user);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

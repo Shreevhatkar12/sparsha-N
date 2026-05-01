@@ -246,11 +246,11 @@ export async function listSubmissions(
     ...(query.studentId ? { studentId: query.studentId } : {}),
     ...(from || to
       ? {
-          submittedAt: {
-            ...(from ? { gte: from } : {}),
-            ...(to ? { lte: to } : {}),
-          },
-        }
+        submittedAt: {
+          ...(from ? { gte: from } : {}),
+          ...(to ? { lte: to } : {}),
+        },
+      }
       : {}),
   };
 

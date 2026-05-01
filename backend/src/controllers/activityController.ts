@@ -8,10 +8,6 @@ import {
   deleteActivity,
   assignVolunteer,
   removeVolunteerAssignment,
-  getEligibleStudents,
-  requestActivityEnrollment,
-  approveActivityEnrollment,
-  getEnrollments,
 } from '../services/activityService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -86,45 +82,6 @@ export async function removeVolunteerAssignmentController(req: Request, res: Res
   try {
     await removeVolunteerAssignment(req.params.activityId as string, req.params.userId as string);
     return res.status(204).send();
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function getEligibleStudentsController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as AuthenticatedRequest).user!;
-    const students = await getEligibleStudents(user, req.params.activityId as string);
-    return res.status(200).json(students);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function requestActivityEnrollmentController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as AuthenticatedRequest).user!;
-    const enrollments = await requestActivityEnrollment(user, req.params.activityId as string, req.body.studentIds);
-    return res.status(201).json(enrollments);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function approveActivityEnrollmentController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const user = (req as AuthenticatedRequest).user!;
-    const enrollment = await approveActivityEnrollment(user, req.params.activityId as string, req.params.studentId as string);
-    return res.status(200).json(enrollment);
-  } catch (error) {
-    return next(error);
-  }
-}
-
-export async function getEnrollmentsController(req: Request, res: Response, next: NextFunction) {
-  try {
-    const enrollments = await getEnrollments(req.params.activityId as string);
-    return res.status(200).json(enrollments);
   } catch (error) {
     return next(error);
   }

@@ -10,8 +10,6 @@ const PERMISSIONS: Record<string, string[]> = {
   'enter:scores': ['super_admin', 'center_admin', 'teacher'],
   'create:form': ['super_admin', 'center_admin', 'teacher'],
   'create:activity': ['super_admin', 'center_admin'],
-  'manage:equipment': ['super_admin', 'center_admin'],
-  'view:equipment': ['super_admin', 'center_admin', 'supervisor'],
   'create:announcement': ['super_admin', 'center_admin'],
   'define:skillCategory': ['super_admin'],
   'log:skill': ['super_admin', 'center_admin', 'teacher']

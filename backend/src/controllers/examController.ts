@@ -36,11 +36,13 @@ export async function getExamSheetController(req: Request, res: Response, next: 
 export async function listExamsController(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await listExams((req as AuthenticatedRequest).user!, {
-      centerId: req.query.centerId as string | undefined,
-      programId: req.query.programId as string | undefined,
-      examType: req.query.examType as string | undefined,
-      academicYearId: req.query.academicYearId as string | undefined,
+      centerId: req.query.centerId as string,
+      programId: req.query.programId as string,
+      examType: req.query.examType as string,
+      academicYearId: req.query.academicYearId as string,
+      examDate: req.query.examDate as string, // ✅ FIX
     });
+
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

@@ -70,7 +70,10 @@ export const registerUser = async ({
   try {
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ phone }, ...(email ? [{ email }] : [])],
+        OR: [
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phone }] : []),
+        ],
       },
     });
 

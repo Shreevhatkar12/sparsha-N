@@ -4,11 +4,12 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "rootDir": "src",
     "outDir": "dist",
     "baseUrl": "src",
+    "allowImportingTsExtensions": false,
     "noEmit": false,
     "paths": {
       "@/*": [
@@ -21,7 +22,6 @@
         "middleware/*"
       ]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
@@ -32,6 +32,8 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src/__tests__",
+    "**/*.test.ts"
   ]
 }

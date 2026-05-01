@@ -1,14 +1,5 @@
 import api from './api';
 
-export type DashboardPendingCounts = {
-  missingAttendance: number;
-  incompleteExams: number;
-  pendingForms: number;
-};
-
-export const getDashboardPending = () =>
-  api.get<DashboardPendingCounts>('/dashboard/pending').then((r) => r.data);
-
 export const getReportsDashboard = () =>
   api.get<Record<string, unknown>>('/reports/dashboard').then((r) => r.data);
 
@@ -23,9 +14,6 @@ export const getReportsSkills = (params?: Record<string, string | undefined>) =>
 
 export const getReportsStudents = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/reports/students', { params }).then((r) => r.data);
-
-export const getReportsPending = () =>
-  api.get<Record<string, unknown>>('/reports/pending').then((r) => r.data);
 
 export const exportReportsCsv = (params?: Record<string, string | undefined>) =>
   api.get<Blob>('/reports/export', {
