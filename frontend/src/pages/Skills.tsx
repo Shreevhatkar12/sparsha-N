@@ -6,10 +6,9 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EmptyState } from '../components/ui/EmptyState';
 import { getStudents } from '../services/students.service';
-import { getSkillsByStudent } from '../services/skills.service';
 import type { Student } from '../types';
 import api from '../services/api';
-import { User, Megaphone, Plus, Search } from 'lucide-react';
+import { User, Megaphone, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Modal } from '../components/ui/Modal';
 

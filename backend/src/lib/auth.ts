@@ -1,14 +1,9 @@
-import type { AuthUser } from '../types/index.js';
 import { NextFunction, Request, RequestHandler, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { SignOptions } from "jsonwebtoken";
 import { UserRole } from "@prisma/client";
 import prisma from './prisma.js';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-  ValidationError,
-} from './errors.js';
+import { UnauthorizedError } from './errors.js';
 
 export type JwtPayload = {
   userId: string;
@@ -27,11 +22,9 @@ function getJwtAccessSecret(): string {
   if (!secret) {
     throw new Error("JWT_ACCESS_SECRET is not configured");
   }
-
   return secret;
 }
 
-const JWT_ACCESS_SECRET = getJwtAccessSecret();
 const JWT_EXPIRES_IN: SignOptions["expiresIn"] =
   (process.env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"]) ?? "1d";
 
@@ -64,7 +57,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
 }
 
 export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_ACCESS_SECRET, {
+  return jwt.sign(payload, getJwtAccessSecret(), {
     expiresIn: JWT_EXPIRES_IN,
   });
 }
@@ -72,7 +65,7 @@ export function signToken(payload: JwtPayload): string {
 // Renamed to verifyAccessToken to match middleware expectations
 export function verifyAccessToken(token: string): JwtPayload {
   try {
-    const decoded = jwt.verify(token, JWT_ACCESS_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, getJwtAccessSecret()) as JwtPayload;
     return decoded;
   } catch {
     throw new UnauthorizedError("Invalid or expired token");

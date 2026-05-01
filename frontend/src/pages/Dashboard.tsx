@@ -6,7 +6,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { Users, BookOpen, Star, AlertCircle, PlusCircle, Trash2, TrendingUp, Target, Activity } from 'lucide-react';
+import { Users, BookOpen, PlusCircle, Trash2, TrendingUp, Target, Activity } from 'lucide-react';
 import { getReportsDashboard } from '../services/reports.service';
 
 export const Dashboard: React.FC = () => {

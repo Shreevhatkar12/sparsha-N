@@ -13,7 +13,6 @@ import {
   getExamComparison,
   listExams,
   upsertExamScores,
-  type ListExamsQuery,
 } from "../services/exams.service";
 import { listCenters, listPrograms } from "../services/centers.service";
 import { useAuthStore } from "../store/useAuthStore";

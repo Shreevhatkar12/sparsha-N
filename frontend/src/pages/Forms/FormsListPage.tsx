@@ -9,7 +9,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuthStore } from '../../store/useAuthStore';
 import { listFormTemplates, syncKoboForms, syncKoboSubmissions, type FormTemplateListItem } from '../../services/forms.service';
-import { FileText, Inbox, RefreshCw, ExternalLink } from 'lucide-react';
+import { Inbox, RefreshCw, ExternalLink } from 'lucide-react';
 
 export const FormsListPage: React.FC = () => {
   const navigate = useNavigate();

@@ -33,7 +33,7 @@ export async function listUsersController(req: Request, res: Response, next: Nex
       // Admins see all users; other roles only see users they created
       createdBy: (requester?.role === 'super_admin' || requester?.role === 'center_admin') 
         ? undefined 
-        : (requester?.userId || requester?.id)
+        : requester?.userId
     });
 
     return res.status(200).json(result);
@@ -88,7 +88,7 @@ export async function createUserController(req: Request, res: Response, next: Ne
     const userData = {
       ...req.body,
       centerIds: centerIds || [], // Ensure this is an array
-      createdBy: requester?.userId || requester?.id 
+      createdBy: requester?.userId
     };
 
     const user = await createUser(userData);
