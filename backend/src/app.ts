@@ -80,18 +80,11 @@ if (process.env.NODE_ENV === "production") {
   const frontendPath = path.join(__dirname, "../../frontend/dist");
 
   app.use(express.static(frontendPath));
-
-<<<<<<< HEAD
+  
   app.use((req, res) => {
     if (req.path.startsWith('/api')) {
       return res.status(404).json({ message: 'API route not found' });
     }
-
-=======
-  // Use a named parameter with a regex to catch everything
-  // This satisfies the new 'path-to-regexp' requirements
-  app.get('/{*path}', (req, res) => {
->>>>>>> origin/vansh
     res.sendFile(path.join(frontendPath, "index.html"));
   });
 }
