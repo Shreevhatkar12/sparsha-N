@@ -66,7 +66,7 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
         centerId,
         programId: data.programId,
         examType: data.examType,
-        academicYearId: data.academicYearId,
+        academicYearId,
         examDate,
       },
     });
@@ -83,7 +83,7 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
         examType: data.examType,
         centerId,
         programId: data.programId,
-        academicYearId: data.academicYearId,
+        academicYearId,
         examDate,
         createdBy: user.userId,
         status: "DRAFT",
