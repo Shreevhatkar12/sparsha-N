@@ -24,7 +24,7 @@ userRoutes.get("/me/centers", myCentersController);
 
 // 3. User Management - Restricted to Admins
 userRoutes.use(requirePermission(PERMISSIONS.MANAGE_USERS));
-userRoutes.use(requireCenterAccess());
+//userRoutes.use(requireCenterAccess());
 
 userRoutes.get("/", listUsersController);
 userRoutes.get("/:userId", getUserController);

@@ -65,7 +65,7 @@ export async function createUserController(req: Request, res: Response, next: Ne
 
     // --- HIERARCHY LOGIC ---
     if (requesterRole === "super_admin") {
-      const allowedForSuper = ["super_admin", "center_admin", "teacher", "staff", "volunteer"];
+      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer"];
       if (!allowedForSuper.includes(targetRole)) {
         return res.status(403).json({ 
           success: false, 
@@ -94,9 +94,11 @@ export async function createUserController(req: Request, res: Response, next: Ne
     const user = await createUser(userData);
     return res.status(201).json(user);
   } catch (error) {
-    // This will catch the Prisma nested-write errors if centerIds are malformed
-    return next(error);
-  }
+
+  console.log("CREATE USER ERROR =>", error);
+
+  return next(error);
+}
 }
 
 export async function updateUserController(req: Request, res: Response, next: NextFunction) {
