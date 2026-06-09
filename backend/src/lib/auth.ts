@@ -10,7 +10,7 @@ export type JwtPayload = {
   email: string;
   role: UserRole;
   centerIds: string[];
-  isActive: boolean; // Added for the "Kill-switch"
+  isActive: boolean;
 };
 
 type AuthenticatedRequest = Request & {
@@ -37,7 +37,9 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
       role: true,
       isActive: true,
       centerAssignments: {
-        where: { validUntil: null },
+        where: {
+          OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
+        },
         select: { centerId: true },
       },
     },
@@ -62,7 +64,6 @@ export function signToken(payload: JwtPayload): string {
   });
 }
 
-// Renamed to verifyAccessToken to match middleware expectations
 export function verifyAccessToken(token: string): JwtPayload {
   try {
     const decoded = jwt.verify(token, getJwtAccessSecret()) as JwtPayload;
@@ -85,10 +86,9 @@ export const requireAuth: RequestHandler = (
   const token = authHeader.split(" ")[1];
   try {
     const decoded = verifyAccessToken(token);
-    (req as AuthenticatedRequest).user = decoded; 
+    (req as AuthenticatedRequest).user = decoded;
     return next();
   } catch (error) {
     return next(error);
   }
 }
-

@@ -6,6 +6,7 @@ import { PERMISSIONS } from '../config/rbac.js';
 import {
   createUserController,
   deleteUserController,
+  permanentDeleteUserController,
   getUserController,
   listUsersController,
   myCentersController,
@@ -36,6 +37,6 @@ userRoutes.post("/:userId/reset-password", resetPasswordController);
 userRoutes.put("/:userId/centers", updateUserCentersController);
 
 // 4. Deletion
-userRoutes.delete("/:userId", deleteUserController);
+userRoutes.delete("/:userId/permanent", permanentDeleteUserController);
 
 export default userRoutes;

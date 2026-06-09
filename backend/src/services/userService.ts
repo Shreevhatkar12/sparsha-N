@@ -107,8 +107,7 @@ export async function createUser(input: {
 }) {
   try {
     const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
-    
-    // We use a transaction to ensure both user and assignments are created or none
+
     const user = await prisma.user.create({
       data: {
         email: input.email,
@@ -116,12 +115,14 @@ export async function createUser(input: {
         fullName: input.fullName,
         phone: input.phone ?? null,
         role: input.role,
-        createdBy: input.createdBy,
-        centerAssignments: input.createdBy && input.centerIds?.length
+        createdBy: input.createdBy ?? null,
+        centerAssignments: input.centerIds?.length
           ? {
               create: input.centerIds.map((id: string) => ({
                 center: { connect: { id } },
-                createdByUser: { connect: { id: input.createdBy! } },
+                ...(input.createdBy
+                  ? { createdByUser: { connect: { id: input.createdBy } } }
+                  : {}),
                 validFrom: new Date(),
               })),
             }
@@ -137,7 +138,7 @@ export async function createUser(input: {
         },
       },
     });
-    
+
     return toSafeUser(user);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -238,15 +239,12 @@ export async function updateUserCenters(
   targetUserId: string,
   centerIds: string[],
 ) {
-  // Verify the target user exists
   await prisma.user.findUniqueOrThrow({ where: { id: targetUserId } });
 
-  // Delete all existing assignments for this user
   await prisma.userCenterAssignment.deleteMany({
     where: { userId: targetUserId },
   });
 
-  // Create new assignments
   if (centerIds.length > 0) {
     await prisma.userCenterAssignment.createMany({
       data: centerIds.map((centerId) => ({

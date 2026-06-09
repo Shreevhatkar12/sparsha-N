@@ -25,7 +25,6 @@ export type CreateUserPayload = {
   phone?: string;
   centerIds: string[];
   role: UserRole;
-  
 };
 
 export type UpdateUserPayload = {
@@ -57,3 +56,6 @@ export const deactivateUser = (userId: string) =>
 
 export const updateUserCenters = (userId: string, centerIds: string[]) =>
   api.put(`/users/${userId}/centers`, { centerIds }).then((r) => r.data);
+
+export const deleteUser = (userId: string) =>
+  api.delete(`/users/${userId}/permanent`).then((r) => r.data);

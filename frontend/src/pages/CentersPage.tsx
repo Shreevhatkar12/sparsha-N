@@ -5,8 +5,8 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { Building2, Plus, MapPin, Users, GraduationCap, ArrowLeft, UserCircle } from 'lucide-react';
-import { listCenters, getCenterDetails, createCenter } from '../services/centers.service';
+import { Building2, Plus, MapPin, Users, GraduationCap, ArrowLeft, UserCircle, Pencil, Trash2 } from 'lucide-react';
+import { listCenters, getCenterDetails, createCenter, updateCenter, deleteCenter } from '../services/centers.service';
 import { Input } from '../components/ui/Input';
 import type { CenterSummary } from '../types';
 
@@ -28,7 +28,6 @@ export const CentersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Detail view
   const [selectedCenter, setSelectedCenter] = useState<CenterDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -37,6 +36,16 @@ export const CentersPage: React.FC = () => {
   const [formName, setFormName] = useState('');
   const [formLocation, setFormLocation] = useState('');
   const [formSaving, setFormSaving] = useState(false);
+
+  // Edit form
+  const [editCenter, setEditCenter] = useState<CenterSummary | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
+  // Delete confirm
+  const [deleteConfirm, setDeleteConfirm] = useState<CenterSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +92,42 @@ export const CentersPage: React.FC = () => {
     }
   };
 
+  const handleEditOpen = (e: React.MouseEvent, c: CenterSummary) => {
+    e.stopPropagation();
+    setEditCenter(c);
+    setEditName(c.name);
+    setEditLocation(c.location || '');
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editCenter || !editName.trim()) return;
+    setEditSaving(true);
+    try {
+      await updateCenter(editCenter.id, { name: editName.trim(), location: editLocation.trim() || undefined });
+      setEditCenter(null);
+      await load();
+    } catch {
+      setError('Failed to update center.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await deleteCenter(deleteConfirm.id);
+      setDeleteConfirm(null);
+      await load();
+    } catch {
+      setError('Failed to delete center.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Detail view
   if (selectedCenter) {
     return (
@@ -95,8 +140,6 @@ export const CentersPage: React.FC = () => {
         }
       >
         {error && <ErrorMessage message={error} />}
-        
-        {/* Info cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card className="py-4 text-center">
             <MapPin size={20} className="mx-auto text-neutral-400 mb-1" />
@@ -115,7 +158,6 @@ export const CentersPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Programs */}
         {selectedCenter.centerPrograms && selectedCenter.centerPrograms.length > 0 && (
           <Card className="mb-6">
             <h3 className="text-md font-semibold text-neutral-900 mb-3 border-b border-neutral-100 pb-2">Programs</h3>
@@ -129,7 +171,6 @@ export const CentersPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Teachers list */}
         <Card className="mb-6">
           <h3 className="text-md font-semibold text-neutral-900 mb-3 border-b border-neutral-100 pb-2">
             <Users size={16} className="inline mr-2 text-blue-500" />Assigned Teachers
@@ -151,7 +192,6 @@ export const CentersPage: React.FC = () => {
           )}
         </Card>
 
-        {/* Students list */}
         <Card className="mb-6">
           <h3 className="text-md font-semibold text-neutral-900 mb-3 border-b border-neutral-100 pb-2">
             <GraduationCap size={16} className="inline mr-2 text-emerald-500" />Enrolled Students
@@ -195,7 +235,7 @@ export const CentersPage: React.FC = () => {
     >
       {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
 
-      {/* Add form modal */}
+      {/* Add form */}
       {showForm && (
         <Card className="mb-6 border-2 border-brand-200 bg-brand-50/30">
           <h3 className="text-md font-semibold text-neutral-900 mb-4">New Center</h3>
@@ -207,6 +247,35 @@ export const CentersPage: React.FC = () => {
               <Button variant="primary" type="submit" isLoading={formSaving}>Create Center</Button>
             </div>
           </form>
+        </Card>
+      )}
+
+      {/* Edit form */}
+      {editCenter && (
+        <Card className="mb-6 border-2 border-blue-200 bg-blue-50/30">
+          <h3 className="text-md font-semibold text-neutral-900 mb-4">Edit Center — {editCenter.name}</h3>
+          <form onSubmit={(e) => void handleEditSave(e)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Center Name *" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+            <Input label="Address / Location" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} />
+            <div className="sm:col-span-2 flex gap-2 justify-end">
+              <Button variant="secondary" type="button" onClick={() => setEditCenter(null)}>Cancel</Button>
+              <Button variant="primary" type="submit" isLoading={editSaving}>Save Changes</Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      {/* Delete confirm */}
+      {deleteConfirm && (
+        <Card className="mb-6 border-2 border-red-200 bg-red-50/30">
+          <h3 className="text-md font-semibold text-red-700 mb-2">Delete "{deleteConfirm.name}"?</h3>
+          <p className="text-sm text-neutral-600 mb-4">He center permanently delete hoil. Are you sure?</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" type="button" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="danger" type="button" isLoading={deleting} onClick={() => void handleDeleteConfirm()}>
+              Yes, Delete
+            </Button>
+          </div>
         </Card>
       )}
 
@@ -225,22 +294,38 @@ export const CentersPage: React.FC = () => {
               className="cursor-pointer hover:shadow-lg hover:border-brand-300 transition-all duration-200 group"
               onClick={() => void handleSelectCenter(c.id)}
             >
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-100 to-brand-200 flex items-center justify-center shrink-0 group-hover:from-brand-200 group-hover:to-brand-300 transition-colors">
-                  <Building2 size={24} className="text-brand-700" />
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-100 to-brand-200 flex items-center justify-center shrink-0 group-hover:from-brand-200 group-hover:to-brand-300 transition-colors">
+                    <Building2 size={24} className="text-brand-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-neutral-900 group-hover:text-brand-800 transition-colors">{c.name}</h3>
+                    {c.location && (
+                      <p className="text-xs text-neutral-500 flex items-center gap-1 mt-0.5">
+                        <MapPin size={12} /> {c.location}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-neutral-900 group-hover:text-brand-800 transition-colors">{c.name}</h3>
-                  {c.location && (
-                    <p className="text-xs text-neutral-500 flex items-center gap-1 mt-0.5">
-                      <MapPin size={12} /> {c.location}
-                    </p>
-                  )}
+                {/* Edit / Delete buttons */}
+                <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                    title="Edit"
+                    onClick={(e) => handleEditOpen(e, c)}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    title="Delete"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(c); }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
-              {detailLoading && (
-                <div className="mt-3 text-xs text-neutral-400">Loading...</div>
-              )}
             </Card>
           ))}
         </div>

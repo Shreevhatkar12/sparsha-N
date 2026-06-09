@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import {
   createUser,
   deactivateUser,
+  deleteUser,
   listUsers,
   resetUserPassword,
   updateUserCenters,
@@ -18,9 +19,8 @@ import {
 } from '../services/users.service';
 import { listCenters } from '../services/centers.service';
 import type { UserRole } from '../types';
-import { Building2, X, Check } from 'lucide-react';
+import { Building2, X, Check, Trash2 } from 'lucide-react';
 
-// Extend UserAdminItem to include centerAssignments from the API
 type UserWithCenters = UserAdminItem & {
   centerAssignments?: Array<{
     id: string;
@@ -34,6 +34,7 @@ export const UsersAdmin: React.FC = () => {
   
   const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const canAccess = isAdmin;
+  const canDelete = ['super_admin', 'tech_admin'].includes(currentUser?.role || '');
 
   const roleOptions: UserRole[] = currentUser?.role === 'super_admin' 
     ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'volunteer'] 
@@ -47,7 +48,6 @@ export const UsersAdmin: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  // Create user form
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
@@ -56,11 +56,14 @@ export const UsersAdmin: React.FC = () => {
   const [selectedCenterIds, setSelectedCenterIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
-  // Edit centers modal
   const [editCentersUserId, setEditCentersUserId] = useState<string | null>(null);
   const [editCentersUserName, setEditCentersUserName] = useState('');
   const [editCenterIds, setEditCenterIds] = useState<string[]>([]);
   const [savingCenters, setSavingCenters] = useState(false);
+
+  // Delete confirm
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserWithCenters | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -98,10 +101,9 @@ export const UsersAdmin: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCenterIds.length === 0) {
-        setError('Please assign at least one center to the user.');
-        return;
+      setError('Please assign at least one center to the user.');
+      return;
     }
-
     setCreating(true);
     setError(null);
     try {
@@ -134,6 +136,20 @@ export const UsersAdmin: React.FC = () => {
       await loadData();
     } catch {
       setError('Failed to deactivate user.');
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmUser) return;
+    setDeleting(true);
+    try {
+      await deleteUser(deleteConfirmUser.id);
+      setDeleteConfirmUser(null);
+      await loadData();
+    } catch {
+      setError('Failed to delete user.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -239,6 +255,16 @@ export const UsersAdmin: React.FC = () => {
           >
             Deactivate
           </Button>
+          {canDelete && currentUser?.id !== u.id && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setDeleteConfirmUser(u)}
+              title="Permanently delete user"
+            >
+              <Trash2 size={14} />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -249,6 +275,27 @@ export const UsersAdmin: React.FC = () => {
       {error && (
         <div className="mb-4">
           <ErrorMessage message={error} />
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirmUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setDeleteConfirmUser(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-md p-6">
+            <h3 className="text-base font-semibold text-red-700 mb-2">
+              Delete "{deleteConfirmUser.fullName}"?
+            </h3>
+            <p className="text-sm text-neutral-600 mb-4">
+              He user permanently delete hoil — data recover honar nahi. Are you sure?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeleteConfirmUser(null)}>Cancel</Button>
+              <Button variant="danger" isLoading={deleting} onClick={() => void handleDeleteConfirm()}>
+                <Trash2 size={14} className="mr-1" /> Yes, Delete
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -269,7 +316,6 @@ export const UsersAdmin: React.FC = () => {
                 <X size={18} />
               </button>
             </div>
-
             <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
               <p className="text-xs text-neutral-500 mb-3">
                 Select the centers this user should have access to:
@@ -299,7 +345,6 @@ export const UsersAdmin: React.FC = () => {
                 ))}
               </div>
             </div>
-
             <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
               <Button variant="secondary" size="sm" onClick={() => setEditCentersUserId(null)}>
                 Cancel
@@ -332,7 +377,6 @@ export const UsersAdmin: React.FC = () => {
             required
           />
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          
           <div className="w-full flex flex-col gap-1.5">
             <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Role</label>
             <select
@@ -347,7 +391,6 @@ export const UsersAdmin: React.FC = () => {
               ))}
             </select>
           </div>
-
           <div className="md:col-span-2 mt-2">
             <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-2 block">
               Assigned Centers
@@ -367,7 +410,6 @@ export const UsersAdmin: React.FC = () => {
             </div>
             <p className="text-[10px] text-neutral-500 mt-1 italic">Assign at least one center to the user.</p>
           </div>
-
           <div className="md:col-span-2">
             <Button type="submit" isLoading={creating} className="w-full md:w-auto">
               Create User

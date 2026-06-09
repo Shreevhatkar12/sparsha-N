@@ -112,6 +112,10 @@ export async function deleteCenter(centerId: string) {
     throw new AppError("Cannot delete center with active students", 409);
   }
 
+  // First delete all related records
+  await prisma.userCenterAssignment.deleteMany({ where: { centerId } });
+  await prisma.centerProgram.deleteMany({ where: { centerId } });
+
   return prisma.center.delete({
     where: { id: centerId },
   });
