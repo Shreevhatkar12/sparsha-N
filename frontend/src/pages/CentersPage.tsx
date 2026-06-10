@@ -29,7 +29,7 @@ export const CentersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedCenter, setSelectedCenter] = useState<CenterDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [_detailLoading, setDetailLoading] = useState(false);
 
   // Add form
   const [showForm, setShowForm] = useState(false);
