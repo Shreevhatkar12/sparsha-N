@@ -119,8 +119,8 @@ export async function createUser(input: {
         centerAssignments: input.centerIds?.length
           ? {
               create: input.centerIds.map((id: string) => ({
-                centerId: id,
-                createdBy: input.createdBy ?? undefined,
+                center: { connect: { id } },
+                createdBy: input.createdBy ?? null,
                 validFrom: new Date(),
               })),
             }

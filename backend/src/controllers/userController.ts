@@ -145,12 +145,14 @@ export async function permanentDeleteUserController(req: Request, res: Response,
       return res.status(403).json({ success: false, error: "Only Super Admin or Tech Admin can permanently delete users." });
     }
 
-    if (requester.userId === req.params.userId) {
+    const userId = req.params.userId as string;
+
+    if (requester.userId === userId) {
       return res.status(400).json({ success: false, error: "You cannot delete your own account." });
     }
 
-    await prisma.userCenterAssignment.deleteMany({ where: { userId: req.params.userId } });
-    await prisma.user.delete({ where: { id: req.params.userId } });
+    await prisma.userCenterAssignment.deleteMany({ where: { userId: userId } });
+    await prisma.user.delete({ where: { id: userId } });
 
     return res.status(200).json({ success: true, message: "User permanently deleted." });
   } catch (error) {
