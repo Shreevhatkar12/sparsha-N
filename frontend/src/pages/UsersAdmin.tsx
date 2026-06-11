@@ -16,16 +16,20 @@ import {
   resetUserPassword,
   updateUserCenters,
   type UserAdminItem,
+  type CenterProgramAssignment,
 } from '../services/users.service';
 import { listCenters } from '../services/centers.service';
+import { listPrograms } from '../services/centers.service';
 import type { UserRole } from '../types';
-import { Building2, X, Check, Trash2 } from 'lucide-react';
+import { Building2, X, Check, Trash2, Plus } from 'lucide-react';
 
 type UserWithCenters = UserAdminItem & {
   centerAssignments?: Array<{
     id: string;
     centerId: string;
+    programId?: string | null;
     center: { id: string; name: string };
+    program?: { id: string; name: string } | null;
   }>;
 };
 
@@ -44,6 +48,7 @@ export const UsersAdmin: React.FC = () => {
 
   const [rows, setRows] = useState<UserWithCenters[]>([]);
   const [centers, setCenters] = useState<{id: string, name: string}[]>([]);
+  const [programs, setPrograms] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -56,9 +61,10 @@ export const UsersAdmin: React.FC = () => {
   const [selectedCenterIds, setSelectedCenterIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
+  // Edit centers+programs modal
   const [editCentersUserId, setEditCentersUserId] = useState<string | null>(null);
   const [editCentersUserName, setEditCentersUserName] = useState('');
-  const [editCenterIds, setEditCenterIds] = useState<string[]>([]);
+  const [editAssignments, setEditAssignments] = useState<CenterProgramAssignment[]>([]);
   const [savingCenters, setSavingCenters] = useState(false);
 
   // Delete confirm
@@ -69,12 +75,14 @@ export const UsersAdmin: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [userData, centerData] = await Promise.all([
+      const [userData, centerData, programData] = await Promise.all([
         listUsers({ limit: 100, search: search.trim() || undefined }),
-        listCenters()
+        listCenters(),
+        listPrograms(),
       ]);
       setRows(userData.users as UserWithCenters[]);
       setCenters(centerData);
+      setPrograms(Array.isArray(programData) ? programData : (programData as any)?.programs || []);
     } catch {
       setError('Failed to load data.');
     } finally {
@@ -88,12 +96,6 @@ export const UsersAdmin: React.FC = () => {
 
   const toggleCenter = (id: string) => {
     setSelectedCenterIds(prev => 
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
-  };
-
-  const toggleEditCenter = (id: string) => {
-    setEditCenterIds(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
@@ -167,8 +169,23 @@ export const UsersAdmin: React.FC = () => {
   const openEditCenters = (user: UserWithCenters) => {
     setEditCentersUserId(user.id);
     setEditCentersUserName(user.fullName);
-    const currentCenterIds = user.centerAssignments?.map(a => a.center?.id || a.centerId) || [];
-    setEditCenterIds(currentCenterIds);
+    const current: CenterProgramAssignment[] = user.centerAssignments?.map(a => ({
+      centerId: a.center?.id || a.centerId,
+      programId: a.programId || null,
+    })) || [];
+    setEditAssignments(current);
+  };
+
+  const addAssignment = () => {
+    setEditAssignments(prev => [...prev, { centerId: centers[0]?.id || '', programId: null }]);
+  };
+
+  const removeAssignment = (index: number) => {
+    setEditAssignments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateAssignment = (index: number, field: 'centerId' | 'programId', value: string | null) => {
+    setEditAssignments(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
   };
 
   const handleSaveCenters = async () => {
@@ -176,7 +193,7 @@ export const UsersAdmin: React.FC = () => {
     setSavingCenters(true);
     setError(null);
     try {
-      await updateUserCenters(editCentersUserId, editCenterIds);
+      await updateUserCenters(editCentersUserId, editAssignments);
       setEditCentersUserId(null);
       await loadData();
     } catch {
@@ -206,23 +223,24 @@ export const UsersAdmin: React.FC = () => {
     { id: 'phone', header: 'Phone', accessor: (u) => u.phone || '-' },
     {
       id: 'centers',
-      header: 'Centers',
+      header: 'Centers & Programs',
       cell: (u) => {
-        const assignedCenters = u.centerAssignments?.map(a => a.center?.name).filter(Boolean) || [];
+        const assignments = u.centerAssignments || [];
         return (
-          <div className="flex items-center gap-1 flex-wrap">
-            {assignedCenters.length > 0 ? (
-              assignedCenters.slice(0, 2).map((name, i) => (
+          <div className="flex flex-col gap-1">
+            {assignments.length > 0 ? (
+              assignments.slice(0, 2).map((a, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-50 text-brand-700 border border-brand-100">
                   <Building2 size={10} />
-                  {name}
+                  {a.center?.name}
+                  {a.program && <span className="text-brand-500"> · {a.program.name}</span>}
                 </span>
               ))
             ) : (
               <span className="text-xs text-neutral-400 italic">None</span>
             )}
-            {assignedCenters.length > 2 && (
-              <span className="text-[11px] text-neutral-500 font-medium">+{assignedCenters.length - 2}</span>
+            {assignments.length > 2 && (
+              <span className="text-[11px] text-neutral-500 font-medium">+{assignments.length - 2}</span>
             )}
           </div>
         );
@@ -299,52 +317,72 @@ export const UsersAdmin: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Centers Modal */}
+      {/* Edit Centers + Programs Modal */}
       {editCentersUserId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setEditCentersUserId(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-lg p-0 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
               <div>
-                <h3 className="text-base font-semibold text-neutral-900">Edit Center Assignments</h3>
+                <h3 className="text-base font-semibold text-neutral-900">Edit Center & Program Assignments</h3>
                 <p className="text-sm text-neutral-500 mt-0.5">{editCentersUserName}</p>
               </div>
-              <button
-                onClick={() => setEditCentersUserId(null)}
-                className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors"
-              >
+              <button onClick={() => setEditCentersUserId(null)} className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors">
                 <X size={18} />
               </button>
             </div>
+
             <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
               <p className="text-xs text-neutral-500 mb-3">
-                Select the centers this user should have access to:
+                Each row = one Center + Program combination. Teacher fakt tyacha assigned center + program che students baghel.
               </p>
-              <div className="space-y-1.5">
-                {centers.map((c) => (
-                  <label
-                    key={c.id}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all border ${
-                      editCenterIds.includes(c.id)
-                        ? 'bg-brand-50 border-brand-200 text-brand-800'
-                        : 'bg-white border-neutral-100 text-neutral-700 hover:bg-neutral-50'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
-                      checked={editCenterIds.includes(c.id)}
-                      onChange={() => toggleEditCenter(c.id)}
-                    />
-                    <Building2 size={14} className={editCenterIds.includes(c.id) ? 'text-brand-600' : 'text-neutral-400'} />
-                    <span className="text-sm font-medium">{c.name}</span>
-                    {editCenterIds.includes(c.id) && (
-                      <Check size={14} className="ml-auto text-brand-600" />
-                    )}
-                  </label>
+
+              <div className="space-y-3">
+                {editAssignments.map((assignment, index) => (
+                  <div key={index} className="flex items-center gap-2 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                    <div className="flex-1">
+                      <label className="text-xs text-neutral-500 mb-1 block">Center</label>
+                      <select
+                        className="w-full h-9 rounded-lg border border-neutral-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value={assignment.centerId}
+                        onChange={(e) => updateAssignment(index, 'centerId', e.target.value)}
+                      >
+                        {centers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-xs text-neutral-500 mb-1 block">Program (Optional)</label>
+                      <select
+                        className="w-full h-9 rounded-lg border border-neutral-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        value={assignment.programId || ''}
+                        onChange={(e) => updateAssignment(index, 'programId', e.target.value || null)}
+                      >
+                        <option value="">-- All Programs --</option>
+                        {programs.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={() => removeAssignment(index)}
+                      className="mt-5 p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
                 ))}
               </div>
+
+              <button
+                onClick={addAssignment}
+                className="mt-3 flex items-center gap-2 text-sm text-brand-600 hover:text-brand-800 transition-colors"
+              >
+                <Plus size={16} /> Add Center + Program
+              </button>
             </div>
+
             <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
               <Button variant="secondary" size="sm" onClick={() => setEditCentersUserId(null)}>
                 Cancel
@@ -368,14 +406,7 @@ export const UsersAdmin: React.FC = () => {
         <form className="grid grid-cols-1 md:grid-cols-2 gap-3" onSubmit={handleCreate}>
           <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
           <Input label="User ID / Email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            helperText="Minimum 8 characters"
-            required
-          />
+          <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} helperText="Minimum 8 characters" required />
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           <div className="w-full flex flex-col gap-1.5">
             <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Role</label>
@@ -385,9 +416,7 @@ export const UsersAdmin: React.FC = () => {
               onChange={(e) => setRole(e.target.value as UserRole)}
             >
               {roleOptions.map((r) => (
-                <option key={r} value={r}>
-                  {r.toUpperCase().replace('_', ' ')}
-                </option>
+                <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>
               ))}
             </select>
           </div>
@@ -424,13 +453,9 @@ export const UsersAdmin: React.FC = () => {
             placeholder="Search by name/email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') void loadData();
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') void loadData(); }}
           />
-          <Button variant="secondary" onClick={() => void loadData()}>
-            Search
-          </Button>
+          <Button variant="secondary" onClick={() => void loadData()}>Search</Button>
         </div>
         {loading ? (
           <LoadingSpinner />

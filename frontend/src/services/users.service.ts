@@ -34,6 +34,11 @@ export type UpdateUserPayload = {
   isActive?: boolean;
 };
 
+export type CenterProgramAssignment = {
+  centerId: string;
+  programId?: string | null;
+};
+
 export const listUsers = (params?: {
   page?: number;
   limit?: number;
@@ -54,8 +59,8 @@ export const resetUserPassword = (userId: string, newPassword: string) =>
 export const deactivateUser = (userId: string) =>
   api.delete<UserAdminItem>(`/users/${userId}`).then((r) => r.data);
 
-export const updateUserCenters = (userId: string, centerIds: string[]) =>
-  api.put(`/users/${userId}/centers`, { centerIds }).then((r) => r.data);
+export const updateUserCenters = (userId: string, assignments: CenterProgramAssignment[]) =>
+  api.put(`/users/${userId}/centers`, { assignments }).then((r) => r.data);
 
 export const deleteUser = (userId: string) =>
   api.delete(`/users/${userId}/permanent`).then((r) => r.data);
