@@ -10,6 +10,7 @@ export type JwtPayload = {
   email: string;
   role: UserRole;
   centerIds: string[];
+  programIds: string[];
   isActive: boolean;
 };
 
@@ -40,7 +41,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
         where: {
           OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
         },
-        select: { centerId: true },
+        select: { centerId: true, programId: true },
       },
     },
   });
@@ -54,7 +55,10 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
     email: user.email,
     role: user.role,
     isActive: user.isActive,
-    centerIds: user.centerAssignments.map((assignment) => assignment.centerId),
+    centerIds: user.centerAssignments.map((a) => a.centerId),
+    programIds: user.centerAssignments
+      .map((a) => a.programId)
+      .filter((id): id is string => id !== null && id !== undefined),
   };
 }
 

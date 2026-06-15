@@ -169,20 +169,34 @@ export async function myCentersController(req: Request, res: Response, next: Nex
   }
 }
 
-export async function updateUserCentersController(req: Request, res: Response, next: NextFunction) {
+export async function updateUserCentersController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const requester = (req as AuthenticatedRequest).user!;
-    const { centerIds } = req.body as { centerIds: string[] };
 
-    if (!Array.isArray(centerIds)) {
-      return res.status(400).json({ success: false, error: "centerIds must be an array" });
+    const { assignments } = req.body as {
+      assignments: {
+        centerId: string;
+        programId?: string | null;
+      }[];
+    };
+
+    if (!Array.isArray(assignments)) {
+      return res.status(400).json({
+        success: false,
+        error: "assignments must be an array",
+      });
     }
 
     const result = await updateUserCenters(
       requester.userId || (requester as any).id,
       req.params.userId as string,
-      centerIds,
+      assignments,
     );
+
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

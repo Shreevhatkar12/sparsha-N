@@ -6,6 +6,10 @@ import prisma from '../lib/prisma.js';
 import { AppError, NotFoundError, ValidationError } from '../lib/errors.js';
 
 const SALT_ROUNDS = 10;
+interface CenterProgramAssignment {
+  centerId: string;
+  programId?: string | null;
+}
 
 function toSafeUser<T extends { passwordHash?: string }>(user: T): Omit<T, "passwordHash"> {
   const { passwordHash: _passwordHash, ...safe } = user;
@@ -235,19 +239,24 @@ export async function getMyCenters(currentUser: JwtPayload) {
 export async function updateUserCenters(
   adminId: string,
   targetUserId: string,
-  centerIds: string[],
+  assignments: CenterProgramAssignment[],
 ) {
-  await prisma.user.findUniqueOrThrow({ where: { id: targetUserId } });
-
-  await prisma.userCenterAssignment.deleteMany({
-    where: { userId: targetUserId },
+  await prisma.user.findUniqueOrThrow({
+    where: { id: targetUserId },
   });
 
-  if (centerIds.length > 0) {
+  await prisma.userCenterAssignment.deleteMany({
+    where: {
+      userId: targetUserId,
+    },
+  });
+
+  if (assignments.length > 0) {
     await prisma.userCenterAssignment.createMany({
-      data: centerIds.map((centerId) => ({
+      data: assignments.map((assignment) => ({
         userId: targetUserId,
-        centerId,
+        centerId: assignment.centerId,
+        programId: assignment.programId ?? null,
         createdBy: adminId,
         validFrom: new Date(),
       })),
