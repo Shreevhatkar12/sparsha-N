@@ -11,25 +11,33 @@ const koboClient = axios.create({
   },
 });
 
-/**
- * Syncs all forms (assets) from KoboToolbox into our FormTemplate table.
- * @param userId ID of the user triggering the sync (assigned as creator)
- */
 export async function syncKoboForms(userId: string) {
   try {
-    const res = await koboClient.get("/api/v2/assets/");
+    const res = await koboClient.get("/api/v2/assets/?asset_type=survey");
     const assets = res.data.results;
     let syncedCount = 0;
 
     for (const asset of assets) {
       if (asset.asset_type !== "survey") continue;
 
-      // Extract form fields if available in content
-      const schema = { fields: [] };
+      let enketoUrl: string | null = null;
+      try {
+        const deployRes = await koboClient.get(`/api/v2/assets/${asset.uid}/`);
+        const links = deployRes.data.deployment__links;
+        enketoUrl = links?.url || links?.offline_url || null;
+      } catch {
+        enketoUrl = null;
+      }
+
+      const schema = { fields: [] as any[] };
       if (asset.content && asset.content.survey) {
         schema.fields = asset.content.survey.map((q: any) => ({
           name: q.$autoname || q.name,
-          label: q.label ? (typeof q.label === 'string' ? q.label : q.label[0] || "Unnamed") : q.name,
+          label: q.label
+            ? typeof q.label === "string"
+              ? q.label
+              : q.label[0] || "Unnamed"
+            : q.name,
           type: q.type,
           required: q.required === "true",
         }));
@@ -39,14 +47,14 @@ export async function syncKoboForms(userId: string) {
         where: { externalId: asset.uid },
         update: {
           name: asset.name,
-          description: asset.settings?.description || "Synced from KoboToolbox",
+          description: enketoUrl || asset.settings?.description || "Synced from KoboToolbox",
           schema: schema,
         },
         create: {
           name: asset.name,
-          description: asset.settings?.description || "Synced from KoboToolbox",
+          description: enketoUrl || asset.settings?.description || "Synced from KoboToolbox",
           formType: "kobo_survey",
-          targetEntity: "general", // Can be overridden later in UI
+          targetEntity: "general",
           schema: schema,
           createdBy: userId,
           externalSource: "kobo",
@@ -63,13 +71,6 @@ export async function syncKoboForms(userId: string) {
   }
 }
 
-/**
- * Syncs all submissions for a specific Kobo form into our FormSubmission table.
- * @param templateId Our internal FormTemplate UUID
- * @param assetUid The Kobo asset UID
- * @param userId ID of the user triggering the sync
- * @param defaultCenterId Fallback center if none found in submission
- */
 export async function syncKoboSubmissions(
   templateId: string,
   assetUid: string,
@@ -84,14 +85,12 @@ export async function syncKoboSubmissions(
     for (const sub of submissions) {
       const koboId = String(sub._id);
 
-      // Check if we already have it
       const existing = await prisma.formSubmission.findFirst({
         where: { koboSubmissionId: koboId },
       });
 
       if (existing) continue;
 
-      // Attempt to extract relations from payload if ground staff typed them in
       const studentId = sub.student_id || sub.studentId || null;
       const centerId = sub.center_id || sub.centerId || defaultCenterId;
 
@@ -99,7 +98,7 @@ export async function syncKoboSubmissions(
         data: {
           templateId,
           centerId,
-          studentId: studentId && studentId.length === 36 ? studentId : null, // validate simple uuid length
+          studentId: studentId && studentId.length === 36 ? studentId : null,
           submittedBy: userId,
           submittedAt: sub._submission_time ? new Date(sub._submission_time) : new Date(),
           data: sub,
