@@ -9,11 +9,13 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useAuthStore } from '../../store/useAuthStore';
 import { listFormTemplates, syncKoboForms, syncKoboSubmissions, type FormTemplateListItem } from '../../services/forms.service';
-import { Inbox, RefreshCw, ExternalLink } from 'lucide-react';
+import { Inbox, RefreshCw, ExternalLink, PenLine } from 'lucide-react';
 
 export const FormsListPage: React.FC = () => {
   const navigate = useNavigate();
-  const isAdmin = useAuthStore((s) => ['super_admin', 'center_admin', 'tech_admin'].includes(s.currentUser?.role || ''));
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
+  const canFill = ['teacher', 'staff', 'volunteer', 'supervisor'].includes(currentUser?.role || '') || isAdmin;
 
   const [templates, setTemplates] = useState<FormTemplateListItem[]>([]);
   const [formTypeSlugs, setFormTypeSlugs] = useState<string[]>([]);
@@ -76,9 +78,7 @@ export const FormsListPage: React.FC = () => {
         if (alive) setFormTypeSlugs([]);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export const FormsListPage: React.FC = () => {
           <ErrorMessage message={error} />
         </div>
       )}
-      
+
       {success && (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm flex items-center">
           <span className="font-semibold mr-2">Success:</span> {success}
@@ -123,9 +123,7 @@ export const FormsListPage: React.FC = () => {
           >
             <option value="">All types</option>
             {formTypeSlugs.map((ft) => (
-              <option key={ft} value={ft}>
-                {ft}
-              </option>
+              <option key={ft} value={ft}>{ft}</option>
             ))}
           </select>
         </label>
@@ -170,13 +168,23 @@ export const FormsListPage: React.FC = () => {
                       {new Date(t.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 text-right space-x-2">
+                      {/* Teacher/Staff - Fill Form button */}
+                      {canFill && (t as any).externalId && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => window.open(`https://ee.kobotoolbox.org/x/${(t as any).externalId}`, '_blank')}
+                        >
+                          <PenLine size={14} className="mr-1" /> Fill Form
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" onClick={() => navigate(`/forms/${t.id}/submissions`)}>
                         <Inbox size={16} className="mr-1" /> View Submissions
                       </Button>
                       {isAdmin && t.externalSource === 'kobo' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleSyncData(t.id, (t as any).externalId)}
                           isLoading={syncingTemplateId === t.id}
                         >

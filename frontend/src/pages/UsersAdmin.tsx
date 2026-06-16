@@ -193,6 +193,9 @@ export const UsersAdmin: React.FC = () => {
     setSavingCenters(true);
     setError(null);
     try {
+      console.log("USER ID =", editCentersUserId);
+      console.log("ASSIGNMENTS =", editAssignments);
+      
       await updateUserCenters(editCentersUserId, editAssignments);
       setEditCentersUserId(null);
       await loadData();
