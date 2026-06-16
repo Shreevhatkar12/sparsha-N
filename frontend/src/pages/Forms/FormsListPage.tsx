@@ -173,7 +173,12 @@ export const FormsListPage: React.FC = () => {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => window.open(`https://ee.kobotoolbox.org/x/${t.externalId}`, '_blank')}
+                          onClick={() => {
+  const url = (t as any).description?.startsWith('https://ee.kobotoolbox.org') 
+    ? (t as any).description 
+    : `https://ee.kobotoolbox.org/x/${t.externalId}`;
+  window.open(url, '_blank');
+}}
                         >
                           <PenLine size={14} className="mr-1" /> Fill Form
                         </Button>
