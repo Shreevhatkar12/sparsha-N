@@ -34,6 +34,7 @@ export const StudentRegistration: React.FC = () => {
     gender: '' as '' | Gender,
     guardianName: '',
     guardianPhone: '',
+    aadharNumber: '',
     centerId: defaultCenter,
     programId: '',
     enrollmentDate: new Date().toISOString().split('T')[0],
@@ -43,37 +44,32 @@ export const StudentRegistration: React.FC = () => {
     educationDiscontinued: false,
   });
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [aadharError, setAadharError] = useState<string | null>(null);
 
   useEffect(() => {
-  let alive = true;
-  const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
-  (async () => {
-    try {
-      const [c, p] = await Promise.all([listCenters(), listPrograms()]);
-      console.log("Centers received by Component:", c);
-      if (!alive) return;
-
-      // For teachers, filter to only their assigned centers
-      let filteredCenters = c;
-      if (isTeacher && currentUser?.centerIds?.length) {
-        filteredCenters = c.filter((center: any) =>
-          currentUser.centerIds.includes(center.id)
-        );
+    let alive = true;
+    const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
+    (async () => {
+      try {
+        const [c, p] = await Promise.all([listCenters(), listPrograms()]);
+        if (!alive) return;
+        let filteredCenters = c;
+        if (isTeacher && currentUser?.centerIds?.length) {
+          filteredCenters = c.filter((center: any) =>
+            currentUser.centerIds.includes(center.id)
+          );
+        }
+        setCenters(filteredCenters);
+        setPrograms(p);
+        if (filteredCenters.length === 1 && !formData.centerId) {
+          setFormData(prev => ({ ...prev, centerId: filteredCenters[0].id }));
+        }
+      } catch (err) {
+        if (alive) setError('Could not load centers or programs.');
       }
-
-      setCenters(filteredCenters);
-      setPrograms(p);
-      
-      // Auto-select if there's only one center available
-      if (filteredCenters.length === 1 && !formData.centerId) {
-        setFormData(prev => ({ ...prev, centerId: filteredCenters[0].id }));
-      }
-    } catch (err) {
-      if (alive) setError('Could not load centers or programs.');
-    }
-  })();
-  return () => { alive = false; };
-}, [currentUser?.centerIds]);
+    })();
+    return () => { alive = false; };
+  }, [currentUser?.centerIds]);
 
   useEffect(() => {
     if (!isEditMode || !id) return;
@@ -91,6 +87,7 @@ export const StudentRegistration: React.FC = () => {
           gender: (s.gender as Gender) || '',
           guardianName: s.guardianName || '',
           guardianPhone: s.guardianPhone || '',
+          aadharNumber: (s as any).aadharNumber || '',
           centerId: s.centerId,
           programId: s.programId,
           enrollmentDate: s.enrollmentDate ? String(s.enrollmentDate).slice(0, 10) : new Date().toISOString().split('T')[0],
@@ -105,9 +102,7 @@ export const StudentRegistration: React.FC = () => {
         if (alive) setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [id, isEditMode]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -117,8 +112,7 @@ export const StudentRegistration: React.FC = () => {
       return;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Real-time phone validation
+
     if (name === 'guardianPhone') {
       if (value && !/^\d{10}$/.test(value)) {
         setPhoneError('Phone must be exactly 10 digits');
@@ -126,17 +120,26 @@ export const StudentRegistration: React.FC = () => {
         setPhoneError(null);
       }
     }
+
+    if (name === 'aadharNumber') {
+      if (value && !/^\d{12}$/.test(value)) {
+        setAadharError('Aadhar must be exactly 12 digits');
+      } else {
+        setAadharError(null);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Final phone validation before submit
     if (formData.guardianPhone && !/^\d{10}$/.test(formData.guardianPhone)) {
       setPhoneError('Phone must be exactly 10 digits');
       return;
     }
-    
+    if (formData.aadharNumber && !/^\d{12}$/.test(formData.aadharNumber)) {
+      setAadharError('Aadhar must be exactly 12 digits');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -148,11 +151,12 @@ export const StudentRegistration: React.FC = () => {
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
+          aadharNumber: formData.aadharNumber || undefined,
           stream: formData.stream || undefined,
           post12thChoice: formData.post12thChoice || undefined,
           collegeName: formData.collegeName || undefined,
           educationDiscontinued: formData.educationDiscontinued,
-        });
+        } as any);
         navigate(`/students/${id}`);
       } else {
         await createStudent({
@@ -164,11 +168,12 @@ export const StudentRegistration: React.FC = () => {
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
+          aadharNumber: formData.aadharNumber || undefined,
           stream: formData.stream || undefined,
           post12thChoice: formData.post12thChoice || undefined,
           collegeName: formData.collegeName || undefined,
           educationDiscontinued: formData.educationDiscontinued,
-        });
+        } as any);
         navigate('/students');
       }
     } catch {
@@ -246,6 +251,20 @@ export const StudentRegistration: React.FC = () => {
                 </select>
               </div>
             </div>
+            <div>
+              <Input
+                label="Aadhar Card Number"
+                name="aadharNumber"
+                type="text"
+                placeholder="12-digit Aadhar number"
+                maxLength={12}
+                value={formData.aadharNumber}
+                onChange={handleChange}
+              />
+              {aadharError && (
+                <p className="text-xs text-red-500 mt-1">{aadharError}</p>
+              )}
+            </div>
           </div>
         </Card>
 
@@ -271,7 +290,7 @@ export const StudentRegistration: React.FC = () => {
                 onChange={handleChange}
               />
               {phoneError && (
-                <p className="text-xs text-danger mt-1">{phoneError}</p>
+                <p className="text-xs text-red-500 mt-1">{phoneError}</p>
               )}
             </div>
           </div>
@@ -333,7 +352,7 @@ export const StudentRegistration: React.FC = () => {
                   name="educationDiscontinued"
                   checked={formData.educationDiscontinued}
                   onChange={handleChange}
-                  className="rounded border-neutral-300 text-danger focus:ring-danger h-4 w-4"
+                  className="rounded border-neutral-300 text-red-500 focus:ring-red-500 h-4 w-4"
                 />
                 Education Discontinued
               </label>
@@ -348,7 +367,7 @@ export const StudentRegistration: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">
-                Program <span className="text-danger">*</span>
+                Program <span className="text-red-500">*</span>
               </label>
               <select
                 name="programId"
@@ -358,19 +377,15 @@ export const StudentRegistration: React.FC = () => {
                 onChange={handleChange}
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm disabled:opacity-75 disabled:bg-neutral-100"
               >
-                <option value="" disabled>
-                  Select program…
-                </option>
+                <option value="" disabled>Select program…</option>
                 {programs.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
                 ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">
-                Center <span className="text-danger">*</span>
+                Center <span className="text-red-500">*</span>
               </label>
               <select
                 name="centerId"
@@ -380,14 +395,10 @@ export const StudentRegistration: React.FC = () => {
                 onChange={handleChange}
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm disabled:opacity-75 disabled:bg-neutral-100"
               >
-                <option value="" disabled>
-                  Select center…
-                </option>
+                <option value="" disabled>Select center…</option>
                 {Array.isArray(centers) && centers.map((c) => (
-  <option key={c.id} value={c.id}>
-    {c.name}
-  </option>
-))}
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
             </div>
           </div>
