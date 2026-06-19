@@ -6,8 +6,8 @@ import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Input } from '../components/ui/Input';
-import { BookOpen, Plus, ArrowLeft, GraduationCap, Building2, Users } from 'lucide-react';
-import { listPrograms, getProgramDetails, createProgram } from '../services/centers.service';
+import { BookOpen, Plus, ArrowLeft, GraduationCap, Building2, Users, Pencil, X, Check } from 'lucide-react';
+import { listPrograms, getProgramDetails, createProgram, updateProgram } from '../services/centers.service';
 import type { ProgramSummary } from '../types';
 
 interface ProgramDetail {
@@ -27,9 +27,9 @@ export const ProgramsPage: React.FC = () => {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [selectedProgram, setSelectedProgram] = useState<ProgramDetail | null>(null);
 
+  // Create form
   const [showForm, setShowForm] = useState(false);
   const [formCode, setFormCode] = useState('');
   const [formName, setFormName] = useState('');
@@ -37,6 +37,14 @@ export const ProgramsPage: React.FC = () => {
   const [formAgeMin, setFormAgeMin] = useState('');
   const [formAgeMax, setFormAgeMax] = useState('');
   const [formSaving, setFormSaving] = useState(false);
+
+  // Edit modal
+  const [editProgram, setEditProgram] = useState<ProgramSummary | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editAgeMin, setEditAgeMin] = useState('');
+  const [editAgeMax, setEditAgeMax] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,10 +93,38 @@ export const ProgramsPage: React.FC = () => {
     }
   };
 
+  const openEditModal = (p: ProgramSummary, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditProgram(p);
+    setEditName(p.name);
+    setEditDesc(p.description || '');
+    setEditAgeMin(p.ageMin != null ? String(p.ageMin) : '');
+    setEditAgeMax(p.ageMax != null ? String(p.ageMax) : '');
+  };
+
+  const handleEditSave = async () => {
+    if (!editProgram) return;
+    setEditSaving(true);
+    try {
+      await updateProgram(editProgram.id, {
+        name: editName.trim(),
+        description: editDesc.trim() || undefined,
+        ageMin: editAgeMin ? Number(editAgeMin) : undefined,
+        ageMax: editAgeMax ? Number(editAgeMax) : undefined,
+      });
+      setEditProgram(null);
+      await load();
+    } catch {
+      setError('Failed to update program.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // Detail view
   if (selectedProgram) {
     const ageRange = selectedProgram.ageMin != null || selectedProgram.ageMax != null
-      ? `${selectedProgram.ageMin ?? '—'} – ${selectedProgram.ageMax ?? '—'} years`
+      ? `${selectedProgram.ageMin ?? '—'} — ${selectedProgram.ageMax ?? '—'} years`
       : 'Not specified';
 
     return (
@@ -101,7 +137,6 @@ export const ProgramsPage: React.FC = () => {
         }
       >
         {error && <ErrorMessage message={error} />}
-
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           <Card className="py-4 text-center">
             <p className="text-xs uppercase tracking-wide text-neutral-500 mb-1">Code</p>
@@ -125,7 +160,6 @@ export const ProgramsPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Centers offering this program */}
         {selectedProgram.centerPrograms && selectedProgram.centerPrograms.length > 0 && (
           <Card className="mb-6">
             <h3 className="text-md font-semibold text-neutral-900 mb-3 border-b border-neutral-100 pb-2">
@@ -141,7 +175,6 @@ export const ProgramsPage: React.FC = () => {
           </Card>
         )}
 
-        {/* Students list */}
         <Card className="mb-6">
           <h3 className="text-md font-semibold text-neutral-900 mb-3 border-b border-neutral-100 pb-2">
             <Users size={16} className="inline mr-2 text-emerald-500" />Enrolled Students
@@ -185,6 +218,38 @@ export const ProgramsPage: React.FC = () => {
     >
       {error && <div className="mb-4"><ErrorMessage message={error} /></div>}
 
+      {/* Edit Modal */}
+      {editProgram && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setEditProgram(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-lg p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">Edit Program</h3>
+                <p className="text-sm text-neutral-500 mt-0.5">{editProgram.code}</p>
+              </div>
+              <button onClick={() => setEditProgram(null)} className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <Input label="Program Name" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+              <Input label="Description" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Min Age" type="number" value={editAgeMin} onChange={(e) => setEditAgeMin(e.target.value)} placeholder="e.g. 6" />
+                <Input label="Max Age" type="number" value={editAgeMax} onChange={(e) => setEditAgeMax(e.target.value)} placeholder="e.g. 14" />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
+              <Button variant="secondary" size="sm" onClick={() => setEditProgram(null)}>Cancel</Button>
+              <Button variant="primary" size="sm" isLoading={editSaving} onClick={() => void handleEditSave()}>
+                <Check size={14} className="mr-1" /> Save Changes
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <Card className="mb-6 border-2 border-brand-200 bg-brand-50/30">
           <h3 className="text-md font-semibold text-neutral-900 mb-4">New Program</h3>
@@ -223,14 +288,23 @@ export const ProgramsPage: React.FC = () => {
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center shrink-0 group-hover:from-emerald-200 group-hover:to-emerald-300 transition-colors">
                   <BookOpen size={24} className="text-emerald-700" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-neutral-900 group-hover:text-emerald-800 transition-colors">{p.name}</h3>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-semibold text-neutral-900 group-hover:text-emerald-800 transition-colors">{p.name}</h3>
+                    <button
+                      onClick={(e) => openEditModal(p, e)}
+                      className="p-1.5 rounded-lg hover:bg-emerald-100 text-neutral-400 hover:text-emerald-700 transition-colors ml-2 shrink-0"
+                      title="Edit program"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                   <p className="text-xs text-neutral-500 mt-0.5">Code: {p.code}</p>
                   {p.description && (
                     <p className="text-xs text-neutral-400 mt-1 line-clamp-2">{p.description}</p>
                   )}
                   {(p.ageMin != null || p.ageMax != null) && (
-                    <p className="text-xs text-neutral-400 mt-1">Age: {p.ageMin ?? '—'} – {p.ageMax ?? '—'}</p>
+                    <p className="text-xs text-neutral-400 mt-1">Age: {p.ageMin ?? '—'} — {p.ageMax ?? '—'}</p>
                   )}
                 </div>
               </div>
