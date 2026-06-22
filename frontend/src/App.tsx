@@ -20,6 +20,8 @@ import { FormRendererPage } from './pages/Forms/FormRendererPage';
 import { FormSubmissionsPage } from './pages/Forms/FormSubmissionsPage';
 import { Announcements } from './pages/Announcements';
 import { Activities } from './pages/Activities';
+import { StudentMeetingPage } from './pages/Meetings/StudentMeetingPage';
+import { ParentMeetingPage } from './pages/Meetings/ParentMeetingPage';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -83,6 +85,9 @@ function App() {
           <Route path="/forms/:templateId/submissions" element={<FormSubmissionsPage />} />
           <Route path="/activities" element={<Activities />} />
           <Route path="/announcements" element={<Announcements />} />
+          
+          <Route path="/meetings/student" element={<StudentMeetingPage />} />
+          <Route path="/meetings/parent" element={<ParentMeetingPage />} />
         </Route>
 
         {/* --- LEVEL 2: DATA ENTRY (Teachers & Admins) --- */}

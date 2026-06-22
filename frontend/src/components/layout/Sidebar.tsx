@@ -36,6 +36,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, viewRoles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+    { name: 'Students', path: '/students', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+
+{ name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+
+{name: 'Meetings', path: '/meetings/student', icon: <Users size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+{ name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Skills', path: '/skills', icon: <Star size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Careers', path: '/careers', icon: <Briefcase size={20} />, viewRoles: ['super_admin','center_admin','tech_admin','teacher'] },
@@ -98,4 +104,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </aside>
     </>
   );
-};
+};
