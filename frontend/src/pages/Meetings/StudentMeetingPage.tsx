@@ -13,7 +13,8 @@ interface Student {
 export function StudentMeetingPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const isAdmin = ['super_admin', 'tech_admin', 'center_admin'].includes(currentUser?.role || '');
-
+  
+const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     centerId: "",
     programId: "",
@@ -77,7 +78,10 @@ export function StudentMeetingPage() {
     const loadStudents = async () => {
       setLoadingStudents(true);
       try {
-        const res = await api.get(`/students?centerId=${formData.centerId}&programId=${formData.programId}&limit=200`);
+
+const standardParam = selectedStandards.length > 0 ? `&standard=${selectedStandards.join(',')}` : '';
+const res = await api.get(`/students?centerId=${formData.centerId}&programId=${formData.programId}${standardParam}&limit=200`);
+
         const list: Student[] = res.data?.students || res.data?.data || [];
         setStudents(list);
         const att: Record<string, boolean> = {};
@@ -91,8 +95,7 @@ export function StudentMeetingPage() {
       }
     };
     loadStudents();
-  }, [formData.centerId, formData.programId]);
-
+}, [formData.centerId, formData.programId, selectedStandards]);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -118,7 +121,7 @@ export function StudentMeetingPage() {
         studentId: s.id,
         isPresent: attendance[s.id] || false,
       }));
-      const payload = { ...formData, attendance: attendanceList };
+      const payload = { ...formData, standard: selectedStandards.join(', '), attendance: attendanceList };
       const result = await api.post("/meetings/student", payload);
       if (result.data?.success || result.data?.data?.id) {
         setSuccess("Meeting Created Successfully ✅");
@@ -177,12 +180,28 @@ export function StudentMeetingPage() {
                   {programs.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Standard *</label>
-                <input type="text" name="standard" value={formData.standard} onChange={handleChange} required
-                  placeholder="e.g. 8th, 9th, 10th"
-                  className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" />
-              </div>
+              <div className="md:col-span-2">
+  <label className="block text-sm font-medium mb-2">Standard / Class Filter</label>
+  <div className="grid grid-cols-7 gap-2">
+    {['KG','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'].map(std => (
+      <label key={std} className="flex items-center gap-1 text-sm cursor-pointer border border-neutral-200 rounded px-2 py-1 hover:bg-red-50">
+        <input
+          type="checkbox"
+          value={std}
+          checked={selectedStandards.includes(std)}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedStandards(prev => [...prev, std]);
+            } else {
+              setSelectedStandards(prev => prev.filter(s => s !== std));
+            }
+          }}
+        />
+        {std}
+      </label>
+    ))}
+  </div>
+</div>
               <div>
                 <label className="block text-sm font-medium mb-1">Meeting Date *</label>
                 <input type="date" name="meetingDate" value={formData.meetingDate} onChange={handleChange} required
