@@ -72,9 +72,14 @@ const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   useEffect(() => {
     if (!formData.centerId || !formData.programId) {
       setStudents([]);
-      setAttendance({});
-      return;
-    }
+setAttendance({});
+return;
+}
+if (selectedStandards.length === 0) {
+setStudents([]);
+setAttendance({});
+return;
+}
     const loadStudents = async () => {
       setLoadingStudents(true);
       try {

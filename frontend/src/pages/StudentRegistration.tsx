@@ -268,6 +268,30 @@ export const StudentRegistration: React.FC = () => {
                 <p className="text-xs text-red-500 mt-1">{aadharError}</p>
               )}
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Standard / Class</label>
+              <select
+                name="standard"
+                value={formData.standard}
+                onChange={handleChange}
+                className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm"
+              >
+                <option value="">Select Standard</option>
+                <option value="KG">KG</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+                <option value="5th">5th</option>
+                <option value="6th">6th</option>
+                <option value="7th">7th</option>
+                <option value="8th">8th</option>
+                <option value="9th">9th</option>
+                <option value="10th">10th</option>
+                <option value="11th">11th</option>
+                <option value="12th">12th</option>
+              </select>
+            </div>
           </div>
         </Card>
 
