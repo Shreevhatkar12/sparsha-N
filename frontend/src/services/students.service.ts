@@ -6,7 +6,6 @@ import type {
   Student,
   StudentCreatePayload,
   StudentProfilePayload,
-  StudentUpdatePayload,
   StudentsListResult,
 } from '../types';
 
@@ -45,7 +44,7 @@ export const getStudentProfile = (id: string) =>
 export const createStudent = (payload: StudentCreatePayload) =>
   api.post<ApiEnvelope<Student>>('/students', payload).then((r) => r.data.data);
 
-export const updateStudent = (id: string, payload: StudentUpdatePayload) =>
+export const updateStudent = (id: string, payload: any) =>
   api.put<Student>(`/students/${id}`, payload).then((r) => r.data);
 
 export const deleteStudent = (id: string) =>

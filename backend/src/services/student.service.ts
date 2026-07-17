@@ -26,6 +26,8 @@ const studentCreateSchema = z.object({
   centerId: z.string().uuid("Invalid Center ID"),
   programId: z.string().uuid("Invalid Program ID"),
   rollNumber: z.string().optional().nullable(),
+  standard: z.string().optional().nullable(),
+  aadharNumber: z.string().optional().nullable(),
 });
 
 const studentUpdateSchema = z.object({
@@ -38,7 +40,9 @@ const studentUpdateSchema = z.object({
   gender: z.enum(["male", "female", "other"]).optional(),
   guardianName: z.string().optional(),
   guardianPhone: phone10Digit,
-});
+  standard: z.string().optional().nullable(),
+  aadharNumber: z.string().optional().nullable(),
+  }).passthrough();
 
 /**
  * SCOPED WHERE: The core of the data visibility logic.
@@ -72,7 +76,8 @@ export const createStudent = async (user: TokenPayload, data: any) => {
     throw new ValidationError("Invalid student payload", parsed.error.flatten());
   }
 
-  const payload = parsed.data;
+  const payload = { ...parsed.data, ...data };
+  console.log("CREATE PAYLOAD:", JSON.stringify(payload));
   const userRole = user.role;
 
   // Authorization check for center assignment
@@ -94,6 +99,8 @@ export const createStudent = async (user: TokenPayload, data: any) => {
       guardianPhone: payload.guardianPhone || null,
       dob: payload.dob ? new Date(payload.dob) : null,
       rollNumber: payload.rollNumber || null,
+      standard: payload.standard || null,
+      aadharNumber: payload.aadharNumber || null,
     },
     include: {
       center: true,
@@ -102,7 +109,7 @@ export const createStudent = async (user: TokenPayload, data: any) => {
   });
 };
 
-export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder }: Record<string, any> = {}) => {
+export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder, standard }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
 
@@ -111,7 +118,7 @@ export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50,
     isActive: isActive !== undefined ? isActive : true,
     ...(centerId ? { centerId } : {}),
     ...(programId ? { programId: programId.includes(',') ? { in: programId.split(',') } : programId } : {}),
-    ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
+...(standard ? { standard: { in: (standard as string).split(',') } } : {}),    ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
   });
 
   // Handle center filter overrides
@@ -192,7 +199,8 @@ export const updateStudent = async (user: TokenPayload, id: string, data: any) =
     throw new ValidationError("Invalid student update payload", parsed.error.flatten());
   }
 
-  const payload = parsed.data;
+  const payload = { ...parsed.data, ...data };
+  console.log("UPDATE PAYLOAD:", JSON.stringify(payload));
 
   const result = await prisma.student.updateMany({
     where: scopedWhere(user, { id }),
@@ -599,7 +607,7 @@ export const deleteCareer = async (id: string) => {
 };
 
 /* ─────────────────────────────────────────
-   TRANSFER WORKFLOW (FROM VANSH)
+   TRANSFER WORKFLOW (FROM Shree)
 ───────────────────────────────────────── */
 
 export const requestTransfer = async (user: TokenPayload, studentIds: string[]) => {
@@ -683,7 +691,7 @@ export const completeTransfer = async (
 };
 
 /* ─────────────────────────────────────────
-   FEE MANAGEMENT (FROM VANSH)
+   FEE MANAGEMENT (FROM Shree)
 ───────────────────────────────────────── */
 
 export const addFeePayment = async (

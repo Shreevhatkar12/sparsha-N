@@ -10,6 +10,7 @@ import examRoutes from './routes/examRoutes.js';
 import formRoutes from './routes/formRoutes.js';
 import centerRoutes, { programRoutes } from './routes/centerRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import meetingRoutes from './routes/meetingRoutes.js'
 import activityRoutes from './routes/activityRoutes.js';
 import authRoutes from './routes/auth.route.js';
 import reportRoutes from './routes/reportRoutes.js';
@@ -59,6 +60,7 @@ app.use(limiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/students", studentRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use('/api/meetings', meetingRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/forms", formRoutes);
 app.use("/api/centers", centerRoutes);

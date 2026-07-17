@@ -217,6 +217,14 @@ export const StudentDetails: React.FC = () => {
             <p className="text-neutral-500">Gender</p>
             <p className="capitalize">{student.gender || '—'}</p>
           </div>
+          <div>
+            <p className="text-neutral-500">Standard / Class</p>
+            <p>{(student as any).standard || '—'}</p>
+          </div>
+          <div>
+            <p className="text-neutral-500">Aadhar Number</p>
+            <p>{(student as any).aadharNumber || '—'}</p>
+          </div>
         </div>
       </Card>
 

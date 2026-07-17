@@ -10,11 +10,18 @@ interface Student {
   gender?: string;
 }
 
+const standardsByProgram: Record<string, string[]> = {
+  'Shiksha': ['Jr KG', 'Sr KG'],
+  'Sanskar': ['1st','2nd','3rd','4th','5th','6th','7th'],
+  'Swayam': ['8th','9th','10th'],
+  'Swayam 2': ['11th','12th'],
+};
+
 export function StudentMeetingPage() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const isAdmin = ['super_admin', 'tech_admin', 'center_admin'].includes(currentUser?.role || '');
-  
-const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
+
+  const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     centerId: "",
     programId: "",
@@ -33,10 +40,13 @@ const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Meeting list
   const [meetings, setMeetings] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
+
+  const selectedProgram = programs.find(p => p.id === formData.programId);
+  const availableStandards = selectedProgram
+    ? (standardsByProgram[selectedProgram.name] || ['KG','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'])
+    : ['KG','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'];
 
   useEffect(() => {
     const loadData = async () => {
@@ -68,25 +78,17 @@ const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
     }
   };
 
-  // Load students when center + program selected
   useEffect(() => {
     if (!formData.centerId || !formData.programId) {
       setStudents([]);
-setAttendance({});
-return;
-}
-if (selectedStandards.length === 0) {
-setStudents([]);
-setAttendance({});
-return;
-}
+      setAttendance({});
+      return;
+    }
     const loadStudents = async () => {
       setLoadingStudents(true);
       try {
-
-const standardParam = selectedStandards.length > 0 ? `&standard=${selectedStandards.join(',')}` : '';
-const res = await api.get(`/students?centerId=${formData.centerId}&programId=${formData.programId}${standardParam}&limit=200`);
-
+        const standardParam = selectedStandards.length > 0 ? `&standard=${selectedStandards.join(',')}` : '';
+        const res = await api.get(`/students?centerId=${formData.centerId}&programId=${formData.programId}${standardParam}&limit=200`);
         const list: Student[] = res.data?.students || res.data?.data || [];
         setStudents(list);
         const att: Record<string, boolean> = {};
@@ -100,7 +102,8 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
       }
     };
     loadStudents();
-}, [formData.centerId, formData.programId, selectedStandards]);
+  }, [formData.centerId, formData.programId, selectedStandards]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -131,6 +134,7 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
       if (result.data?.success || result.data?.data?.id) {
         setSuccess("Meeting Created Successfully ✅");
         setFormData({ centerId: "", programId: "", standard: "", meetingDate: "", meetingTime: "", topic: "", description: "" });
+        setSelectedStandards([]);
         setStudents([]);
         setAttendance({});
         setShowForm(false);
@@ -163,7 +167,6 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
       {success && <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-800 rounded-lg text-sm">{success}</div>}
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">{error}</div>}
 
-      {/* Create Form */}
       {showForm && (
         <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">New Student Meeting</h2>
@@ -186,27 +189,27 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
                 </select>
               </div>
               <div className="md:col-span-2">
-  <label className="block text-sm font-medium mb-2">Standard / Class Filter</label>
-  <div className="grid grid-cols-7 gap-2">
-    {['KG','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'].map(std => (
-      <label key={std} className="flex items-center gap-1 text-sm cursor-pointer border border-neutral-200 rounded px-2 py-1 hover:bg-red-50">
-        <input
-          type="checkbox"
-          value={std}
-          checked={selectedStandards.includes(std)}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setSelectedStandards(prev => [...prev, std]);
-            } else {
-              setSelectedStandards(prev => prev.filter(s => s !== std));
-            }
-          }}
-        />
-        {std}
-      </label>
-    ))}
-  </div>
-</div>
+                <label className="block text-sm font-medium mb-2">Standard / Class Filter</label>
+                <div className="grid grid-cols-7 gap-2">
+                  {availableStandards.map(std => (
+                    <label key={std} className="flex items-center gap-1 text-sm cursor-pointer border border-neutral-200 rounded px-2 py-1 hover:bg-red-50">
+                      <input
+                        type="checkbox"
+                        value={std}
+                        checked={selectedStandards.includes(std)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStandards(prev => [...prev, std]);
+                          } else {
+                            setSelectedStandards(prev => prev.filter(s => s !== std));
+                          }
+                        }}
+                      />
+                      {std}
+                    </label>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Meeting Date *</label>
                 <input type="date" name="meetingDate" value={formData.meetingDate} onChange={handleChange} required
@@ -230,7 +233,6 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
                 className="w-full border border-neutral-300 rounded-lg px-3 py-2 text-sm" />
             </div>
 
-            {/* Student Attendance */}
             {loadingStudents && <p className="text-sm text-neutral-500">Loading students...</p>}
             {students.length > 0 && (
               <div>
@@ -281,7 +283,6 @@ const res = await api.get(`/students?centerId=${formData.centerId}&programId=${f
         </div>
       )}
 
-      {/* Meetings List */}
       <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
         <div className="p-4 border-b border-neutral-100">
           <h2 className="font-semibold text-neutral-800">All Student Meetings</h2>

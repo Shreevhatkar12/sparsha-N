@@ -1,0 +1,1 @@
+UPDATE students SET standard = '6th', aadhar_number = '123456789012' WHERE id = '236a6c3c-715b-4808-8813-27b069a82e42';

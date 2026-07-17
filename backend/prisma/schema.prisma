@@ -43,6 +43,8 @@ model Center {
   exams              Exam[]
   formSubmissions    FormSubmission[]
   formTemplates      FormTemplate[]
+  parentMeetings     ParentMeeting[]
+  studentMeetings    StudentMeeting[]
   studentSkillLogs   StudentSkillLog[]
   transfersFrom      StudentTransfer[]      @relation("TransferFromCenter")
   transfersTo        StudentTransfer[]      @relation("TransferToCenter")
@@ -69,8 +71,10 @@ model Program {
   centerPrograms     CenterProgram[]
   exams              Exam[]
   formTemplates      FormTemplate[]
+  parentMeetings     ParentMeeting[]
   subjects           ProgramSubject[]
   skillDefinitions   SkillDefinition[]
+  studentMeetings    StudentMeeting[]
   students           Student[]
   userAssignments    UserCenterAssignment[]
 
@@ -148,7 +152,9 @@ model User {
   assignedFormsTo              FormAssignment[]         @relation("FormAssignedTo")
   formSubmissions              FormSubmission[]         @relation("UserFormSubmissions")
   createdFormTemplates         FormTemplate[]           @relation("UserCreatedFormTemplates")
+  parentMeetingsCreated        ParentMeeting[]          @relation("ParentMeetingCreatedBy")
   parentStudents               ParentStudent[]
+  studentMeetingsCreated       StudentMeeting[]         @relation("StudentMeetingCreatedBy")
   assessedSkills               StudentSkillLog[]        @relation("SkillAssessedBy")
   approvedTransfers            StudentTransfer[]        @relation("TransferApprovedBy")
   createdStudents              Student[]                @relation("StudentCreatedBy")
@@ -260,30 +266,32 @@ model Batch {
 }
 
 model Student {
-  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  centerId              String               @map("center_id") @db.Uuid
-  programId             String?              @map("program_id") @db.Uuid
-  academicYearId        String?              @map("academic_year_id") @db.Uuid
-  createdById           String?              @map("created_by") @db.Uuid
-  fullName              String               @map("full_name")
-  rollNumber            String?              @map("roll_number")
-  dob                   DateTime?            @db.Date
+  id                    String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId              String                     @map("center_id") @db.Uuid
+  programId             String?                    @map("program_id") @db.Uuid
+  academicYearId        String?                    @map("academic_year_id") @db.Uuid
+  createdById           String?                    @map("created_by") @db.Uuid
+  fullName              String                     @map("full_name")
+  rollNumber            String?                    @map("roll_number")
+  dob                   DateTime?                  @db.Date
   gender                Gender?
-  guardianName          String?              @map("guardian_name")
-  guardianPhone         String?              @map("guardian_phone")
+  guardianName          String?                    @map("guardian_name")
+  guardianPhone         String?                    @map("guardian_phone")
   address               String?
   stream                String?
-  post12thChoice        String?              @map("post_12th_choice")
-  collegeName           String?              @map("college_name")
-  educationDiscontinued Boolean              @default(false) @map("education_discontinued")
-  enrollmentDate        DateTime             @default(now()) @map("enrollment_date") @db.Date
-  isActive              Boolean              @default(true) @map("is_active")
-  transferStatus        TransferStatus       @default(active) @map("transfer_status")
-  totalFees             Decimal?             @map("total_fees") @db.Decimal(10, 2)
-  feesPaid              Decimal              @default(0) @map("fees_paid") @db.Decimal(10, 2)
-  isFullyPaid           Boolean              @default(false) @map("is_fully_paid")
-  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
+  post12thChoice        String?                    @map("post_12th_choice")
+  collegeName           String?                    @map("college_name")
+  educationDiscontinued Boolean                    @default(false) @map("education_discontinued")
+  enrollmentDate        DateTime                   @default(now()) @map("enrollment_date") @db.Date
+  isActive              Boolean                    @default(true) @map("is_active")
+  transferStatus        TransferStatus             @default(active) @map("transfer_status")
+  totalFees             Decimal?                   @map("total_fees") @db.Decimal(10, 2)
+  feesPaid              Decimal                    @default(0) @map("fees_paid") @db.Decimal(10, 2)
+  isFullyPaid           Boolean                    @default(false) @map("is_fully_paid")
+  createdAt             DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  aadharNumber          String?                    @map("aadhar_number")
+  standard              String?
   activityEnrollments   ActivityEnrollment[]
   alerts                Alert[]
   attendanceRecords     AttendanceRecord[]
@@ -293,12 +301,13 @@ model Student {
   formAssignments       FormAssignment[]
   formSubmissions       FormSubmission[]
   parents               ParentStudent[]
+  meetingAttendance     StudentMeetingAttendance[]
   skillLogs             StudentSkillLog[]
   transfers             StudentTransfer[]
-  academicYear          AcademicYear?        @relation(fields: [academicYearId], references: [id])
-  center                Center               @relation(fields: [centerId], references: [id])
-  createdByUser         User?                @relation("StudentCreatedBy", fields: [createdById], references: [id])
-  program               Program?             @relation(fields: [programId], references: [id])
+  academicYear          AcademicYear?              @relation(fields: [academicYearId], references: [id])
+  center                Center                     @relation(fields: [centerId], references: [id])
+  createdByUser         User?                      @relation("StudentCreatedBy", fields: [createdById], references: [id])
+  program               Program?                   @relation(fields: [programId], references: [id])
 
   @@map("students")
 }
@@ -645,6 +654,68 @@ model ActivityStatusLog {
   changedByUser User     @relation("StatusChangedBy", fields: [changedBy], references: [id])
 
   @@map("activity_status_log")
+}
+
+model StudentMeeting {
+  id            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String                     @map("center_id") @db.Uuid
+  programId     String                     @map("program_id") @db.Uuid
+  standard      String
+  meetingDate   DateTime                   @map("meeting_date") @db.Date
+  meetingTime   String?                    @map("meeting_time")
+  topic         String
+  description   String?
+  createdBy     String                     @map("created_by") @db.Uuid
+  createdAt     DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendance    StudentMeetingAttendance[]
+  center        Center                     @relation(fields: [centerId], references: [id])
+  createdByUser User                       @relation("StudentMeetingCreatedBy", fields: [createdBy], references: [id])
+  program       Program                    @relation(fields: [programId], references: [id])
+
+  @@map("student_meetings")
+}
+
+model StudentMeetingAttendance {
+  id        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId String         @map("meeting_id") @db.Uuid
+  studentId String         @map("student_id") @db.Uuid
+  isPresent Boolean        @default(false) @map("is_present")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  meeting   StudentMeeting @relation(fields: [meetingId], references: [id])
+  student   Student        @relation(fields: [studentId], references: [id])
+
+  @@unique([meetingId, studentId])
+  @@map("student_meeting_attendance")
+}
+
+model ParentMeeting {
+  id            String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  centerId      String                    @map("center_id") @db.Uuid
+  programId     String                    @map("program_id") @db.Uuid
+  standard      String
+  meetingDate   DateTime                  @map("meeting_date") @db.Date
+  meetingTime   String?                   @map("meeting_time")
+  topic         String
+  description   String?
+  createdBy     String                    @map("created_by") @db.Uuid
+  createdAt     DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendance    ParentMeetingAttendance[]
+  center        Center                    @relation(fields: [centerId], references: [id])
+  createdByUser User                      @relation("ParentMeetingCreatedBy", fields: [createdBy], references: [id])
+  program       Program                   @relation(fields: [programId], references: [id])
+
+  @@map("parent_meetings")
+}
+
+model ParentMeetingAttendance {
+  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  meetingId  String        @map("meeting_id") @db.Uuid
+  parentName String        @map("parent_name")
+  gender     Gender
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  meeting    ParentMeeting @relation(fields: [meetingId], references: [id])
+
+  @@map("parent_meeting_attendance")
 }
 
 enum UserRole {

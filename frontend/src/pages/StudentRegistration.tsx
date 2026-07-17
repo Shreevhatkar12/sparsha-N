@@ -138,10 +138,7 @@ export const StudentRegistration: React.FC = () => {
       setPhoneError('Phone must be exactly 10 digits');
       return;
     }
-    if (formData.aadharNumber && !/^\d{12}$/.test(formData.aadharNumber)) {
-      setAadharError('Aadhar must be exactly 12 digits');
-      return;
-    }
+    console.log("SUBMITTING:", formData.standard, formData.aadharNumber);
     setSaving(true);
     setError(null);
     try {
@@ -153,7 +150,8 @@ export const StudentRegistration: React.FC = () => {
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
-          aadharNumber: formData.aadharNumber || undefined,
+          aadharNumber: formData.aadharNumber || null,
+          standard: formData.standard || null,
           stream: formData.stream || undefined,
           post12thChoice: formData.post12thChoice || undefined,
           collegeName: formData.collegeName || undefined,
@@ -170,8 +168,8 @@ export const StudentRegistration: React.FC = () => {
           gender: formData.gender || undefined,
           guardianName: formData.guardianName || undefined,
           guardianPhone: formData.guardianPhone || undefined,
-          aadharNumber: formData.aadharNumber || undefined,
-          standard: formData.standard || undefined,
+          aadharNumber: formData.aadharNumber || null,
+          standard: formData.standard || null,
           stream: formData.stream || undefined,
           post12thChoice: formData.post12thChoice || undefined,
           collegeName: formData.collegeName || undefined,

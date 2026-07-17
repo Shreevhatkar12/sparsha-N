@@ -212,6 +212,8 @@ export interface StudentCreatePayload {
   guardianName?: string;
   guardianPhone?: string;
   enrollmentDate?: string | Date;
+  standard?: string | null;
+  aadharNumber?: string | null;
   isActive?: boolean;
   stream?: string;
   post12thChoice?: string;
