@@ -188,7 +188,7 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
   return student;
 };
 
-export const updateStudent = async (user: TokenPayload, id: string, data: any) => {
+export const updateStudent = async (user: TokenPayload, id: string, data: Record<string, any>) => {
   // Logic from Vansh: Prevent changing center/program after creation
   if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
     throw new ValidationError("centerId and programId cannot be changed after creation");
