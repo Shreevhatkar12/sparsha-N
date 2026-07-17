@@ -76,7 +76,7 @@ export const createStudent = async (user: TokenPayload, data: any) => {
     throw new ValidationError("Invalid student payload", parsed.error.flatten());
   }
 
-  const payload = { ...data, ...parsed.data, standard: data.standard, aadharNumber: data.aadharNumber, rollNumber: data.rollNumber };
+  const payload = data;
   console.log("CREATE PAYLOAD:", JSON.stringify(payload));
   const userRole = user.role;
 
@@ -199,7 +199,7 @@ export const updateStudent = async (user: TokenPayload, id: string, data: Record
     throw new ValidationError("Invalid student update payload", parsed.error.flatten());
   }
 
-  const payload = { ...data, ...parsed.data, standard: data.standard, aadharNumber: data.aadharNumber, rollNumber: data.rollNumber };
+  const payload = data;
   console.log("UPDATE PAYLOAD:", JSON.stringify(payload));
 
   const result = await prisma.student.updateMany({
