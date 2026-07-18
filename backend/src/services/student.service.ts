@@ -194,11 +194,7 @@ export const updateStudent = async (user: TokenPayload, id: string, data: Record
     throw new ValidationError("centerId and programId cannot be changed after creation");
   }
 
-  const parsed = studentUpdateSchema.safeParse(data);
-  if (!parsed.success) {
-    throw new ValidationError("Invalid student update payload", parsed.error.flatten());
-  }
-
+  
   const payload = data;
   console.log("UPDATE PAYLOAD:", JSON.stringify(payload));
 
@@ -777,3 +773,4 @@ export const getDashboardStats = async () => {
     avgSkills: { communication: 0, confidence: 0, computerSkill: 0, problemSolving: 0, languageSkill: 0 },
   };
 };
+
