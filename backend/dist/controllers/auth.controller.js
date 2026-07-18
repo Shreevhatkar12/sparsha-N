@@ -1,5 +1,5 @@
-import * as authService from '@/services/auth.service.js';
-import { AppError } from '@/lib/errors.js';
+import * as authService from '../services/auth.service.js';
+import { AppError } from '../lib/errors.js';
 // Extend Request to include user (from auth middleware)
 /**
  * POST /api/auth/register
