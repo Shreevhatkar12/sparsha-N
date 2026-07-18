@@ -63,7 +63,7 @@ export const createStudent = async (user, data) => {
     if (!parsed.success) {
         throw new ValidationError("Invalid student payload", parsed.error.flatten());
     }
-    const payload = { ...data, ...parsed.data, standard: data.standard, aadharNumber: data.aadharNumber, rollNumber: data.rollNumber };
+    const payload = data;
     console.log("CREATE PAYLOAD:", JSON.stringify(payload));
     const userRole = user.role;
     // Authorization check for center assignment
@@ -173,11 +173,7 @@ export const updateStudent = async (user, id, data) => {
     if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
         throw new ValidationError("centerId and programId cannot be changed after creation");
     }
-    const parsed = studentUpdateSchema.safeParse(data);
-    if (!parsed.success) {
-        throw new ValidationError("Invalid student update payload", parsed.error.flatten());
-    }
-    const payload = { ...data, ...parsed.data, standard: data.standard, aadharNumber: data.aadharNumber, rollNumber: data.rollNumber };
+    const payload = data;
     console.log("UPDATE PAYLOAD:", JSON.stringify(payload));
     const result = await prisma.student.updateMany({
         where: scopedWhere(user, { id }),
