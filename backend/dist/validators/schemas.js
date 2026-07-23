@@ -16,6 +16,9 @@ export const createStudentSchema = z.object({
     gender: z.enum(["male", "female", "other"]).optional(),
     guardianName: z.string().optional(),
     guardianPhone: phone10Digit,
+    standard: z.string().optional().nullable(),
+    aadharNumber: z.string().optional().nullable(),
+    rollNumber: z.string().optional().nullable(),
 });
 export const updateStudentSchema = z.object({
     fullName: z.string().min(2).optional(),
