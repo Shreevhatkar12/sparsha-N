@@ -109,7 +109,7 @@ export const createStudent = async (user: TokenPayload, data: any) => {
   });
 };
 
-export const getAllStudents = async (user: TokenPayload, { page = 1, limit = 50, centerId, programId, isActive, search, sortOrder, standard }: Record<string, any> = {}) => {
+export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 50, centerId, programId, isActive, search, sortOrder, standard }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
   const skip = (page - 1) * safeLimit;
 
@@ -773,4 +773,6 @@ export const getDashboardStats = async () => {
     avgSkills: { communication: 0, confidence: 0, computerSkill: 0, problemSolving: 0, languageSkill: 0 },
   };
 };
+
+
 
