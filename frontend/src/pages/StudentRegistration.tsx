@@ -228,29 +228,26 @@ export const StudentRegistration: React.FC = () => {
               value={formData.rollNumber}
               onChange={handleChange}
             />
-            <div className="flex gap-4 col-span-1 md:col-span-2">
-              <Input
-                label="Date of Birth"
-                name="dob"
-                type="date"
-                className="flex-[2]"
-                value={formData.dob}
+            <Input
+              label="Date of Birth"
+              name="dob"
+              type="date"
+              value={formData.dob}
+              onChange={handleChange}
+            />
+            <div className="flex flex-col gap-1.5 touch-manipulation">
+              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
                 onChange={handleChange}
-              />
-              <div className="flex flex-col gap-1.5 flex-[1] touch-manipulation">
-                <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">—</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+                className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">—</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div>
               <Input
