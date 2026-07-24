@@ -207,7 +207,7 @@ export async function getTodayFreshSheet(user: JwtPayload, centerId: string, pro
     include: {
       records: {
         include: {
-          student: { select: { id: true, fullName: true, rollNumber: true } }
+          student: { select: { id: true, fullName: true, rollNumber: true , standard: true } }
         }
       }
     }

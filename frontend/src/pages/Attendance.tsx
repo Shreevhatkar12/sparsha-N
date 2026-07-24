@@ -22,6 +22,7 @@ type Row = {
   studentId: string;
   name: string;
   rollNumber: string;
+  standard: string;
   status: "pending" | "present" | "absent" | "late" | "excused";
 };
 
@@ -35,15 +36,23 @@ const STATUS_OPTIONS = [
 
 type Status = (typeof STATUS_OPTIONS)[number];
 
-const STATUS_CONFIG: Record<
-  Status,
-  { label: string; color: string; bg: string }
-> = {
+const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }> = {
   pending: { label: "Pending", color: "#4B5563", bg: "bg-gray-500" },
   present: { label: "Present", color: "#16A34A", bg: "bg-green-600" },
   absent: { label: "Absent", color: "#DC2626", bg: "bg-red-600" },
   late: { label: "Late", color: "#CA8A04", bg: "bg-yellow-600" },
   excused: { label: "Excused", color: "#2563EB", bg: "bg-blue-600" },
+};
+
+// Canonical KG -> 12th ordering so the Standard chips line up naturally.
+const STANDARD_ORDER = [
+  "nursery", "jr kg", "sr kg", "kg",
+  "1st", "2nd", "3rd", "4th", "5th", "6th",
+  "7th", "8th", "9th", "10th", "11th", "12th",
+];
+const standardRank = (value?: string | null) => {
+  const idx = STANDARD_ORDER.indexOf((value || "").trim().toLowerCase());
+  return idx === -1 ? STANDARD_ORDER.length + 1 : idx;
 };
 
 export function SegmentedSlider({
@@ -61,9 +70,7 @@ export function SegmentedSlider({
       <div
         className="absolute top-1.5 bottom-1.5 rounded-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-md"
         style={{
-          // (100% - total padding) / count
           width: `calc((100% - 12px) / ${STATUS_OPTIONS.length})`,
-          // Move by its own width * index
           transform: `translateX(${index * 100}%)`,
           backgroundColor: STATUS_CONFIG[value].color,
         }}
@@ -78,9 +85,8 @@ export function SegmentedSlider({
             key={status}
             type="button"
             onClick={() => onChange(status)}
-            // flex-1 ensures every button is exactly the same width
             className={`
-              relative z-10 flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg 
+              relative z-10 flex-1 px-2 py-1.5 text-xs font-semibold rounded-lg
               transition-colors duration-200
               ${isActive ? "text-white" : "text-gray-500 hover:text-gray-700"}
             `}
@@ -101,15 +107,16 @@ export const Attendance: React.FC = () => {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [centerId, setCenterId] = useState("");
   const [programId, setProgramId] = useState("");
-  
+
   const getLocalDateStr = () => {
     const d = new Date();
     return new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
   };
-  
+
   const [date, setDate] = useState(getLocalDateStr());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [boot, setBoot] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +174,7 @@ export const Attendance: React.FC = () => {
     if (!centerId || !programId) return;
     setLoading(true);
     setError(null);
+    setSelectedStandards([]);
     try {
       const res = (await createAttendanceSession({
         centerId,
@@ -202,6 +210,7 @@ export const Attendance: React.FC = () => {
     if (!centerId || !programId) return;
     setLoading(true);
     setError(null);
+    setSelectedStandards([]);
     try {
       const full = await getTodayFreshSheet(centerId, programId) as any;
       if (!full || !full.id) throw new Error("No session returned");
@@ -210,13 +219,14 @@ export const Attendance: React.FC = () => {
       setSuccess(false);
       setIsHoliday(full.isHoliday || false);
       setDate(getLocalDateStr());
-      
+
       setRows(
         (full.records ?? []).map((r: any) => ({
           recordId: r.id ?? "",
           studentId: r.student?.id ?? "",
           name: r.student?.fullName ?? "Student",
           rollNumber: r.student?.rollNumber ?? "",
+          standard: r.student?.standard ?? "",
           status: r.status ?? "pending",
         })),
       );
@@ -231,7 +241,7 @@ export const Attendance: React.FC = () => {
     const full = (await getAttendanceSessionById(sid)) as {
       isHoliday?: boolean;
       records?: Array<{
-        student?: { id: string; fullName: string; rollNumber?: string };
+        student?: { id: string; fullName: string; rollNumber?: string; standard?: string | null };
         record?: { id: string; status: string | null };
       }>;
     };
@@ -242,6 +252,7 @@ export const Attendance: React.FC = () => {
         studentId: r.student?.id ?? "",
         name: r.student?.fullName ?? "Student",
         rollNumber: r.student?.rollNumber ?? "",
+        standard: r.student?.standard ?? "",
         status: (r.record?.status as Row["status"]) ?? "pending",
       })),
     );
@@ -251,13 +262,14 @@ export const Attendance: React.FC = () => {
     e.preventDefault();
     if (!sessionId) return;
 
-    if (!isEditing) return; // 🔒 prevents accidental submits
+    if (!isEditing) return; // prevents accidental submits
 
     setLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
+      // Always save the full roster - the Standard filter is only a view filter.
       const records = rows
         .filter((r) => r.recordId)
         .map((r) => ({
@@ -267,8 +279,8 @@ export const Attendance: React.FC = () => {
 
       await updateAttendanceSessionRecords(sessionId, { records });
 
-      setIsEditing(false); // 🔒 lock after submit
-      setSuccess(true); // ✅ show success
+      setIsEditing(false); // lock after submit
+      setSuccess(true); // show success
     } catch {
       setError("Failed to save attendance.");
     } finally {
@@ -287,6 +299,22 @@ export const Attendance: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Distinct standards present in this session, ordered KG -> 12th.
+  const availableStandards = Array.from(
+    new Set(rows.map((r) => r.standard).filter(Boolean))
+  ).sort((a, b) => standardRank(a) - standardRank(b));
+
+  // Rows actually shown = filtered by the selected standards (empty = show all).
+  const visibleRows = selectedStandards.length
+    ? rows.filter((r) => selectedStandards.includes(r.standard))
+    : rows;
+
+  const toggleStandard = (std: string) => {
+    setSelectedStandards((prev) =>
+      prev.includes(std) ? prev.filter((s) => s !== std) : [...prev, std]
+    );
   };
 
   if (boot)
@@ -400,14 +428,52 @@ export const Attendance: React.FC = () => {
                   Mark as Holiday
                 </label>
               </div>
+
+              {/* Multi-select Standard filter (view-only) */}
+              {availableStandards.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase mr-1">Standard:</span>
+                  <Button
+                    type="button"
+                    variant={selectedStandards.length === 0 ? "primary" : "secondary"}
+                    size="sm"
+                    className="text-xs rounded-full"
+                    onClick={() => setSelectedStandards([])}
+                  >
+                    All
+                  </Button>
+                  {availableStandards.map((std) => (
+                    <Button
+                      key={std}
+                      type="button"
+                      variant={selectedStandards.includes(std) ? "primary" : "secondary"}
+                      size="sm"
+                      className="text-xs rounded-full"
+                      onClick={() => toggleStandard(std)}
+                    >
+                      {std}
+                    </Button>
+                  ))}
+                  {selectedStandards.length > 0 && (
+                    <span className="text-xs text-neutral-500 ml-1">
+                      Showing {visibleRows.length} of {rows.length}
+                    </span>
+                  )}
+                </div>
+              )}
+
               <form onSubmit={handleSave} className="space-y-4">
                 <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-100">
                   {rows.length === 0 ? (
                     <p className="p-4 text-sm text-neutral-500">
                       No records for this session.
                     </p>
+                  ) : visibleRows.length === 0 ? (
+                    <p className="p-4 text-sm text-neutral-500">
+                      No students match the selected standard(s).
+                    </p>
                   ) : (
-                    rows.map((r, i) => (
+                    visibleRows.map((r) => (
                       <div
                         key={r.recordId || r.studentId}
                         className="flex items-center justify-between p-3 gap-3"
@@ -417,6 +483,8 @@ export const Attendance: React.FC = () => {
                             {r.name} {r.rollNumber ? <span className="text-xs text-neutral-400">({r.rollNumber})</span> : null}
                           </p>
                           <p className="text-xs text-neutral-500">
+                            {r.standard ? <span className="font-medium text-neutral-600">Std {r.standard}</span> : null}
+                            {r.standard ? " • " : ""}
                             {r.status ?? "Pending"}
                           </p>
                         </div>
@@ -425,9 +493,10 @@ export const Attendance: React.FC = () => {
                           onChange={(newStatus) => {
                             if (!isEditing) return;
 
+                            // Update by studentId (index shifts when filtered).
                             setRows((prev) =>
-                              prev.map((x, j) =>
-                                j === i ? { ...x, status: newStatus } : x,
+                              prev.map((x) =>
+                                x.studentId === r.studentId ? { ...x, status: newStatus } : x,
                               ),
                             );
                           }}
@@ -444,12 +513,11 @@ export const Attendance: React.FC = () => {
                   )}
 
                   <div className="flex gap-2">
-                    {/* Use type="button" for both to prevent accidental form submission */}
                     {isEditing ? (
                       <Button
                         type="button"
                         variant="primary"
-                        onClick={handleSave} // Explicitly call handleSave
+                        onClick={handleSave}
                         isLoading={loading}
                         disabled={!rows.length}
                       >
@@ -461,7 +529,7 @@ export const Attendance: React.FC = () => {
                         variant="secondary"
                         onClick={async () => {
                           setLoading(true);
-                          await refreshRows(sessionId!); // Reload fresh data from server
+                          await refreshRows(sessionId!);
                           setIsEditing(true);
                           setSuccess(false);
                           setLoading(false);
@@ -480,8 +548,8 @@ export const Attendance: React.FC = () => {
           <h2 className="text-lg font-semibold mb-2">How it works</h2>
           <p className="text-sm text-neutral-600">
             Pick center, program, and date, then load the session. Toggle each
-            student&apos;s status and save. If a session already exists for that
-            day, it opens instead of creating a duplicate.
+            student&apos;s status and save. Use the Standard chips to focus on one
+            or more classes - it only filters the view, every student still saves.
           </p>
         </Card>
       </div>
