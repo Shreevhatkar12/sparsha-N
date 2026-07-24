@@ -15,8 +15,9 @@ export type StudentListQuery = {
   search?: string;
   centerId?: string;
   programId?: string;
-  sortOrder?: 'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'class_asc' | 'class_desc' | '';
+  sortOrder?: 'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'std_asc' | 'std_desc' | '';
   isActive?: boolean | string;
+  standard?: string;
 };
 
 export type StudentFilterQuery = Record<string, string | number | boolean | undefined>;
@@ -90,4 +91,3 @@ export const getFeePayments = (studentId: string) =>
 
 export const updateStudentFees = (studentId: string, data: { totalFees?: number; isFullyPaid?: boolean }) =>
   api.put<ApiEnvelope<Student>>(`/students/${studentId}/fees/update`, data).then((r) => r.data.data);
-

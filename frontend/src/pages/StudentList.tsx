@@ -19,6 +19,8 @@ import type { Student, CenterSummary, ProgramSummary } from '../types';
 
 type Row = Student & { _programName: string; _centerName: string; _addedBy: string };
 
+const STANDARD_OPTIONS = ['All', 'KG', 'Sr KG', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+
 export const StudentList: React.FC = () => {
   const navigate = useNavigate();
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -33,8 +35,9 @@ export const StudentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCenterId, setFilterCenterId] = useState('');
   const [filterProgramId, setFilterProgramId] = useState('');
-  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'class_asc' | 'class_desc' | ''>('');
-  
+  const [filterStandard, setFilterStandard] = useState('');
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'std_asc' | 'std_desc' | ''>('');
+
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
 
@@ -74,7 +77,7 @@ export const StudentList: React.FC = () => {
         setPrograms(pRes);
       })
       .catch(console.error);
-    
+
     // Admin: load teachers list for transfer completion
     if (isAdmin) {
       listUsers({ role: 'teacher' as any, limit: 200 })
@@ -92,6 +95,7 @@ export const StudentList: React.FC = () => {
         limit: 50,
         ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
         ...(filterProgramId ? { programId: filterProgramId } : {}),
+        ...(filterStandard ? { standard: filterStandard } : {}),
         ...(sortOrder ? { sortOrder } : {}),
       };
 
@@ -125,7 +129,7 @@ export const StudentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterProgramId, sortOrder]);
+  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterProgramId, filterStandard, sortOrder]);
 
   useEffect(() => {
     if (!showTransferTab) {
@@ -177,6 +181,7 @@ export const StudentList: React.FC = () => {
       Name: student.fullName,
       'Roll Number': student.rollNumber || '—',
       Program: student._programName,
+      Standard: student.standard || '—',
       Center: student._centerName,
       'Date of Birth': student.dob ? new Date(student.dob).toLocaleDateString() : '—',
       Gender: student.gender || '—',
@@ -261,8 +266,8 @@ export const StudentList: React.FC = () => {
           onClick={(e) => { e.stopPropagation(); toggleTransferSelect(s.id); }}
           className="text-neutral-500 hover:text-brand-700 transition-colors"
         >
-          {selectedForTransfer.has(s.id) 
-            ? <CheckSquare size={18} className="text-brand-600" /> 
+          {selectedForTransfer.has(s.id)
+            ? <CheckSquare size={18} className="text-brand-600" />
             : <Square size={18} />}
         </button>
       ),
@@ -293,6 +298,13 @@ export const StudentList: React.FC = () => {
       sortable: true,
       className: 'hidden sm:table-cell',
       accessor: (s) => s.rollNumber || '—',
+    },
+    {
+      id: 'standard',
+      header: 'Std',
+      sortable: true,
+      className: 'hidden sm:table-cell',
+      accessor: (s) => s.standard || '—',
     },
     {
       id: '_centerName',
@@ -363,8 +375,8 @@ export const StudentList: React.FC = () => {
           onClick={(e) => { e.stopPropagation(); toggleTransferReqSelect(s.id); }}
           className="text-neutral-500 hover:text-brand-700 transition-colors"
         >
-          {selectedTransferIds.has(s.id) 
-            ? <CheckSquare size={18} className="text-brand-600" /> 
+          {selectedTransferIds.has(s.id)
+            ? <CheckSquare size={18} className="text-brand-600" />
             : <Square size={18} />}
         </button>
       ),
@@ -425,8 +437,8 @@ export const StudentList: React.FC = () => {
         <div className="flex items-center gap-2 mb-4">
           <button
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              !showTransferTab 
-                ? 'bg-brand-50 text-brand-800 border border-brand-200 shadow-sm' 
+              !showTransferTab
+                ? 'bg-brand-50 text-brand-800 border border-brand-200 shadow-sm'
                 : 'bg-neutral-50 text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
             }`}
             onClick={() => setShowTransferTab(false)}
@@ -435,8 +447,8 @@ export const StudentList: React.FC = () => {
           </button>
           <button
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              showTransferTab 
-                ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-sm' 
+              showTransferTab
+                ? 'bg-amber-50 text-amber-800 border border-amber-200 shadow-sm'
                 : 'bg-neutral-50 text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
             }`}
             onClick={() => setShowTransferTab(true)}
@@ -548,67 +560,63 @@ export const StudentList: React.FC = () => {
                   }}
                 />
               </div>
-              
+
               <div className="flex bg-neutral-200/50 p-1 rounded-lg border border-neutral-200 items-center overflow-x-auto whitespace-nowrap">
                 <span className="text-xs font-semibold text-neutral-500 uppercase px-2">Sort:</span>
-                <button 
+                <button
                   className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('roll') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
-                  onClick={() => { 
+                  onClick={() => {
                     if (sortOrder === 'roll_asc') setSortOrder('roll_desc');
                     else setSortOrder('roll_asc');
-                    setPage(1); 
+                    setPage(1);
                   }}
                 >
                   Roll Number
                   {sortOrder === 'roll_asc' && <ArrowUp size={14} />}
                   {sortOrder === 'roll_desc' && <ArrowDown size={14} />}
                 </button>
-                <button 
+                <button
                   className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('name') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
-                  onClick={() => { 
+                  onClick={() => {
                     if (sortOrder === 'name_asc') setSortOrder('name_desc');
                     else setSortOrder('name_asc');
-                    setPage(1); 
+                    setPage(1);
                   }}
                 >
                   Name
                   {sortOrder === 'name_asc' && <ArrowUp size={14} />}
                   {sortOrder === 'name_desc' && <ArrowDown size={14} />}
                 </button>
-                <button 
-                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('class') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
-                  onClick={() => { 
-                    if (sortOrder === 'class_asc') setSortOrder('class_desc');
-                    else setSortOrder('class_asc');
-                    setPage(1); 
-                  }}
-                >
-                  Class
-                  {sortOrder === 'class_asc' && <ArrowUp size={14} />}
-                  {sortOrder === 'class_desc' && <ArrowDown size={14} />}
-                </button>
-              </div>
-              
-              <select
-                  id="center-filter"
-                  className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
-                  value={filterCenterId}
-                  onChange={(e) => {
-                    setFilterCenterId(e.target.value);
+                <button
+                  className={`flex items-center gap-1 px-3 py-1 text-sm rounded-md font-medium transition-colors ${sortOrder.startsWith('std') ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-600 hover:text-neutral-900'}`}
+                  onClick={() => {
+                    if (sortOrder === 'std_asc') setSortOrder('std_desc');
+                    else setSortOrder('std_asc');
                     setPage(1);
                   }}
                 >
-                  <option value="">
-                    {isTeacher ? 'My Centers' : 'All Centers'}
-                  </option>
-                  {centers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-
-              <div className="hidden">
-                {/* Program dropdown hidden as requested in favor of quick filters */}
+                  Std
+                  {sortOrder === 'std_asc' && <ArrowUp size={14} />}
+                  {sortOrder === 'std_desc' && <ArrowDown size={14} />}
+                </button>
               </div>
+
+              <select
+                id="center-filter"
+                className="block w-full md:w-auto py-2 px-3 border border-neutral-300 bg-white rounded-lg focus:ring-primary focus:border-primary sm:text-sm"
+                value={filterCenterId}
+                onChange={(e) => {
+                  setFilterCenterId(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">
+                  {isTeacher ? 'My Centers' : 'All Centers'}
+                </option>
+                {centers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-2">
               {/* Transfer mode toggle for teachers */}
@@ -628,51 +636,39 @@ export const StudentList: React.FC = () => {
               )}
             </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2 mb-4 px-1">
-            <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Quick Filters:</span>
-            <Button 
-              variant={filterProgramId === '' ? 'primary' : 'secondary'} 
-              size="sm" 
+
+          {/* Quick Filters — built from the real programs list (each chip = a valid program UUID) */}
+          <div className="flex flex-wrap gap-2 mb-3 px-1">
+            <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Program:</span>
+            <Button
+              variant={filterProgramId === '' ? 'primary' : 'secondary'}
+              size="sm"
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(''); setPage(1); void load(); }}
-            >All Classes</Button>
-            <Button 
-              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('shiksha'))?.id || 'shiksha'); setPage(1); void load(); }}
-            >Shiksha (jr, sr)</Button>
-            <Button 
-              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 1') || p.name.toLowerCase().includes('sanskar1'))?.id || 'sanskar1'); setPage(1); void load(); }}
-            >Sanskar 1 (1-4)</Button>
-            <Button 
-              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('sanskar 2') || p.name.toLowerCase().includes('sanskar2'))?.id || 'sanskar2'); setPage(1); void load(); }}
-            >Sanskar 2 (4-6)</Button>
-            <Button 
-              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 1') || p.name.toLowerCase().includes('swayam1') || p.name.toLowerCase().includes('swayam youth'))?.id || 'swayam1'); setPage(1); void load(); }}
-            >Swayam 1 (7-10)</Button>
-            <Button 
-              variant={filterProgramId === (programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(programs.find(p => p.name.toLowerCase().includes('swayam 2') || p.name.toLowerCase().includes('swayam2'))?.id || 'swayam2'); setPage(1); void load(); }}
-            >Swayam 2 (10-12)</Button>
-            <Button 
-              variant={filterProgramId === ([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday') ? 'primary' : 'secondary'} 
-              size="sm" 
-              className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId([programs.find(p => p.name.toLowerCase().includes('kusum'))?.id, programs.find(p => p.name.toLowerCase().includes('uday'))?.id].filter(Boolean).join(',') || 'kusum,uday'); setPage(1); void load(); }}
-            >Kusum & Uday</Button>
+              onClick={() => { setFilterProgramId(''); setPage(1); }}
+            >All Programs</Button>
+            {programs.map((p) => (
+              <Button
+                key={p.id}
+                variant={filterProgramId === p.id ? 'primary' : 'secondary'}
+                size="sm"
+                className="text-xs rounded-full"
+                onClick={() => { setFilterProgramId(p.id); setPage(1); }}
+              >{p.name}</Button>
+            ))}
+          </div>
+
+          {/* Standard Filter */}
+          <div className="flex flex-wrap gap-2 items-center mb-4 px-1">
+            <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Standard:</span>
+            {STANDARD_OPTIONS.map(std => (
+              <Button
+                key={std}
+                variant={filterStandard === (std === 'All' ? '' : std) ? 'primary' : 'secondary'}
+                size="sm"
+                className="text-xs rounded-full"
+                onClick={() => { setFilterStandard(std === 'All' ? '' : std); setPage(1); }}
+              >{std}</Button>
+            ))}
           </div>
 
           {/* Transfer request banner */}
@@ -722,7 +718,7 @@ export const StudentList: React.FC = () => {
           ) : rows.length === 0 ? (
             <EmptyState
               title="No students found"
-              description={isTeacher 
+              description={isTeacher
                 ? "You haven't added any students yet, or try switching your center."
                 : "Try another search or add a new student."}
               action={

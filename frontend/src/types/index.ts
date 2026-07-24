@@ -32,6 +32,7 @@ export interface Student {
   createdById?: string;
   fullName: string;
   rollNumber?: string | null;
+  standard?: string | null;
   dob?: string | Date;
   gender?: Gender;
   guardianName?: string;

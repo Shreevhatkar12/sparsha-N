@@ -109,16 +109,44 @@ export const createStudent = async (user: TokenPayload, data: any) => {
   });
 };
 
+// Canonical ordering for the "standard / class" field so a Std sort reads
+// KG → 1st → 2nd → … → 12th instead of alphabetical ("10th" before "2nd").
+const STANDARD_ORDER = [
+  'nursery', 'jr kg', 'sr kg', 'kg',
+  '1st', '2nd', '3rd', '4th', '5th', '6th',
+  '7th', '8th', '9th', '10th', '11th', '12th',
+];
+const standardRank = (value?: string | null) => {
+  const idx = STANDARD_ORDER.indexOf((value || '').trim().toLowerCase());
+  // Unknown / empty standards sink to the bottom of the list.
+  return idx === -1 ? STANDARD_ORDER.length + 1 : idx;
+};
+
+// program_id is a UUID column — a stray non-UUID value (e.g. a mislabeled
+// quick-filter key) would make Postgres throw and 500 the whole request.
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 50, centerId, programId, isActive, search, sortOrder, standard }: Record<string, any> = {}) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 200);
-  const skip = (page - 1) * safeLimit;
+  const currentPage = Math.max(Number(page) || 1, 1);
+  const skip = (currentPage - 1) * safeLimit;
+
+  // Only apply the programId filter for valid UUID(s). Anything else is ignored
+  // instead of being passed to Prisma (which would raise a UUID cast error).
+  let programFilter: any;
+  if (programId) {
+    const ids = String(programId).split(',').map((s) => s.trim()).filter((s) => UUID_RE.test(s));
+    if (ids.length === 1) programFilter = ids[0];
+    else if (ids.length > 1) programFilter = { in: ids };
+  }
 
   // Build the base 'where' using the scope helper
   const where = scopedWhere(user, {
     isActive: isActive !== undefined ? isActive : true,
     ...(centerId ? { centerId } : {}),
-    ...(programId ? { programId: programId.includes(',') ? { in: programId.split(',') } : programId } : {}),
-...(standard ? { standard: { in: (standard as string).split(',') } } : {}),    ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
+    ...(programFilter ? { programId: programFilter } : {}),
+    ...(standard ? { standard: { in: String(standard).split(',').map((s) => s.trim()).filter(Boolean) } } : {}),
+    ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
   });
 
   // Handle center filter overrides
@@ -128,7 +156,30 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
      }
   }
 
-  // Sorting
+  const include = {
+    center: true,
+    program: true,
+    createdByUser: {
+      select: { id: true, fullName: true },
+    },
+  };
+
+  // The "Std" sort needs a custom KG → 12th ordering that a plain SQL ORDER BY
+  // on a text column can't express, so sort in memory and paginate the result.
+  if (sortOrder === 'std_asc' || sortOrder === 'std_desc') {
+    const all = await prisma.student.findMany({ where, include });
+    all.sort((a, b) => {
+      const diff = standardRank(a.standard) - standardRank(b.standard);
+      if (diff !== 0) return sortOrder === 'std_asc' ? diff : -diff;
+      // tie-break within the same standard by name for a stable, readable order
+      return (a.fullName || '').localeCompare(b.fullName || '');
+    });
+    const total = all.length;
+    const students = all.slice(skip, skip + safeLimit);
+    return { students, total, page: currentPage, totalPages: Math.ceil(total / safeLimit) };
+  }
+
+  // SQL-level sorting for every other mode
   let orderBy: any = { createdAt: 'desc' };
   if (sortOrder === 'name_asc') orderBy = { fullName: 'asc' };
   else if (sortOrder === 'name_desc') orderBy = { fullName: 'desc' };
@@ -143,18 +194,12 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
       skip,
       take: safeLimit,
       orderBy,
-      include: {
-        center: true,
-        program: true,
-        createdByUser: {
-          select: { id: true, fullName: true },
-        },
-      },
+      include,
     }),
     prisma.student.count({ where }),
   ]);
 
-  return { students, total, page, totalPages: Math.ceil(total / safeLimit) };
+  return { students, total, page: currentPage, totalPages: Math.ceil(total / safeLimit) };
 };
 
 export const getStudentById = async (user: TokenPayload, id: string) => {
@@ -773,6 +818,3 @@ export const getDashboardStats = async () => {
     avgSkills: { communication: 0, confidence: 0, computerSkill: 0, problemSolving: 0, languageSkill: 0 },
   };
 };
-
-
-
