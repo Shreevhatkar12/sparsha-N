@@ -16,6 +16,7 @@ import {
 } from "../services/exams.service";
 import { listCenters, listPrograms } from "../services/centers.service";
 import { useAuthStore } from "../store/useAuthStore";
+import { ExamReport } from "../components/exams/ExamReport";
 import type { CenterSummary, ProgramSummary } from "../types";
 
 type SubjectCol = {
@@ -47,6 +48,9 @@ export const Exams: React.FC = () => {
   const isAdmin = ["super_admin", "center_admin", "tech_admin", "teacher"].includes(
     userRole,
   );
+  // Only real admins can delete exams (teachers get edit + view only).
+  const canDelete = ["super_admin", "center_admin", "tech_admin"].includes(userRole);
+  const [activeTab, setActiveTab] = useState<"entry" | "report">("entry");
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -317,6 +321,18 @@ export const Exams: React.FC = () => {
     });
   };
 
+  // Teacher edits a subject's "out of" (max marks) in the grid header.
+  const updateSubjectMax = (colId: string, value: string) => {
+    const n = value === "" ? 0 : Number(value);
+    setSubjects((prev) =>
+      prev.map((c) =>
+        c.id === colId
+          ? { ...c, maxMarks: Number.isFinite(n) && n >= 0 ? n : c.maxMarks }
+          : c,
+      ),
+    );
+  };
+
   const updateCell = (studentId: string, subjectId: string, value: string) => {
     setGrid((p) => {
       const row = p[studentId] ?? emptyRow(subjects);
@@ -371,13 +387,14 @@ export const Exams: React.FC = () => {
       const g = grid[sid];
       if (!g) continue;
       for (const col of subjects) {
+        const maxM = col.maxMarks > 0 ? col.maxMarks : 100;
         let n: number | null = null;
         if (!g.isAbsent) {
           const raw = (g.marks[col.id] ?? "").trim();
           if (raw === "") continue;
           n = Number(raw);
-          if (Number.isNaN(n) || n < 0 || n > col.maxMarks) {
-            setError(`Marks must be 0–${col.maxMarks} for ${col.name}.`);
+          if (Number.isNaN(n) || n < 0 || n > maxM) {
+            setError(`Marks must be 0–${maxM} for ${col.name}.`);
             return;
           }
         }
@@ -388,7 +405,7 @@ export const Exams: React.FC = () => {
             : { subjectId: col.id, subject: col.name }),
           marks: n,
           isAbsent: g.isAbsent,
-          maxMarks: col.maxMarks,
+          maxMarks: maxM,
           ...(g.remarks.trim() ? { remarks: g.remarks.trim() } : {}),
         });
       }
@@ -404,8 +421,18 @@ export const Exams: React.FC = () => {
       await upsertExamScores(examId, { scores });
       await loadWorkspace(examId);
       await loadComparison();
-    } catch {
-      setError("Save failed.");
+    } catch (err: unknown) {
+      let msg = "Save failed.";
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as any;
+        msg =
+          data?.error ||
+          data?.message ||
+          (data?.errors
+            ? "Validation: " + JSON.stringify(data.errors.fieldErrors ?? data.errors)
+            : msg);
+      }
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -426,6 +453,36 @@ export const Exams: React.FC = () => {
 
   return (
     <PageWrapper title="Exams">
+      {/* Tabs */}
+      <div className="flex border-b border-neutral-200 mb-6 gap-4">
+        <button
+          type="button"
+          className={`pb-2 text-sm font-medium ${activeTab === "entry" ? "border-b-2 border-primary text-primary" : "text-neutral-500 hover:text-neutral-700"}`}
+          onClick={() => setActiveTab("entry")}
+        >
+          Mark Entry
+        </button>
+        <button
+          type="button"
+          className={`pb-2 text-sm font-medium ${activeTab === "report" ? "border-b-2 border-primary text-primary" : "text-neutral-500 hover:text-neutral-700"}`}
+          onClick={() => setActiveTab("report")}
+        >
+          Results / Report
+        </button>
+      </div>
+
+      {activeTab === "report" ? (
+        <ExamReport
+          centers={centers}
+          programs={programs}
+          canDelete={canDelete}
+          onEdit={(id) => {
+            setActiveTab("entry");
+            void loadWorkspace(id);
+          }}
+        />
+      ) : (
+      <>
       {error && (
         <div className="mb-4">
           <ErrorMessage message={error} />
@@ -665,17 +722,31 @@ export const Exams: React.FC = () => {
                     Absent
                   </th>
                   {subjects.map((col) => (
-                    <th key={col.id} className="py-2 pr-2 font-medium">
-                      <span className="capitalize">{col.name}</span>
-                      {col.isNew && (
-                        <button
-                          onClick={() => removeSubjectColumn(col.id)}
-                          className="ml-1 text-danger-500 hover:text-danger-700 text-xs"
-                          title="Remove"
-                        >
-                          ✕
-                        </button>
-                      )}
+                    <th key={col.id} className="py-2 pr-2 font-medium align-bottom">
+                      <div className="flex items-center gap-1">
+                        <span className="capitalize">{col.name}</span>
+                        {col.isNew && (
+                          <button
+                            onClick={() => removeSubjectColumn(col.id)}
+                            className="ml-1 text-danger-500 hover:text-danger-700 text-xs"
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 font-normal">
+                        <span className="text-[10px] uppercase text-neutral-400">out of</span>
+                        <input
+                          type="number"
+                          min={1}
+                          value={col.maxMarks || ""}
+                          onChange={(e) => updateSubjectMax(col.id, e.target.value)}
+                          className="w-14 rounded border border-neutral-300 px-1.5 py-0.5 text-xs text-center focus:ring-1 focus:ring-brand-500 focus:border-transparent"
+                          title={`Max marks for ${col.name}`}
+                          placeholder="100"
+                        />
+                      </div>
                     </th>
                   ))}
                   <th className="py-2 pr-2 font-medium min-w-[140px]">
@@ -806,6 +877,8 @@ export const Exams: React.FC = () => {
           </div>
         )}
       </Card>
+      </>
+      )}
     </PageWrapper>
   );
 };

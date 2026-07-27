@@ -12,6 +12,8 @@ import {
   listExamsController,
   upsertExamScoresController,
   getExamSheetController, // ✅ Merged into the main import block
+  getExamReportController,
+  deleteExamController,
 } from '../controllers/examController.js';
 import { validate } from '../middleware/validate.js';
 import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.js';
@@ -32,6 +34,9 @@ examRoutes.post("/",
 
 examRoutes.get("/", listExamsController);
 examRoutes.get("/comparison", getExamComparisonController);
+// Report is available to teachers (own data) and admins (all) — must be
+// declared BEFORE "/:examId" so "report" isn't matched as an exam id.
+examRoutes.get("/report", getExamReportController);
 examRoutes.get("/students/:studentId", getStudentExamScoresController);
 
 // ✅ FIX: Changed 'router' to 'examRoutes'
@@ -48,6 +53,14 @@ examRoutes.post(
 );
 
 examRoutes.get("/:examId/pending", getPendingExamScoresController);
+
+// Delete an entire exam (+ its scores). Admin-only (MANAGE_EXAMS) — teachers
+// hold ENTER_EXAM_SCORES but not MANAGE_EXAMS, so they are blocked here.
+examRoutes.delete(
+  "/:examId",
+  requirePermission(PERMISSIONS.MANAGE_EXAMS),
+  deleteExamController,
+);
 
 // ✅ FIX: Only one default export
 export default examRoutes;

@@ -42,3 +42,54 @@ export const upsertExamScores = (examId: string, body: Record<string, unknown>) 
 export const getPendingExamScores = (examId: string) =>
   api.get<Record<string, unknown>>(`/exams/${examId}/pending`).then((r) => r.data);
 
+// ─────────────── Exam Report ───────────────
+
+export type ExamReportQuery = {
+  centerId?: string;
+  programId?: string;
+  examType?: string;
+  academicYearId?: string;
+  month?: string; // "YYYY-MM"
+  standard?: string;
+};
+
+export type ReportStudent = {
+  studentId: string;
+  name: string;
+  rollNumber: string;
+  gender: string | null;
+  standard: string;
+  perSubject: Record<string, { marks: number | null; isAbsent: boolean; maxMarks: number }>;
+  obtainedTotal: number;
+  maxTotal: number;
+  isAbsent: boolean;
+  hasMarks: boolean;
+};
+
+export type ReportExam = {
+  id: string;
+  name: string;
+  examType: string;
+  examDate: string;
+  academicYearLabel: string;
+  center: { id: string; name: string };
+  program: { id: string; name: string };
+  subjects: Array<{ id: string; name: string; maxMarks: number }>;
+  enteredBy: string[];
+  totals: {
+    totalStudents: number;
+    present: number;
+    absent: number;
+    male: number;
+    female: number;
+    other: number;
+  };
+  students: ReportStudent[];
+};
+
+export const getExamReport = (params?: ExamReportQuery) =>
+  api.get<{ exams: ReportExam[] }>('/exams/report', { params }).then((r) => r.data);
+
+export const deleteExam = (examId: string) =>
+  api.delete<{ success: boolean }>(`/exams/${examId}`).then((r) => r.data);
+

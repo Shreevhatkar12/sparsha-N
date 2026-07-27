@@ -238,6 +238,7 @@ export async function upsertExamScores(
 
   // Resolve each score's subjectId — auto-create if subject name is new
   const processedScores = [];
+  const maxUpdates = new Map<string, number>(); // subjectId -> new max marks
   for (const s of input.scores) {
     let subjectId =
       s.subjectId && subjectMap.has(s.subjectId)
@@ -271,6 +272,13 @@ export async function upsertExamScores(
       );
     }
 
+    // Keep the subject's "out of" (max marks) in sync with what the teacher
+    // typed in the grid, so the report totals/% use the correct denominator.
+    const mm = Number(s.maxMarks);
+    if (Number.isFinite(mm) && mm > 0 && !maxUpdates.has(subjectId)) {
+      maxUpdates.set(subjectId, mm);
+    }
+
     // Safely convert marks
     let marks: Prisma.Decimal | null = null;
     if (s.marks != null && s.marks !== "" && !s.isAbsent) {
@@ -286,34 +294,49 @@ export async function upsertExamScores(
     });
   }
 
+  // Run everything as one interactive transaction with a generous timeout.
+  // Neon is a remote DB, so each write is a network round-trip; a large class
+  // (many students × subjects) is dozens of upserts and easily blows past the
+  // default 5s transaction limit. A bigger timeout keeps the save atomic without
+  // expiring. Decimal columns are written via Prisma.Decimal (same as marks).
   await prisma.$transaction(
-    processedScores.map((score) =>
-      prisma.examScore.upsert({
-        where: {
-          examId_studentId_subjectId: {
+    async (tx) => {
+      for (const [subjectId, maxMarks] of maxUpdates) {
+        await tx.programSubject.update({
+          where: { id: subjectId },
+          data: { maxMarks: new Prisma.Decimal(maxMarks) },
+        });
+      }
+
+      for (const score of processedScores) {
+        await tx.examScore.upsert({
+          where: {
+            examId_studentId_subjectId: {
+              examId,
+              studentId: score.studentId,
+              subjectId: score.subjectId,
+            },
+          },
+          update: {
+            marks: score.marks,
+            isAbsent: score.isAbsent,
+            remarks: score.remarks ?? null,
+          },
+          create: {
             examId,
             studentId: score.studentId,
             subjectId: score.subjectId,
+            centerId: exam.centerId,
+            marks: score.marks,
+            isAbsent: score.isAbsent,
+            remarks: score.remarks ?? null,
+            enteredBy: user.userId,
+            status: "DRAFT",
           },
-        },
-        update: {
-          marks: score.marks,
-          isAbsent: score.isAbsent,
-          remarks: score.remarks ?? null,
-        },
-        create: {
-          examId,
-          studentId: score.studentId,
-          subjectId: score.subjectId,
-          centerId: exam.centerId,
-          marks: score.marks,
-          isAbsent: score.isAbsent,
-          remarks: score.remarks ?? null,
-          enteredBy: user.userId,
-          status: "DRAFT",
-        },
-      }),
-    ),
+        });
+      }
+    },
+    { timeout: 120000, maxWait: 20000 },
   );
 
   return { success: true };
@@ -483,4 +506,191 @@ export async function getStudentExamScores(
   });
 
   return scores;
+}
+
+// ================= EXAM REPORT =================
+// Returns a per-exam summary with student marks (total + per-subject), plus
+// present/absent and gender counts. Teachers see ONLY the scores they entered;
+// admins see everything within the applied filters.
+
+type ExamReportQuery = {
+  centerId?: string;
+  programId?: string;
+  examType?: string;
+  academicYearId?: string;
+  month?: string; // "YYYY-MM"
+  standard?: string;
+};
+
+export async function getExamReport(user: JwtPayload, query: ExamReportQuery) {
+  const where: any = {};
+
+  // center scoping (teachers / center_admins restricted to their centers)
+  applyCenterFilter(user, where);
+
+  if (query.centerId) where.centerId = query.centerId;
+  if (query.programId) where.programId = query.programId;
+  if (query.examType) where.examType = query.examType;
+
+  const academicYearId = await resolveAcademicYearId(query.academicYearId);
+  if (query.academicYearId && !academicYearId) {
+    return { exams: [] };
+  }
+  if (academicYearId) where.academicYearId = academicYearId;
+
+  // month filter: "YYYY-MM" -> [firstOfMonth, firstOfNextMonth)
+  if (query.month && /^\d{4}-\d{2}$/.test(query.month)) {
+    const [y, m] = query.month.split("-").map(Number);
+    where.examDate = {
+      gte: new Date(y, m - 1, 1),
+      lt: new Date(y, m, 1),
+    };
+  }
+
+  const isTeacher = user.role === UserRole.teacher || user.role === UserRole.staff;
+
+  const exams = await prisma.exam.findMany({
+    where,
+    orderBy: { examDate: "desc" },
+    include: {
+      center: true,
+      program: true,
+      academicYear: true,
+      scores: {
+        include: {
+          subject: true,
+          student: {
+            select: { id: true, fullName: true, rollNumber: true, gender: true, standard: true },
+          },
+          enteredByUser: { select: { id: true, fullName: true } },
+        },
+      },
+    },
+  });
+
+  const report: any[] = [];
+
+  for (const exam of exams) {
+    // teachers: only the scores they themselves entered
+    let scores = exam.scores;
+    if (isTeacher) {
+      scores = scores.filter((s) => s.enteredBy === user.userId);
+    }
+    // optional standard filter (student-level)
+    if (query.standard) {
+      scores = scores.filter((s) => (s.student?.standard || "") === query.standard);
+    }
+
+    if (scores.length === 0) continue; // nothing relevant for this viewer
+
+    // subjects present in this exam's scores
+    const subjMap = new Map<string, { id: string; name: string; maxMarks: number }>();
+    for (const s of scores) {
+      if (s.subject && !subjMap.has(s.subject.id)) {
+        subjMap.set(s.subject.id, {
+          id: s.subject.id,
+          name: s.subject.name,
+          maxMarks: s.subject.maxMarks ? Number(s.subject.maxMarks) : 100,
+        });
+      }
+    }
+    const subjects = Array.from(subjMap.values());
+
+    // group scores per student
+    const studMap = new Map<string, any>();
+    for (const s of scores) {
+      const st = s.student;
+      if (!st) continue;
+      if (!studMap.has(st.id)) {
+        studMap.set(st.id, {
+          studentId: st.id,
+          name: st.fullName,
+          rollNumber: st.rollNumber || "",
+          gender: st.gender || null,
+          standard: st.standard || "",
+          perSubject: {} as Record<string, { marks: number | null; isAbsent: boolean; maxMarks: number }>,
+          obtainedTotal: 0,
+          maxTotal: 0,
+          isAbsent: false,
+          hasMarks: false,
+        });
+      }
+      const rec = studMap.get(st.id);
+      const maxM = s.subject?.maxMarks ? Number(s.subject.maxMarks) : 100;
+      const absent = Boolean(s.isAbsent);
+      const marks = !absent && s.marks != null ? Number(s.marks) : null;
+      if (s.subject) {
+        rec.perSubject[s.subject.id] = { marks, isAbsent: absent, maxMarks: maxM };
+      }
+      if (absent) rec.isAbsent = true;
+      if (marks != null) {
+        rec.obtainedTotal += marks;
+        rec.hasMarks = true;
+      }
+      rec.maxTotal += maxM;
+    }
+
+    const students = Array.from(studMap.values()).sort((a, b) =>
+      (a.name || "").localeCompare(b.name || ""),
+    );
+
+    const totalStudents = students.length;
+    const absentCount = students.filter((s) => s.isAbsent).length;
+    const presentCount = totalStudents - absentCount;
+    const maleCount = students.filter((s) => s.gender === "male").length;
+    const femaleCount = students.filter((s) => s.gender === "female").length;
+    const otherCount = totalStudents - maleCount - femaleCount;
+
+    const enteredBy = Array.from(
+      new Set(scores.map((s) => s.enteredByUser?.fullName).filter(Boolean)),
+    );
+
+    report.push({
+      id: exam.id,
+      name: exam.name,
+      examType: exam.examType,
+      examDate: exam.examDate,
+      academicYearLabel: exam.academicYear?.label ?? "",
+      center: { id: exam.centerId, name: exam.center?.name ?? "" },
+      program: { id: exam.programId, name: exam.program?.name ?? "" },
+      subjects,
+      enteredBy,
+      totals: {
+        totalStudents,
+        present: presentCount,
+        absent: absentCount,
+        male: maleCount,
+        female: femaleCount,
+        other: otherCount,
+      },
+      students,
+    });
+  }
+
+  return { exams: report };
+}
+
+// ================= DELETE EXAM (ADMIN ONLY) =================
+
+export async function deleteExam(user: JwtPayload, examId: string) {
+  const exam = await prisma.exam.findUnique({ where: { id: examId } });
+  if (!exam) throw new NotFoundError("Exam not found");
+
+  enforceCenterAccess(user, exam.centerId);
+
+  // Only admins may delete an entire exam and its scores.
+  const isAdmin =
+    user.role === UserRole.super_admin ||
+    user.role === UserRole.tech_admin ||
+    user.role === UserRole.center_admin;
+  if (!isAdmin) {
+    throw new ForbiddenError("Only admins can delete exams");
+  }
+
+  await prisma.$transaction([
+    prisma.examScore.deleteMany({ where: { examId } }),
+    prisma.exam.delete({ where: { id: examId } }),
+  ]);
+
+  return { success: true };
 }

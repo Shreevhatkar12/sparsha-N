@@ -7,6 +7,8 @@ import {
   getPendingExamScores,
   getStudentExamScores,
   getExamSheet,
+  getExamReport,
+  deleteExam,
   listExams,
   upsertExamScores,
 } from '../services/examService.js';
@@ -120,6 +122,42 @@ export async function getStudentExamScoresController(
     const result = await getStudentExamScores(
       (req as AuthenticatedRequest).user!,
       req.params.studentId as string,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getExamReportController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await getExamReport((req as AuthenticatedRequest).user!, {
+      centerId: req.query.centerId as string | undefined,
+      programId: req.query.programId as string | undefined,
+      examType: req.query.examType as string | undefined,
+      academicYearId: req.query.academicYearId as string | undefined,
+      month: req.query.month as string | undefined,
+      standard: req.query.standard as string | undefined,
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function deleteExamController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await deleteExam(
+      (req as AuthenticatedRequest).user!,
+      req.params.examId as string,
     );
     return res.status(200).json(result);
   } catch (error) {
