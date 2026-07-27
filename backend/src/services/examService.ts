@@ -237,7 +237,7 @@ export async function upsertExamScores(
   });
 
   // Resolve each score's subjectId — auto-create if subject name is new
-  const processedScores = [];
+  const processedScores: any[] = [];
   const maxUpdates = new Map<string, number>(); // subjectId -> new max marks
   for (const s of input.scores) {
     let subjectId =
