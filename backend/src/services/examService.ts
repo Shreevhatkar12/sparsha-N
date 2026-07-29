@@ -116,7 +116,7 @@ export async function getExamSheet(user: JwtPayload, examId: string) {
       programId: exam.programId,
       isActive: true,
     },
-    select: { id: true, fullName: true, rollNumber: true },
+    select: { id: true, fullName: true, rollNumber: true, standard: true },
     orderBy: { fullName: "asc" },
   });
 

@@ -42,6 +42,17 @@ const emptyRow = (cols: SubjectCol[]): GridRow => {
   };
 };
 
+// Canonical KG -> 12th ordering for the Standard filter chips.
+const STD_ORDER = [
+  "nursery", "jr kg", "sr kg", "kg",
+  "1st", "2nd", "3rd", "4th", "5th", "6th",
+  "7th", "8th", "9th", "10th", "11th", "12th",
+];
+const stdRank = (v: string) => {
+  const i = STD_ORDER.indexOf((v || "").trim().toLowerCase());
+  return i === -1 ? STD_ORDER.length + 1 : i;
+};
+
 export const Exams: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const userRole = useAuthStore((s) => s.currentUser?.role || "");
@@ -70,8 +81,9 @@ export const Exams: React.FC = () => {
   const [subjects, setSubjects] = useState<SubjectCol[]>([]);
   const [grid, setGrid] = useState<Record<string, GridRow>>({});
   const [studentOrder, setStudentOrder] = useState<
-    Array<{ id: string; fullName: string }>
+    Array<{ id: string; fullName: string; standard: string }>
   >([]);
+  const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [availableExams, setAvailableExams] = useState<
     Array<{
@@ -164,10 +176,11 @@ export const Exams: React.FC = () => {
     setSubjects(cols);
 
     // Build student list from res.students (all enrolled students)
-    const order: Array<{ id: string; fullName: string }> = (
+    const order: Array<{ id: string; fullName: string; standard: string }> = (
       res.students || []
-    ).map((s: any) => ({ id: s.id, fullName: s.fullName }));
+    ).map((s: any) => ({ id: s.id, fullName: s.fullName, standard: s.standard ?? "" }));
     setStudentOrder(order);
+    setSelectedStandards([]); // reset the standard filter for the newly loaded exam
 
     // Build grid: fill from scores
     const nextGrid: Record<string, GridRow> = {};
@@ -444,6 +457,22 @@ export const Exams: React.FC = () => {
     return subjects.some((s) => (g.marks[s.id] ?? "").trim() === "");
   };
 
+  // Standard filter (view-only): distinct standards among loaded students,
+  // ordered KG -> 12th, plus the rows actually shown.
+  const availableStandards = Array.from(
+    new Set(studentOrder.map((s) => s.standard).filter(Boolean)),
+  ).sort((a, b) => stdRank(a) - stdRank(b));
+
+  const visibleStudents = selectedStandards.length
+    ? studentOrder.filter((s) => selectedStandards.includes(s.standard))
+    : studentOrder;
+
+  const toggleStd = (std: string) => {
+    setSelectedStandards((prev) =>
+      prev.includes(std) ? prev.filter((x) => x !== std) : [...prev, std],
+    );
+  };
+
   if (listLoading)
     return (
       <PageWrapper title="Exams">
@@ -647,6 +676,43 @@ export const Exams: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Multi-select Standard filter (view-only) — appears once an exam is loaded */}
+        {examId && studentOrder.length > 0 && availableStandards.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-neutral-100">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-neutral-500 uppercase mr-1">
+                Standard filter:
+              </span>
+              <Button
+                type="button"
+                variant={selectedStandards.length === 0 ? "primary" : "secondary"}
+                size="sm"
+                className="text-xs rounded-full"
+                onClick={() => setSelectedStandards([])}
+              >
+                All
+              </Button>
+              {availableStandards.map((std) => (
+                <Button
+                  key={std}
+                  type="button"
+                  variant={selectedStandards.includes(std) ? "primary" : "secondary"}
+                  size="sm"
+                  className="text-xs rounded-full"
+                  onClick={() => toggleStd(std)}
+                >
+                  {std}
+                </Button>
+              ))}
+              {selectedStandards.length > 0 && (
+                <span className="text-xs text-neutral-500 ml-1">
+                  Showing {visibleStudents.length} of {studentOrder.length} students
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Marks Workspace */}
@@ -665,7 +731,7 @@ export const Exams: React.FC = () => {
         <Card className="mb-6 overflow-x-auto">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-neutral-900">
-              Marks entry ({studentOrder.length} students
+              Marks entry ({visibleStudents.length} students
               {subjects.length > 0 ? ` × ${subjects.length} subjects` : ""})
             </h2>
             <Button
@@ -764,8 +830,17 @@ export const Exams: React.FC = () => {
                       No students in this center + program.
                     </td>
                   </tr>
+                ) : visibleStudents.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={subjects.length + 3}
+                      className="py-8 text-center text-neutral-500"
+                    >
+                      No students match the selected standard(s).
+                    </td>
+                  </tr>
                 ) : (
-                  studentOrder.map((s, idx) => {
+                  visibleStudents.map((s, idx) => {
                     const g = grid[s.id] || emptyRow(subjects);
                     const inc = rowIncomplete(s.id);
                     return (
