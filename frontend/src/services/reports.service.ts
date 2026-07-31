@@ -43,6 +43,26 @@ export interface TeacherDashboardData {
     latestAvg: number;
     deltaPercent: number;
   };
+  gradeOverall: { A: number; B: number; C: number; D: number; E: number };
+  gradeByStd: Array<{
+    standard: string;
+    A: number;
+    B: number;
+    C: number;
+    D: number;
+    E: number;
+    total: number;
+  }>;
+  gradeByMonth: Array<{
+    monthKey: string;
+    label: string;
+    A: number;
+    B: number;
+    C: number;
+    D: number;
+    E: number;
+    total: number;
+  }>;
   activitiesMonthly: Array<{ monthKey: string; label: string; count: number }>;
   totalActivities: number;
   filterOptions: {

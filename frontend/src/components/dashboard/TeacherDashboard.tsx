@@ -17,6 +17,7 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
+  LabelList,
 } from "recharts";
 import {
   getTeacherDashboard,
@@ -36,8 +37,33 @@ const C_ACT = "#eda100";
 const AXIS_INK = "#6b7280";
 const GRID_INK = "#eef1f4";
 
+// Grade system — green (best) → red (needs support). Colour-blind friendly.
+const GRADE_ORDER = ["A", "B", "C", "D", "E"] as const;
+const GRADE_COLORS: Record<string, string> = {
+  A: "#008300",
+  B: "#2a78d6",
+  C: "#eda100",
+  D: "#eb6834",
+  E: "#e34948",
+};
+const GRADE_RANGE: Record<string, string> = {
+  A: "80% & above",
+  B: "60–79%",
+  C: "50–59%",
+  D: "40–49%",
+  E: "below 40%",
+};
+
 const CHART_H = 280;
 const CHART_MARGIN = { top: 8, right: 16, bottom: 28, left: 8 };
+
+// Label helpers for data labels on charts (v is untyped on purpose — safe under
+// strictFunctionTypes, same as the Tooltip formatter pattern).
+const hideZero = (v: unknown) => (Number(v) > 0 ? String(v) : "");
+const pctLabel = (v: unknown) => (v == null || v === "" ? "" : `${v}%`);
+// Explicit tuple type so the radius prop keeps its [n,n,n,n] shape.
+const topRadius = (last: boolean): [number, number, number, number] =>
+  last ? [4, 4, 0, 0] : [0, 0, 0, 0];
 
 type KpiProps = {
   icon: React.ReactNode;
@@ -319,12 +345,138 @@ export const TeacherDashboard: React.FC = () => {
                 />
                 <Tooltip cursor={{ fill: "#f6f8fa" }} />
                 <Legend />
-                <Bar dataKey="Male" stackId="g" fill={C_MALE} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Female" stackId="g" fill={C_FEMALE} radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Other" stackId="g" fill={C_OTHER} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Male" stackId="g" fill={C_MALE} radius={[0, 0, 0, 0]}>
+                  <LabelList dataKey="Male" position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                </Bar>
+                <Bar dataKey="Female" stackId="g" fill={C_FEMALE} radius={[0, 0, 0, 0]}>
+                  <LabelList dataKey="Female" position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                </Bar>
+                <Bar dataKey="Other" stackId="g" fill={C_OTHER} radius={[4, 4, 0, 0]}>
+                  <LabelList dataKey="Other" position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
+
+          {/* Grade Distribution — big section (month-wise + std-wise) */}
+          <Card className="border-none shadow-sm">
+            <div className="flex flex-col gap-1 mb-4">
+              <h3 className="font-bold text-neutral-900 text-lg">Grade Distribution</h3>
+              <p className="text-xs text-neutral-500">
+                Exam % var grade — month-wise ani standard-wise. (A 80%+ · B 60–79% · C 50–59% · D 40–49% · E below 40%)
+              </p>
+            </div>
+
+            {/* grade tiles */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+              {GRADE_ORDER.map((g) => (
+                <div
+                  key={g}
+                  className="rounded-xl p-3 text-center border"
+                  style={{ backgroundColor: `${GRADE_COLORS[g]}12`, borderColor: `${GRADE_COLORS[g]}33` }}
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: GRADE_COLORS[g] }} />
+                    <span className="text-sm font-black" style={{ color: GRADE_COLORS[g] }}>
+                      Grade {g}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-black text-neutral-900 mt-1">{data.gradeOverall[g]}</p>
+                  <p className="text-[10px] text-neutral-500">{GRADE_RANGE[g]}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* month-wise stacked-by-grade */}
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-700 mb-1">Exam Grades by Month</h4>
+              <p className="text-xs text-neutral-500 mb-3">
+                Ek bar = ek mahina · grade-wise student count (color-wise partition)
+              </p>
+              {data.gradeByMonth.length > 0 ? (
+                <ResponsiveContainer width="100%" height={340}>
+                  <BarChart data={data.gradeByMonth} margin={CHART_MARGIN}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: AXIS_INK }}
+                      tickLine={false}
+                      label={{ value: "Month", position: "insideBottom", offset: -12, fill: AXIS_INK, fontSize: 12 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 12, fill: AXIS_INK }}
+                      tickLine={false}
+                      axisLine={false}
+                      label={{ value: "Students", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }}
+                    />
+                    <Tooltip cursor={{ fill: "#f6f8fa" }} />
+                    <Legend />
+                    {GRADE_ORDER.map((g, idx) => (
+                      <Bar
+                        key={g}
+                        dataKey={g}
+                        stackId="grade"
+                        name={`Grade ${g} (${GRADE_RANGE[g]})`}
+                        fill={GRADE_COLORS[g]}
+                        radius={topRadius(idx === GRADE_ORDER.length - 1)}
+                      >
+                        <LabelList dataKey={g} position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                      </Bar>
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
+                  <p className="text-sm text-neutral-400">Ajun exam data nahi</p>
+                </div>
+              )}
+            </div>
+
+            {/* std-wise stacked-by-grade */}
+            <div className="mt-8">
+              <h4 className="text-sm font-semibold text-neutral-700 mb-1">Exam Grades by Standard</h4>
+              <p className="text-xs text-neutral-500 mb-3">Ek bar = ek std · grade-wise student count</p>
+              {data.gradeByStd.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={data.gradeByStd} margin={CHART_MARGIN}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
+                    <XAxis
+                      dataKey="standard"
+                      tick={{ fontSize: 12, fill: AXIS_INK }}
+                      tickLine={false}
+                      label={{ value: "Standard", position: "insideBottom", offset: -12, fill: AXIS_INK, fontSize: 12 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fontSize: 12, fill: AXIS_INK }}
+                      tickLine={false}
+                      axisLine={false}
+                      label={{ value: "Students", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }}
+                    />
+                    <Tooltip cursor={{ fill: "#f6f8fa" }} />
+                    <Legend />
+                    {GRADE_ORDER.map((g, idx) => (
+                      <Bar
+                        key={g}
+                        dataKey={g}
+                        stackId="grade"
+                        name={`Grade ${g}`}
+                        fill={GRADE_COLORS[g]}
+                        radius={topRadius(idx === GRADE_ORDER.length - 1)}
+                      >
+                        <LabelList dataKey={g} position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                      </Bar>
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
+                  <p className="text-sm text-neutral-400">Ajun exam data nahi</p>
+                </div>
+              )}
+            </div>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Student growth month-wise */}
@@ -351,7 +503,9 @@ export const TeacherDashboard: React.FC = () => {
                   />
                   <Tooltip cursor={{ fill: "#f6f8fa" }} />
                   <Legend />
-                  <Bar dataKey="added" name="New added" fill={C_GROWTH_BAR} radius={[4, 4, 0, 0]} barSize={26} />
+                  <Bar dataKey="added" name="New added" fill={C_GROWTH_BAR} radius={[4, 4, 0, 0]} barSize={26}>
+                    <LabelList dataKey="added" position="top" fontSize={11} fill={AXIS_INK} formatter={hideZero} />
+                  </Bar>
                   <Line
                     dataKey="cumulative"
                     name="Total (cumulative)"
@@ -359,7 +513,9 @@ export const TeacherDashboard: React.FC = () => {
                     stroke={C_GROWTH_LINE}
                     strokeWidth={3}
                     dot={{ r: 3 }}
-                  />
+                  >
+                    <LabelList dataKey="cumulative" position="top" fontSize={11} fill={C_GROWTH_LINE} formatter={hideZero} />
+                  </Line>
                 </ComposedChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -395,7 +551,9 @@ export const TeacherDashboard: React.FC = () => {
                     stroke={C_ATT}
                     strokeWidth={3}
                     dot={{ r: 3 }}
-                  />
+                  >
+                    <LabelList dataKey="rate" position="top" fontSize={11} fill={C_ATT} formatter={pctLabel} />
+                  </Line>
                 </LineChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -437,7 +595,9 @@ export const TeacherDashboard: React.FC = () => {
                     label={{ value: "Average %", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }}
                   />
                   <Tooltip formatter={(v) => `${v ?? 0}%`} cursor={{ fill: "#f6f8fa" }} />
-                  <Bar dataKey="avgPercent" name="Average %" fill={C_EXAM} radius={[4, 4, 0, 0]} barSize={30} />
+                  <Bar dataKey="avgPercent" name="Average %" fill={C_EXAM} radius={[4, 4, 0, 0]} barSize={30}>
+                    <LabelList dataKey="avgPercent" position="top" fontSize={11} fill={C_EXAM} formatter={pctLabel} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
@@ -465,7 +625,9 @@ export const TeacherDashboard: React.FC = () => {
                     label={{ value: "Activities", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }}
                   />
                   <Tooltip cursor={{ fill: "#f6f8fa" }} />
-                  <Bar dataKey="count" name="Activities" fill={C_ACT} radius={[4, 4, 0, 0]} barSize={30} />
+                  <Bar dataKey="count" name="Activities" fill={C_ACT} radius={[4, 4, 0, 0]} barSize={30}>
+                    <LabelList dataKey="count" position="top" fontSize={11} fill={AXIS_INK} formatter={hideZero} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>

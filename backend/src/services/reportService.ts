@@ -688,11 +688,14 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       };
     });
 
-  // ---- exams (monthly average % + growth) ----------------------------
+  // ---- exams (monthly average % + grade distribution) ----------------
   const examMonthMap = new Map<
     string,
     { sumPct: number; n: number; students: Set<string> }
   >();
+  // per-student totals (obtained / max) — overall + per month — for grading
+  const perStudentOverall = new Map<string, { obt: number; max: number }>();
+  const perStudentMonth = new Map<string, Map<string, { obt: number; max: number }>>();
   if (filteredIds.length) {
     const scores = await prisma.examScore.findMany({
       where: { studentId: { in: filteredIds } },
@@ -708,7 +711,8 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       if (sc.isAbsent || sc.marks === null) continue;
       const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
       if (!max || max <= 0) continue;
-      const pct = (Number(sc.marks) / max) * 100;
+      const obt = Number(sc.marks);
+      const pct = (obt / max) * 100;
       const d = sc.exam?.examDate ?? sc.exam?.createdAt;
       if (!d) continue;
       const key = tdMonthKey(new Date(d));
@@ -718,6 +722,21 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       m.n++;
       m.students.add(sc.studentId);
       examMonthMap.set(key, m);
+
+      const ov = perStudentOverall.get(sc.studentId) ?? { obt: 0, max: 0 };
+      ov.obt += obt;
+      ov.max += max;
+      perStudentOverall.set(sc.studentId, ov);
+
+      let byMonth = perStudentMonth.get(sc.studentId);
+      if (!byMonth) {
+        byMonth = new Map<string, { obt: number; max: number }>();
+        perStudentMonth.set(sc.studentId, byMonth);
+      }
+      const mm = byMonth.get(key) ?? { obt: 0, max: 0 };
+      mm.obt += obt;
+      mm.max += max;
+      byMonth.set(key, mm);
     }
   }
   const examMonthly = Array.from(examMonthMap.keys())
@@ -749,6 +768,64 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       deltaPercent: last.avgPercent - first.avgPercent,
     };
   }
+
+  // ---- grade distribution (A/B/C/D/E) --------------------------------
+  const studentStdMap = new Map<string, string>(
+    filtered.map((s): [string, string] => [
+      s.id,
+      s.standard && s.standard.trim() ? s.standard.trim() : "N/A",
+    ]),
+  );
+  const gradeOf = (pct: number): "A" | "B" | "C" | "D" | "E" =>
+    pct >= 80 ? "A" : pct >= 60 ? "B" : pct >= 50 ? "C" : pct >= 40 ? "D" : "E";
+  const emptyGrade = () => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
+
+  const gradeOverall = emptyGrade();
+  const stdGradeMap = new Map<
+    string,
+    { A: number; B: number; C: number; D: number; E: number }
+  >();
+  for (const [sid, agg] of perStudentOverall) {
+    if (agg.max <= 0) continue;
+    const g = gradeOf((agg.obt / agg.max) * 100);
+    gradeOverall[g]++;
+    const std = studentStdMap.get(sid) ?? "N/A";
+    const sg = stdGradeMap.get(std) ?? emptyGrade();
+    sg[g]++;
+    stdGradeMap.set(std, sg);
+  }
+  const gradeByStd = Array.from(stdGradeMap.entries())
+    .map(([standard, g]) => ({
+      standard,
+      ...g,
+      total: g.A + g.B + g.C + g.D + g.E,
+    }))
+    .sort((a, b) => tdStandardRank(a.standard) - tdStandardRank(b.standard));
+
+  const monthGradeMap = new Map<
+    string,
+    { A: number; B: number; C: number; D: number; E: number }
+  >();
+  for (const [, byMonth] of perStudentMonth) {
+    for (const [mk, agg] of byMonth) {
+      if (agg.max <= 0) continue;
+      const g = gradeOf((agg.obt / agg.max) * 100);
+      const mg = monthGradeMap.get(mk) ?? emptyGrade();
+      mg[g]++;
+      monthGradeMap.set(mk, mg);
+    }
+  }
+  const gradeByMonth = Array.from(monthGradeMap.keys())
+    .sort()
+    .map((k) => {
+      const g = monthGradeMap.get(k)!;
+      return {
+        monthKey: k,
+        label: tdMonthLabel(k),
+        ...g,
+        total: g.A + g.B + g.C + g.D + g.E,
+      };
+    });
 
   // ---- activities conducted (monthly) --------------------------------
   const actWhere: Prisma.ActivityWhereInput = {
@@ -811,6 +888,9 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
     studentGrowthMonthly,
     examMonthly,
     examGrowth,
+    gradeOverall,
+    gradeByStd,
+    gradeByMonth,
     activitiesMonthly,
     totalActivities,
     filterOptions: {

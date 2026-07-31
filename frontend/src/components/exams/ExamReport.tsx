@@ -11,6 +11,7 @@ import {
   deleteExam,
   type ExamReportQuery,
   type ReportExam,
+  type ReportStudent,
 } from "../../services/exams.service";
 import type { CenterSummary, ProgramSummary } from "../../types";
 import {
@@ -22,6 +23,7 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
+  LabelList,
 } from "recharts";
 
 const STD_OPTIONS = [
@@ -40,6 +42,27 @@ const C_MALE = "#2a78d6";
 const C_FEMALE = "#e87ba4";
 const AXIS_INK = "#6b7280";
 const GRID_INK = "#eef1f4";
+
+// Grade system — green (best) → red (needs support).
+const GRADE_KEYS = ["A", "B", "C", "D", "E"] as const;
+type Grade = (typeof GRADE_KEYS)[number];
+const GRADE_COLORS: Record<Grade, string> = {
+  A: "#008300",
+  B: "#2a78d6",
+  C: "#eda100",
+  D: "#eb6834",
+  E: "#e34948",
+};
+const GRADE_RANGE: Record<Grade, string> = {
+  A: "80%+",
+  B: "60-79%",
+  C: "50-59%",
+  D: "40-49%",
+  E: "<40%",
+};
+const gradeOf = (pct: number): Grade =>
+  pct >= 80 ? "A" : pct >= 60 ? "B" : pct >= 50 ? "C" : pct >= 40 ? "D" : "E";
+const countLabel = (v: unknown) => (Number(v) > 0 ? String(v) : "");
 
 type Props = {
   centers: CenterSummary[];
@@ -70,6 +93,20 @@ const avgPct = (ex: ReportExam) => {
     }
   }
   return max > 0 ? (obt / max) * 100 : null;
+};
+
+const studentPct = (s: ReportStudent): number | null =>
+  !s.isAbsent && s.hasMarks && s.maxTotal > 0
+    ? (s.obtainedTotal / s.maxTotal) * 100
+    : null;
+
+const gradeCounts = (ex: ReportExam): Record<Grade, number> => {
+  const c: Record<Grade, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+  for (const s of ex.students) {
+    const p = studentPct(s);
+    if (p != null) c[gradeOf(p)]++;
+  }
+  return c;
 };
 
 const esc = (v: unknown) =>
@@ -243,6 +280,9 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
     }
     const byStd = Array.from(stdMap.entries()).map(([name, value]) => ({ name, value }));
 
+    const gc = gradeCounts(ex);
+    const gradeData = GRADE_KEYS.map((g) => ({ name: g, value: gc[g] }));
+
     return (
       <div className="space-y-6">
         {/* Subject-wise average — the headline chart */}
@@ -269,6 +309,37 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                   {subjectAvg.map((_, i) => (
                     <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />
                   ))}
+                  <LabelList dataKey="pct" position="top" fontSize={11} fill={AXIS_INK} formatter={(v) => `${v ?? 0}%`} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Grade distribution */}
+        <div>
+          <h4 className="text-sm font-semibold text-neutral-700 mb-2">Grade distribution (A–E)</h4>
+          <div style={{ width: "100%", height: 240 }}>
+            <ResponsiveContainer>
+              <BarChart data={gradeData} margin={{ top: 16, right: 12, left: 4, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={GRID_INK} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                  label={{ value: "Grade", position: "insideBottom", offset: -4, fontSize: 12, fill: AXIS_INK }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 12 }}
+                  label={{ value: "Students", angle: -90, position: "insideLeft", fontSize: 12, fill: AXIS_INK }}
+                />
+                <Tooltip formatter={(v) => `${v ?? 0} students`} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+                <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={72}>
+                  {gradeData.map((d) => (
+                    <Cell key={d.name} fill={GRADE_COLORS[d.name]} />
+                  ))}
+                  <LabelList dataKey="value" position="top" fontSize={12} fill={AXIS_INK} formatter={countLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -290,6 +361,7 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={56}>
                     <Cell fill={C_PRESENT} />
                     <Cell fill={C_ABSENT} />
+                    <LabelList dataKey="value" position="top" fontSize={12} fill={AXIS_INK} formatter={countLabel} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -309,6 +381,7 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                   <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={56}>
                     <Cell fill={C_MALE} />
                     <Cell fill={C_FEMALE} />
+                    <LabelList dataKey="value" position="top" fontSize={12} fill={AXIS_INK} formatter={countLabel} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -329,6 +402,7 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                     {byStd.map((_, i) => (
                       <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />
                     ))}
+                    <LabelList dataKey="value" position="top" fontSize={12} fill={AXIS_INK} formatter={countLabel} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -552,6 +626,28 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                       ))}
                     </div>
 
+                    {/* grade-wise counts (whole class) */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="text-[11px] uppercase tracking-wide text-neutral-400 font-semibold mr-1">
+                        Grades
+                      </span>
+                      {GRADE_KEYS.map((g) => {
+                        const gc = gradeCounts(ex);
+                        return (
+                          <div
+                            key={g}
+                            className="px-3 py-2 rounded-lg text-center min-w-[62px] border"
+                            style={{ backgroundColor: `${GRADE_COLORS[g]}12`, borderColor: `${GRADE_COLORS[g]}33` }}
+                          >
+                            <div className="text-lg font-bold" style={{ color: GRADE_COLORS[g] }}>{gc[g]}</div>
+                            <div className="text-[10px] uppercase tracking-wide text-neutral-500">
+                              {g} <span className="text-neutral-400">({GRADE_RANGE[g]})</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
                     {/* student data — table or graph */}
                     {mode === "graph" ? (
                       renderCharts(ex)
@@ -573,6 +669,7 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                               ))}
                             <th className="py-2 pr-2 font-medium text-center">Total</th>
                             <th className="py-2 pr-2 font-medium text-center">%</th>
+                            <th className="py-2 pr-2 font-medium text-center">Grade</th>
                             <th className="py-2 pr-2 font-medium text-center">Status</th>
                           </tr>
                         </thead>
@@ -602,6 +699,18 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                                 </td>
                                 <td className="py-2 pr-2 text-center">
                                   {stPct != null ? `${stPct.toFixed(0)}%` : "—"}
+                                </td>
+                                <td className="py-2 pr-2 text-center">
+                                  {stPct != null ? (
+                                    <span
+                                      className="inline-block px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                                      style={{ backgroundColor: GRADE_COLORS[gradeOf(stPct)] }}
+                                    >
+                                      {gradeOf(stPct)}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
                                 </td>
                                 <td className="py-2 pr-2 text-center">
                                   {s.isAbsent ? (
