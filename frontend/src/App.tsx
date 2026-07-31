@@ -96,9 +96,13 @@ function App() {
           <Route path="/students/:id/edit" element={<StudentRegistration />} />
         </Route>
 
+        {/* --- DASHBOARD: Teachers see their self-dashboard, Admins see the admin dashboard --- */}
+        <Route element={<ProtectedRoute allowedRoles={['teacher', 'super_admin', 'center_admin', 'tech_admin']} />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
+
         {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}
         <Route element={<ProtectedRoute allowedRoles={['super_admin', 'center_admin', 'tech_admin']} />}>
-          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<UsersAdmin />} />
           <Route path="/centers" element={<CentersPage />} />
           <Route path="/programs" element={<ProgramsPage />} />
@@ -117,4 +121,4 @@ function App() {
   );
 }
 
-export default App;
+export default App;

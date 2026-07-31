@@ -490,9 +490,338 @@ export async function exportStudentDataCsv(user: JwtPayload, query: any): Promis
   if (data.length === 0) return "id,fullName,centerId,programId,attendanceRate,avgExamScore\n";
 
   const headers = "id,fullName,centerId,programId,attendanceRate,avgExamScore\n";
-  const rows = data.map(d => 
+  const rows = data.map(d =>
     `"${d.id}","${d.fullName}","${d.centerId}","${d.programId}",${d.attendanceRate},${d.avgExamScore}`
   ).join("\n");
 
   return headers + rows;
+}
+
+// ----------------------------------------------------------------------
+// TEACHER SELF DASHBOARD
+// Scoped strictly to the students the teacher registered (createdById).
+// "Maze students, other nahi." Admin dashboard is untouched.
+// ----------------------------------------------------------------------
+
+const TD_STD_ORDER = [
+  "Jr KG", "Sr KG", "KG",
+  "1st", "2nd", "3rd", "4th", "5th", "6th",
+  "7th", "8th", "9th", "10th", "11th", "12th",
+];
+
+function tdStandardRank(std: string): number {
+  const idx = TD_STD_ORDER.findIndex(
+    (s) => s.toLowerCase() === (std || "").trim().toLowerCase(),
+  );
+  return idx === -1 ? 500 : idx;
+}
+
+function tdMonthKey(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+const TD_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function tdMonthLabel(key: string): string {
+  const [y, m] = key.split("-");
+  return `${TD_MONTHS[Number(m) - 1]} ${y}`;
+}
+
+const TD_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function getTeacherDashboard(user: JwtPayload, query: any) {
+  const userId = user.userId;
+
+  // ---- parse filters -------------------------------------------------
+  const rawCenter =
+    typeof query.centerId === "string" && query.centerId ? query.centerId : undefined;
+  const rawProgram =
+    typeof query.programId === "string" && query.programId ? query.programId : undefined;
+  const safeCenter = rawCenter && TD_UUID_RE.test(rawCenter) ? rawCenter : undefined;
+  const safeProgram = rawProgram && TD_UUID_RE.test(rawProgram) ? rawProgram : undefined;
+
+  let standards: string[] = [];
+  if (typeof query.standards === "string" && query.standards.trim()) {
+    standards = query.standards
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
+  } else if (Array.isArray(query.standards)) {
+    standards = (query.standards as unknown[]).filter(
+      (s): s is string => typeof s === "string" && s.length > 0,
+    );
+  }
+
+  // ---- teacher identity ---------------------------------------------
+  const teacher = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { fullName: true },
+  });
+  const teacherName = teacher?.fullName ?? "Teacher";
+
+  // ---- all my students (single fetch, filter in memory) --------------
+  const allMine = await prisma.student.findMany({
+    where: { isActive: true, createdById: userId },
+    select: {
+      id: true,
+      gender: true,
+      standard: true,
+      centerId: true,
+      programId: true,
+      enrollmentDate: true,
+    },
+  });
+
+  const cpStudents = allMine.filter(
+    (s) =>
+      (!safeCenter || s.centerId === safeCenter) &&
+      (!safeProgram || s.programId === safeProgram),
+  );
+
+  const filtered = standards.length
+    ? cpStudents.filter((s) => !!s.standard && standards.includes(s.standard))
+    : cpStudents;
+
+  // ---- totals + gender ----------------------------------------------
+  let male = 0,
+    female = 0,
+    other = 0;
+  for (const s of filtered) {
+    if (s.gender === "male") male++;
+    else if (s.gender === "female") female++;
+    else other++;
+  }
+  const totals = { students: filtered.length, male, female, other };
+
+  // ---- std breakdown (center/program scoped, ignores std filter) -----
+  const stdMap = new Map<
+    string,
+    { standard: string; count: number; male: number; female: number }
+  >();
+  for (const s of cpStudents) {
+    const key = s.standard && s.standard.trim() ? s.standard.trim() : "N/A";
+    const cur = stdMap.get(key) ?? { standard: key, count: 0, male: 0, female: 0 };
+    cur.count++;
+    if (s.gender === "male") cur.male++;
+    else if (s.gender === "female") cur.female++;
+    stdMap.set(key, cur);
+  }
+  const stdBreakdown = Array.from(stdMap.values()).sort(
+    (a, b) => tdStandardRank(a.standard) - tdStandardRank(b.standard),
+  );
+
+  // ---- student growth (monthly by enrollment) ------------------------
+  const growthMap = new Map<string, number>();
+  for (const s of filtered) {
+    const key = tdMonthKey(new Date(s.enrollmentDate));
+    growthMap.set(key, (growthMap.get(key) ?? 0) + 1);
+  }
+  let cumulative = 0;
+  const studentGrowthMonthly = Array.from(growthMap.keys())
+    .sort()
+    .map((k) => {
+      const added = growthMap.get(k) ?? 0;
+      cumulative += added;
+      return { monthKey: k, label: tdMonthLabel(k), added, cumulative };
+    });
+
+  const filteredIds = filtered.map((s) => s.id);
+
+  // ---- attendance (overall + monthly) --------------------------------
+  let attendance = {
+    overallRate: 0,
+    present: 0,
+    absent: 0,
+    late: 0,
+    totalRecords: 0,
+  };
+  const attMonthMap = new Map<
+    string,
+    { present: number; late: number; total: number }
+  >();
+  if (filteredIds.length) {
+    const records = await prisma.attendanceRecord.findMany({
+      where: { studentId: { in: filteredIds } },
+      select: { status: true, session: { select: { sessionDate: true } } },
+    });
+    let p = 0,
+      a = 0,
+      l = 0;
+    for (const r of records) {
+      const key = tdMonthKey(new Date(r.session.sessionDate));
+      const m = attMonthMap.get(key) ?? { present: 0, late: 0, total: 0 };
+      m.total++;
+      if (r.status === "present") {
+        p++;
+        m.present++;
+      } else if (r.status === "late") {
+        l++;
+        m.late++;
+      } else if (r.status === "absent") {
+        a++;
+      }
+      attMonthMap.set(key, m);
+    }
+    const totalRec = records.length;
+    attendance = {
+      overallRate: totalRec === 0 ? 0 : Math.round(((p + l) / totalRec) * 100),
+      present: p,
+      absent: a,
+      late: l,
+      totalRecords: totalRec,
+    };
+  }
+  const attendanceMonthly = Array.from(attMonthMap.keys())
+    .sort()
+    .map((k) => {
+      const m = attMonthMap.get(k)!;
+      return {
+        monthKey: k,
+        label: tdMonthLabel(k),
+        rate: m.total === 0 ? 0 : Math.round(((m.present + m.late) / m.total) * 100),
+      };
+    });
+
+  // ---- exams (monthly average % + growth) ----------------------------
+  const examMonthMap = new Map<
+    string,
+    { sumPct: number; n: number; students: Set<string> }
+  >();
+  if (filteredIds.length) {
+    const scores = await prisma.examScore.findMany({
+      where: { studentId: { in: filteredIds } },
+      select: {
+        marks: true,
+        isAbsent: true,
+        studentId: true,
+        subject: { select: { maxMarks: true } },
+        exam: { select: { examDate: true, createdAt: true } },
+      },
+    });
+    for (const sc of scores) {
+      if (sc.isAbsent || sc.marks === null) continue;
+      const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+      if (!max || max <= 0) continue;
+      const pct = (Number(sc.marks) / max) * 100;
+      const d = sc.exam?.examDate ?? sc.exam?.createdAt;
+      if (!d) continue;
+      const key = tdMonthKey(new Date(d));
+      const m =
+        examMonthMap.get(key) ?? { sumPct: 0, n: 0, students: new Set<string>() };
+      m.sumPct += pct;
+      m.n++;
+      m.students.add(sc.studentId);
+      examMonthMap.set(key, m);
+    }
+  }
+  const examMonthly = Array.from(examMonthMap.keys())
+    .sort()
+    .map((k) => {
+      const m = examMonthMap.get(k)!;
+      return {
+        monthKey: k,
+        label: tdMonthLabel(k),
+        avgPercent: m.n === 0 ? 0 : Math.round(m.sumPct / m.n),
+        studentCount: m.students.size,
+      };
+    });
+  let examGrowth = {
+    firstLabel: "",
+    firstAvg: 0,
+    latestLabel: "",
+    latestAvg: 0,
+    deltaPercent: 0,
+  };
+  if (examMonthly.length) {
+    const first = examMonthly[0];
+    const last = examMonthly[examMonthly.length - 1];
+    examGrowth = {
+      firstLabel: first.label,
+      firstAvg: first.avgPercent,
+      latestLabel: last.label,
+      latestAvg: last.avgPercent,
+      deltaPercent: last.avgPercent - first.avgPercent,
+    };
+  }
+
+  // ---- activities conducted (monthly) --------------------------------
+  const actWhere: Prisma.ActivityWhereInput = {
+    createdBy: userId,
+    isActive: true,
+  };
+  if (safeCenter) actWhere.centerId = safeCenter;
+  if (safeProgram) actWhere.programId = safeProgram;
+  const activities = await prisma.activity.findMany({
+    where: actWhere,
+    select: { startDate: true, createdAt: true },
+  });
+  const actMonthMap = new Map<string, number>();
+  for (const act of activities) {
+    const d = act.startDate ?? act.createdAt;
+    const key = tdMonthKey(new Date(d));
+    actMonthMap.set(key, (actMonthMap.get(key) ?? 0) + 1);
+  }
+  const activitiesMonthly = Array.from(actMonthMap.keys())
+    .sort()
+    .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: actMonthMap.get(k) ?? 0 }));
+  const totalActivities = activities.length;
+
+  // ---- filter options (from ALL my students, ignoring filters) -------
+  const centerIds = Array.from(
+    new Set(allMine.map((s) => s.centerId).filter((x): x is string => !!x)),
+  );
+  const programIds = Array.from(
+    new Set(allMine.map((s) => s.programId).filter((x): x is string => !!x)),
+  );
+  const stdOptions = Array.from(
+    new Set(
+      allMine
+        .map((s) => s.standard)
+        .filter((x): x is string => !!x && x.trim().length > 0),
+    ),
+  ).sort((a, b) => tdStandardRank(a) - tdStandardRank(b));
+
+  const [centers, programs] = await Promise.all([
+    centerIds.length
+      ? prisma.center.findMany({
+          where: { id: { in: centerIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as Array<{ id: string; name: string }>),
+    programIds.length
+      ? prisma.program.findMany({
+          where: { id: { in: programIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as Array<{ id: string; name: string }>),
+  ]);
+
+  return {
+    teacherName,
+    totals,
+    stdBreakdown,
+    attendance,
+    attendanceMonthly,
+    studentGrowthMonthly,
+    examMonthly,
+    examGrowth,
+    activitiesMonthly,
+    totalActivities,
+    filterOptions: {
+      centers,
+      programs,
+      standards: stdOptions,
+    },
+    appliedFilters: {
+      centerId: safeCenter ?? null,
+      programId: safeProgram ?? null,
+      standards,
+    },
+  };
 }

@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [meetingsOpen, setMeetingsOpen] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin'] },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher'] },
@@ -143,4 +143,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       </aside>
     </>
   );
-};
+};

@@ -5,6 +5,7 @@ import { requireCenterAccess } from '../middleware/center.middleware.js';
 import { PERMISSIONS } from '../config/rbac.js';
 import {
   dashboardController,
+  teacherDashboardController,
   attendanceController,
   examsController,
   skillsReportController,
@@ -18,6 +19,7 @@ reportRoutes.use(authenticate);
 reportRoutes.use(requireCenterAccess());
 
 reportRoutes.get("/dashboard", dashboardController);
+reportRoutes.get("/teacher-dashboard", teacherDashboardController);
 reportRoutes.get("/attendance", attendanceController);
 reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);

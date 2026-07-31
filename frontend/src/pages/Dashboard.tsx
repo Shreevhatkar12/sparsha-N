@@ -8,8 +8,9 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Users, BookOpen, PlusCircle, Trash2, TrendingUp, Target, Activity } from 'lucide-react';
 import { getReportsDashboard } from '../services/reports.service';
+import { TeacherDashboard } from '../components/dashboard/TeacherDashboard';
 
-export const Dashboard: React.FC = () => {
+const AdminDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const navigate = useNavigate();
@@ -258,4 +259,12 @@ export const Dashboard: React.FC = () => {
       )}
     </PageWrapper>
   );
+};
+
+export const Dashboard: React.FC = () => {
+  const role = useAuthStore((s) => s.currentUser?.role);
+  if (role === 'teacher') {
+    return <TeacherDashboard />;
+  }
+  return <AdminDashboard />;
 };
