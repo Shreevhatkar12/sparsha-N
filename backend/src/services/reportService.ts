@@ -34,6 +34,7 @@ export async function getDashboardSummary(user: JwtPayload) {
     by: ['status'],
     where: {
       centerId: centerScope,
+      student: { isActive: true },
       session: { sessionDate: { gte: thirtyDaysAgo } }
     },
     _count: { status: true },
@@ -57,7 +58,7 @@ export async function getDashboardSummary(user: JwtPayload) {
     // rate for this specific center
     const cAtt = await prisma.attendanceRecord.groupBy({
       by: ['status'],
-      where: { centerId: center.id },
+      where: { centerId: center.id, student: { isActive: true } },
       _count: { status: true },
     });
     let cp = 0, cl = 0, ct = 0;
@@ -145,6 +146,7 @@ export async function getAttendanceAnalytics(user: JwtPayload, query: any) {
     where: whereSession,
     include: {
       records: {
+        where: { student: { isActive: true } },
         include: { student: { select: { fullName: true } } }
       }
     }
@@ -243,6 +245,7 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
     where: whereExam,
     include: {
       scores: {
+        where: { student: { isActive: true } },
         include: { student: { select: { fullName: true } }, subject: true }
       }
     }
@@ -902,6 +905,584 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       centerId: safeCenter ?? null,
       programId: safeProgram ?? null,
       standards,
+    },
+  };
+}
+
+// ----------------------------------------------------------------------
+// ADMIN ANALYTICS (super_admin + tech_admin = all; center_admin = own centers)
+// One comprehensive payload for the admin control-tower dashboard.
+// ----------------------------------------------------------------------
+export async function getAdminAnalytics(user: JwtPayload, query: any) {
+  const isSuper = user.role === "super_admin" || user.role === "tech_admin";
+  const myCenterIds = user.centerIds ?? [];
+
+  const pickUuid = (v: unknown): string | undefined =>
+    typeof v === "string" && v && TD_UUID_RE.test(v) ? v : undefined;
+  const fCenter = pickUuid(query.centerId);
+  const fProgram = pickUuid(query.programId);
+  const fTeacher = pickUuid(query.teacherId);
+  const fStandard =
+    typeof query.standard === "string" && query.standard.trim()
+      ? query.standard.trim()
+      : undefined;
+  const fGrade =
+    typeof query.grade === "string" && ["A", "B", "C", "D", "E"].includes(query.grade)
+      ? (query.grade as "A" | "B" | "C" | "D" | "E")
+      : undefined;
+
+  // Allowed centers: super/tech = all (undefined), others = their centers.
+  const centerIn: string[] | undefined = isSuper
+    ? fCenter
+      ? [fCenter]
+      : undefined
+    : fCenter && myCenterIds.includes(fCenter)
+      ? [fCenter]
+      : myCenterIds;
+
+  const gradeOf = (pct: number): "A" | "B" | "C" | "D" | "E" =>
+    pct >= 80 ? "A" : pct >= 60 ? "B" : pct >= 50 ? "C" : pct >= 40 ? "D" : "E";
+  const emptyGrade = () => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
+  const rate = (p: number, l: number, t: number) =>
+    t === 0 ? 0 : Math.round(((p + l) / t) * 100);
+
+  // ---- students -----------------------------------------------------
+  const studentWhere: Prisma.StudentWhereInput = { isActive: true };
+  if (centerIn) studentWhere.centerId = { in: centerIn };
+  if (fProgram) studentWhere.programId = fProgram;
+  if (fStandard) studentWhere.standard = fStandard;
+  if (fTeacher) studentWhere.createdById = fTeacher;
+
+  const allStudents = await prisma.student.findMany({
+    where: studentWhere,
+    select: {
+      id: true,
+      fullName: true,
+      rollNumber: true,
+      gender: true,
+      standard: true,
+      centerId: true,
+      programId: true,
+      enrollmentDate: true,
+      createdById: true,
+    },
+  });
+  const allIds = allStudents.map((s) => s.id);
+
+  // ---- exam scores --------------------------------------------------
+  const scores = allIds.length
+    ? await prisma.examScore.findMany({
+        where: { studentId: { in: allIds } },
+        select: {
+          marks: true,
+          isAbsent: true,
+          studentId: true,
+          enteredBy: true,
+          examId: true,
+          subject: { select: { name: true, maxMarks: true } },
+          exam: { select: { examDate: true, createdAt: true } },
+        },
+      })
+    : [];
+
+  // per-student overall % → grade (for the grade filter + distributions)
+  const psOverallAll = new Map<string, { obt: number; max: number }>();
+  for (const sc of scores) {
+    if (sc.isAbsent || sc.marks === null) continue;
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max || max <= 0) continue;
+    const o = psOverallAll.get(sc.studentId) ?? { obt: 0, max: 0 };
+    o.obt += Number(sc.marks);
+    o.max += max;
+    psOverallAll.set(sc.studentId, o);
+  }
+  const studentGrade = new Map<string, "A" | "B" | "C" | "D" | "E">();
+  for (const [sid, agg] of psOverallAll) {
+    if (agg.max > 0) studentGrade.set(sid, gradeOf((agg.obt / agg.max) * 100));
+  }
+
+  // grade filter narrows the effective student set
+  const students = fGrade
+    ? allStudents.filter((s) => studentGrade.get(s.id) === fGrade)
+    : allStudents;
+  const ids = students.map((s) => s.id);
+  const idSet = new Set(ids);
+  const studentById = new Map(students.map((s) => [s.id, s] as const));
+  const effScores = fGrade ? scores.filter((sc) => idSet.has(sc.studentId)) : scores;
+
+  // ---- gender ------------------------------------------------------
+  let male = 0,
+    female = 0,
+    other = 0;
+  for (const s of students) {
+    if (s.gender === "male") male++;
+    else if (s.gender === "female") female++;
+    else other++;
+  }
+
+  // ---- exam aggregations (grades, subjects, teachers) --------------
+  const psOverallEff = new Map<string, { obt: number; max: number }>();
+  const psMonth = new Map<string, Map<string, { obt: number; max: number }>>();
+  const subjMap = new Map<string, { obt: number; max: number }>();
+  const teacherExam = new Map<string, { obt: number; max: number; exams: Set<string> }>();
+  const examIdSet = new Set<string>();
+  for (const sc of effScores) {
+    examIdSet.add(sc.examId);
+    if (sc.isAbsent || sc.marks === null) continue;
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max || max <= 0) continue;
+    const obt = Number(sc.marks);
+    const ov = psOverallEff.get(sc.studentId) ?? { obt: 0, max: 0 };
+    ov.obt += obt;
+    ov.max += max;
+    psOverallEff.set(sc.studentId, ov);
+    const d = sc.exam?.examDate ?? sc.exam?.createdAt;
+    if (d) {
+      const mk = tdMonthKey(new Date(d));
+      let bm = psMonth.get(sc.studentId);
+      if (!bm) {
+        bm = new Map<string, { obt: number; max: number }>();
+        psMonth.set(sc.studentId, bm);
+      }
+      const mm = bm.get(mk) ?? { obt: 0, max: 0 };
+      mm.obt += obt;
+      mm.max += max;
+      bm.set(mk, mm);
+    }
+    if (sc.subject) {
+      const sj = subjMap.get(sc.subject.name) ?? { obt: 0, max: 0 };
+      sj.obt += obt;
+      sj.max += max;
+      subjMap.set(sc.subject.name, sj);
+    }
+    const te = teacherExam.get(sc.enteredBy) ?? { obt: 0, max: 0, exams: new Set<string>() };
+    te.obt += obt;
+    te.max += max;
+    te.exams.add(sc.examId);
+    teacherExam.set(sc.enteredBy, te);
+  }
+
+  const gradeOverall = emptyGrade();
+  const stdGradeMap = new Map<
+    string,
+    { A: number; B: number; C: number; D: number; E: number }
+  >();
+  const genderGrade = { male: emptyGrade(), female: emptyGrade() };
+  for (const [sid, agg] of psOverallEff) {
+    if (agg.max <= 0) continue;
+    const g = gradeOf((agg.obt / agg.max) * 100);
+    gradeOverall[g]++;
+    const st = studentById.get(sid);
+    const std = st?.standard && st.standard.trim() ? st.standard.trim() : "N/A";
+    const sg = stdGradeMap.get(std) ?? emptyGrade();
+    sg[g]++;
+    stdGradeMap.set(std, sg);
+    if (st?.gender === "male") genderGrade.male[g]++;
+    else if (st?.gender === "female") genderGrade.female[g]++;
+  }
+  const gradeByStd = Array.from(stdGradeMap.entries())
+    .map(([standard, g]) => ({ standard, ...g, total: g.A + g.B + g.C + g.D + g.E }))
+    .sort((a, b) => tdStandardRank(a.standard) - tdStandardRank(b.standard));
+  const monthGradeMap = new Map<
+    string,
+    { A: number; B: number; C: number; D: number; E: number }
+  >();
+  for (const [, bm] of psMonth) {
+    for (const [mk, agg] of bm) {
+      if (agg.max <= 0) continue;
+      const g = gradeOf((agg.obt / agg.max) * 100);
+      const mg = monthGradeMap.get(mk) ?? emptyGrade();
+      mg[g]++;
+      monthGradeMap.set(mk, mg);
+    }
+  }
+  const gradeByMonth = Array.from(monthGradeMap.keys())
+    .sort()
+    .map((k) => {
+      const g = monthGradeMap.get(k)!;
+      return { monthKey: k, label: tdMonthLabel(k), ...g, total: g.A + g.B + g.C + g.D + g.E };
+    });
+  const avgBySubject = Array.from(subjMap.entries())
+    .map(([name, v]) => ({ name, avgPercent: v.max > 0 ? Math.round((v.obt / v.max) * 100) : 0 }))
+    .sort((a, b) => b.avgPercent - a.avgPercent);
+
+  // ---- attendance (last 12 months) ---------------------------------
+  const attFloor = new Date();
+  attFloor.setMonth(attFloor.getMonth() - 12);
+  const records = ids.length
+    ? await prisma.attendanceRecord.findMany({
+        where: { studentId: { in: ids }, session: { sessionDate: { gte: attFloor } } },
+        select: {
+          status: true,
+          studentId: true,
+          centerId: true,
+          session: { select: { sessionDate: true, createdBy: true } },
+        },
+      })
+    : [];
+  let aPresent = 0,
+    aLate = 0,
+    aTotal = 0;
+  const attMonth = new Map<string, { p: number; l: number; t: number }>();
+  const attCenter = new Map<string, { p: number; l: number; t: number }>();
+  const attTeacher = new Map<string, { p: number; l: number; t: number }>();
+  const attGender = { male: { p: 0, l: 0, t: 0 }, female: { p: 0, l: 0, t: 0 } };
+  const psAtt = new Map<string, { p: number; t: number }>();
+  for (const r of records) {
+    const pres = r.status === "present";
+    const late = r.status === "late";
+    aTotal++;
+    if (pres) aPresent++;
+    if (late) aLate++;
+    const mk = tdMonthKey(new Date(r.session.sessionDate));
+    const m = attMonth.get(mk) ?? { p: 0, l: 0, t: 0 };
+    m.t++;
+    if (pres) m.p++;
+    if (late) m.l++;
+    attMonth.set(mk, m);
+    const c = attCenter.get(r.centerId) ?? { p: 0, l: 0, t: 0 };
+    c.t++;
+    if (pres) c.p++;
+    if (late) c.l++;
+    attCenter.set(r.centerId, c);
+    const tk = r.session.createdBy;
+    const tt = attTeacher.get(tk) ?? { p: 0, l: 0, t: 0 };
+    tt.t++;
+    if (pres) tt.p++;
+    if (late) tt.l++;
+    attTeacher.set(tk, tt);
+    const st = studentById.get(r.studentId);
+    if (st?.gender === "male") {
+      attGender.male.t++;
+      if (pres) attGender.male.p++;
+      if (late) attGender.male.l++;
+    } else if (st?.gender === "female") {
+      attGender.female.t++;
+      if (pres) attGender.female.p++;
+      if (late) attGender.female.l++;
+    }
+    const pa = psAtt.get(r.studentId) ?? { p: 0, t: 0 };
+    pa.t++;
+    if (pres || late) pa.p++;
+    psAtt.set(r.studentId, pa);
+  }
+  const overallAttendanceRate = rate(aPresent, aLate, aTotal);
+  const attendanceMonthly = Array.from(attMonth.keys())
+    .sort()
+    .map((k) => {
+      const m = attMonth.get(k)!;
+      return { monthKey: k, label: tdMonthLabel(k), rate: rate(m.p, m.l, m.t) };
+    });
+
+  // ---- enrollment growth -------------------------------------------
+  const enrMap = new Map<string, { added: number; male: number; female: number }>();
+  for (const s of students) {
+    const k = tdMonthKey(new Date(s.enrollmentDate));
+    const e = enrMap.get(k) ?? { added: 0, male: 0, female: 0 };
+    e.added++;
+    if (s.gender === "male") e.male++;
+    else if (s.gender === "female") e.female++;
+    enrMap.set(k, e);
+  }
+  let cum = 0;
+  const enrollmentMonthly = Array.from(enrMap.keys())
+    .sort()
+    .map((k) => {
+      const e = enrMap.get(k)!;
+      cum += e.added;
+      return { monthKey: k, label: tdMonthLabel(k), added: e.added, cumulative: cum, male: e.male, female: e.female };
+    });
+
+  // ---- activities ---------------------------------------------------
+  const actWhere: Prisma.ActivityWhereInput = { isActive: true };
+  if (centerIn) actWhere.centerId = { in: centerIn };
+  if (fProgram) actWhere.programId = fProgram;
+  if (fTeacher) actWhere.createdBy = fTeacher;
+  const activities = await prisma.activity.findMany({
+    where: actWhere,
+    select: { startDate: true, createdAt: true, centerId: true, createdBy: true },
+  });
+  const actMonth = new Map<string, number>();
+  const actCenter = new Map<string, number>();
+  const actTeacher = new Map<string, number>();
+  for (const a of activities) {
+    const d = a.startDate ?? a.createdAt;
+    const k = tdMonthKey(new Date(d));
+    actMonth.set(k, (actMonth.get(k) ?? 0) + 1);
+    actCenter.set(a.centerId, (actCenter.get(a.centerId) ?? 0) + 1);
+    actTeacher.set(a.createdBy, (actTeacher.get(a.createdBy) ?? 0) + 1);
+  }
+  const activitiesMonthly = Array.from(actMonth.keys())
+    .sort()
+    .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: actMonth.get(k) ?? 0 }));
+
+  // ---- meetings (student + parent) ---------------------------------
+  const [stuMeet, parMeet] = await Promise.all([
+    prisma.studentMeeting.findMany({
+      where: centerIn ? { centerId: { in: centerIn } } : {},
+      select: {
+        meetingDate: true,
+        attendance: { where: { student: { isActive: true } }, select: { isPresent: true } },
+      },
+    }),
+    prisma.parentMeeting.findMany({
+      where: centerIn ? { centerId: { in: centerIn } } : {},
+      select: { meetingDate: true, attendance: { select: { gender: true } } },
+    }),
+  ]);
+  const stuMeetMonth = new Map<string, number>();
+  let stuMeetPresent = 0;
+  for (const m of stuMeet) {
+    const k = tdMonthKey(new Date(m.meetingDate));
+    stuMeetMonth.set(k, (stuMeetMonth.get(k) ?? 0) + 1);
+    for (const a of m.attendance) if (a.isPresent) stuMeetPresent++;
+  }
+  const parMeetMonth = new Map<string, number>();
+  let parMale = 0,
+    parFemale = 0;
+  for (const m of parMeet) {
+    const k = tdMonthKey(new Date(m.meetingDate));
+    parMeetMonth.set(k, (parMeetMonth.get(k) ?? 0) + 1);
+    for (const a of m.attendance) {
+      if (a.gender === "male") parMale++;
+      else if (a.gender === "female") parFemale++;
+    }
+  }
+  const meetings = {
+    studentTotal: stuMeet.length,
+    parentTotal: parMeet.length,
+    studentPresent: stuMeetPresent,
+    parentAttendees: parMale + parFemale,
+    parentMale: parMale,
+    parentFemale: parFemale,
+    studentMonthly: Array.from(stuMeetMonth.keys())
+      .sort()
+      .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: stuMeetMonth.get(k) ?? 0 })),
+    parentMonthly: Array.from(parMeetMonth.keys())
+      .sort()
+      .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: parMeetMonth.get(k) ?? 0 })),
+  };
+
+  // ---- centers / programs / teachers (names + options) -------------
+  const centerWhere: Prisma.CenterWhereInput = { isActive: true };
+  if (centerIn) centerWhere.id = { in: centerIn };
+  const centersList = await prisma.center.findMany({
+    where: centerWhere,
+    select: { id: true, name: true },
+  });
+  const centerName = new Map(centersList.map((c) => [c.id, c.name] as const));
+  const programsList = await prisma.program.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true },
+  });
+  const programName = new Map(programsList.map((p) => [p.id, p.name] as const));
+
+  const teacherWhere: Prisma.UserWhereInput = { role: "teacher", isActive: true };
+  if (centerIn) teacherWhere.centerAssignments = { some: { centerId: { in: centerIn } } };
+  const teachersList = await prisma.user.findMany({
+    where: teacherWhere,
+    select: { id: true, fullName: true },
+  });
+
+  // teacher names for anyone appearing in the summaries
+  const teacherIdSet = new Set<string>();
+  for (const s of students) if (s.createdById) teacherIdSet.add(s.createdById);
+  for (const k of teacherExam.keys()) teacherIdSet.add(k);
+  for (const k of attTeacher.keys()) teacherIdSet.add(k);
+  for (const k of actTeacher.keys()) teacherIdSet.add(k);
+  const teacherNameRows = teacherIdSet.size
+    ? await prisma.user.findMany({
+        where: { id: { in: Array.from(teacherIdSet) } },
+        select: { id: true, fullName: true },
+      })
+    : [];
+  const teacherName = new Map(teacherNameRows.map((u) => [u.id, u.fullName] as const));
+
+  const teacherStudents = new Map<string, number>();
+  for (const s of students)
+    if (s.createdById) teacherStudents.set(s.createdById, (teacherStudents.get(s.createdById) ?? 0) + 1);
+
+  const teacherSummary = Array.from(teacherIdSet)
+    .map((id) => {
+      const te = teacherExam.get(id);
+      const at = attTeacher.get(id);
+      return {
+        teacherId: id,
+        name: teacherName.get(id) || "Unknown",
+        students: teacherStudents.get(id) || 0,
+        examsEntered: te ? te.exams.size : 0,
+        avgPercent: te && te.max > 0 ? Math.round((te.obt / te.max) * 100) : 0,
+        attendanceRate: at ? rate(at.p, at.l, at.t) : 0,
+        activities: actTeacher.get(id) || 0,
+      };
+    })
+    .filter((t) => t.students > 0 || t.examsEntered > 0 || t.activities > 0)
+    .sort((a, b) => b.students - a.students);
+
+  // ---- center comparison -------------------------------------------
+  const centerStudents = new Map<string, number>();
+  for (const s of students) centerStudents.set(s.centerId, (centerStudents.get(s.centerId) ?? 0) + 1);
+  const centerExam = new Map<string, { obt: number; max: number }>();
+  for (const sc of effScores) {
+    if (sc.isAbsent || sc.marks === null) continue;
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max || max <= 0) continue;
+    const st = studentById.get(sc.studentId);
+    if (!st) continue;
+    const ce = centerExam.get(st.centerId) ?? { obt: 0, max: 0 };
+    ce.obt += Number(sc.marks);
+    ce.max += max;
+    centerExam.set(st.centerId, ce);
+  }
+  const centerComparison = centersList
+    .map((c) => {
+      const att = attCenter.get(c.id);
+      const ex = centerExam.get(c.id);
+      return {
+        centerId: c.id,
+        name: c.name,
+        students: centerStudents.get(c.id) || 0,
+        attendanceRate: att ? rate(att.p, att.l, att.t) : 0,
+        avgExamPercent: ex && ex.max > 0 ? Math.round((ex.obt / ex.max) * 100) : 0,
+        activities: actCenter.get(c.id) || 0,
+      };
+    })
+    .sort((a, b) => b.students - a.students);
+
+  // ---- at-risk students --------------------------------------------
+  const atRisk: Array<{
+    studentId: string;
+    name: string;
+    center: string;
+    standard: string;
+    attendanceRate: number | null;
+    avgPercent: number | null;
+    grade: string | null;
+    reasons: string[];
+  }> = [];
+  for (const s of students) {
+    const pa = psAtt.get(s.id);
+    const attRate = pa && pa.t > 0 ? Math.round((pa.p / pa.t) * 100) : null;
+    const g = studentGrade.get(s.id) ?? null;
+    const ov = psOverallEff.get(s.id);
+    const pct = ov && ov.max > 0 ? Math.round((ov.obt / ov.max) * 100) : null;
+    const reasons: string[] = [];
+    if (attRate != null && attRate < 60) reasons.push(`Attendance ${attRate}%`);
+    if (g === "D" || g === "E") reasons.push(`Grade ${g}`);
+    if (reasons.length) {
+      atRisk.push({
+        studentId: s.id,
+        name: s.fullName,
+        center: centerName.get(s.centerId) || "—",
+        standard: s.standard || "—",
+        attendanceRate: attRate,
+        avgPercent: pct,
+        grade: g,
+        reasons,
+      });
+    }
+  }
+  atRisk.sort((a, b) => (a.attendanceRate ?? 101) - (b.attendanceRate ?? 101));
+  const atRiskTop = atRisk.slice(0, 50);
+
+  // ---- data completeness -------------------------------------------
+  const withMarks = new Set(
+    effScores.filter((sc) => !sc.isAbsent && sc.marks !== null).map((sc) => sc.studentId),
+  ).size;
+  const withAtt = psAtt.size;
+  const totalS = students.length;
+  const dataCompleteness = {
+    totalStudents: totalS,
+    withMarks,
+    withoutMarks: Math.max(0, totalS - withMarks),
+    withAttendance: withAtt,
+    withoutAttendance: Math.max(0, totalS - withAtt),
+    marksPercent: totalS ? Math.round((withMarks / totalS) * 100) : 0,
+    attendancePercent: totalS ? Math.round((withAtt / totalS) * 100) : 0,
+  };
+
+  // ---- gender equity ------------------------------------------------
+  const progGender = new Map<string, { male: number; female: number }>();
+  for (const s of students) {
+    if (!s.programId) continue;
+    const pg = progGender.get(s.programId) ?? { male: 0, female: 0 };
+    if (s.gender === "male") pg.male++;
+    else if (s.gender === "female") pg.female++;
+    progGender.set(s.programId, pg);
+  }
+  const genderEquity = {
+    byProgram: Array.from(progGender.entries()).map(([pid, g]) => ({
+      program: programName.get(pid) || "Unknown",
+      male: g.male,
+      female: g.female,
+    })),
+    attendanceByGender: {
+      maleRate: rate(attGender.male.p, attGender.male.l, attGender.male.t),
+      femaleRate: rate(attGender.female.p, attGender.female.l, attGender.female.t),
+    },
+    gradeByGender: genderGrade,
+  };
+
+  // ---- standard options (independent of std/grade filter) ----------
+  const stdWhere: Prisma.StudentWhereInput = { isActive: true };
+  if (centerIn) stdWhere.centerId = { in: centerIn };
+  if (fProgram) stdWhere.programId = fProgram;
+  const stdRows = await prisma.student.findMany({ where: stdWhere, select: { standard: true } });
+  const stdOptions = Array.from(
+    new Set(stdRows.map((r) => r.standard).filter((x): x is string => !!x && x.trim().length > 0)),
+  ).sort((a, b) => tdStandardRank(a) - tdStandardRank(b));
+
+  // ---- KPI ----------------------------------------------------------
+  let avgObt = 0,
+    avgMax = 0;
+  for (const v of psOverallEff.values()) {
+    avgObt += v.obt;
+    avgMax += v.max;
+  }
+  const kpis = {
+    totalStudents: students.length,
+    male,
+    female,
+    other,
+    totalTeachers: teachersList.length,
+    totalCenters: centersList.length,
+    overallAttendanceRate,
+    examsConducted: examIdSet.size,
+    avgExamPercent: avgMax > 0 ? Math.round((avgObt / avgMax) * 100) : 0,
+    totalActivities: activities.length,
+    studentMeetings: meetings.studentTotal,
+    parentMeetings: meetings.parentTotal,
+  };
+
+  return {
+    scope: isSuper ? "all" : "centers",
+    kpis,
+    attendanceMonthly,
+    gradeOverall,
+    gradeByMonth,
+    gradeByStd,
+    avgBySubject,
+    enrollmentMonthly,
+    activitiesMonthly,
+    centerComparison,
+    teacherSummary,
+    meetings,
+    atRisk: atRiskTop,
+    dataCompleteness,
+    genderEquity,
+    filterOptions: {
+      centers: centersList,
+      programs: programsList,
+      standards: stdOptions,
+      teachers: teachersList,
+      grades: ["A", "B", "C", "D", "E"],
+    },
+    appliedFilters: {
+      centerId: fCenter ?? null,
+      programId: fProgram ?? null,
+      standard: fStandard ?? null,
+      grade: fGrade ?? null,
+      teacherId: fTeacher ?? null,
     },
   };
 }

@@ -8,6 +8,7 @@ import {
   exportStudentDataCsv,
   getSkillsReport,
   getTeacherDashboard,
+  getAdminAnalytics,
 } from '../services/reportService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -26,6 +27,16 @@ export async function teacherDashboardController(req: Request, res: Response, ne
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getTeacherDashboard(user, req.query);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function adminAnalyticsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const data = await getAdminAnalytics(user, req.query);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

@@ -9,6 +9,7 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Users, BookOpen, PlusCircle, Trash2, TrendingUp, Target, Activity } from 'lucide-react';
 import { getReportsDashboard } from '../services/reports.service';
 import { TeacherDashboard } from '../components/dashboard/TeacherDashboard';
+import { AdminAnalytics } from '../components/dashboard/AdminAnalytics';
 
 const AdminDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -255,6 +256,8 @@ const AdminDashboard: React.FC = () => {
               </Card>
             </div>
           )}
+
+          {isAdmin && <AdminAnalytics />}
         </>
       )}
     </PageWrapper>

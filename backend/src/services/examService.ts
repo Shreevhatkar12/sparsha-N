@@ -420,6 +420,7 @@ export async function getExamComparison(
     where,
     include: {
       scores: {
+        where: { student: { isActive: true } },
         include: {
           subject: true,
         },
@@ -557,6 +558,8 @@ export async function getExamReport(user: JwtPayload, query: ExamReportQuery) {
       program: true,
       academicYear: true,
       scores: {
+        // Never count soft-deleted (isActive=false) students in any report.
+        where: { student: { isActive: true } },
         include: {
           subject: true,
           student: {

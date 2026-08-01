@@ -804,9 +804,9 @@ export const updateStudentFees = async (
 
 export const getDashboardStats = async () => {
   const [totalStudents, totalAttendance, presentCount] = await Promise.all([
-    prisma.student.count(),
-    prisma.attendanceRecord.count(),
-    prisma.attendanceRecord.count({ where: { status: "present" } }),
+    prisma.student.count({ where: { isActive: true } }),
+    prisma.attendanceRecord.count({ where: { student: { isActive: true } } }),
+    prisma.attendanceRecord.count({ where: { status: "present", student: { isActive: true } } }),
   ]);
 
   const attendanceRate = totalAttendance > 0 ? Number(((presentCount / totalAttendance) * 100).toFixed(1)) : 0;
@@ -818,3 +818,6 @@ export const getDashboardStats = async () => {
     avgSkills: { communication: 0, confidence: 0, computerSkill: 0, problemSolving: 0, languageSkill: 0 },
   };
 };
+
+
+
