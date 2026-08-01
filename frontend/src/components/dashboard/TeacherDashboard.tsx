@@ -174,6 +174,11 @@ export const TeacherDashboard: React.FC = () => {
   const latestGrowth = data?.studentGrowthMonthly?.[data.studentGrowthMonthly.length - 1];
   const delta = data?.examGrowth?.deltaPercent ?? 0;
 
+  // Defensive defaults so an older backend (no grade fields yet) never crashes the page.
+  const gradeOverall = data?.gradeOverall ?? { A: 0, B: 0, C: 0, D: 0, E: 0 };
+  const gradeMonthData = data?.gradeByMonth ?? [];
+  const gradeStdData = data?.gradeByStd ?? [];
+
   return (
     <PageWrapper title="My Dashboard">
       {loading && !data ? (
@@ -381,7 +386,7 @@ export const TeacherDashboard: React.FC = () => {
                       Grade {g}
                     </span>
                   </div>
-                  <p className="text-2xl font-black text-neutral-900 mt-1">{data.gradeOverall[g]}</p>
+                  <p className="text-2xl font-black text-neutral-900 mt-1">{gradeOverall[g]}</p>
                   <p className="text-[10px] text-neutral-500">{GRADE_RANGE[g]}</p>
                 </div>
               ))}
@@ -393,9 +398,9 @@ export const TeacherDashboard: React.FC = () => {
               <p className="text-xs text-neutral-500 mb-3">
                 Ek bar = ek mahina · grade-wise student count (color-wise partition)
               </p>
-              {data.gradeByMonth.length > 0 ? (
+              {gradeMonthData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={340}>
-                  <BarChart data={data.gradeByMonth} margin={CHART_MARGIN}>
+                  <BarChart data={gradeMonthData} margin={CHART_MARGIN}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
                     <XAxis
                       dataKey="label"
@@ -437,9 +442,9 @@ export const TeacherDashboard: React.FC = () => {
             <div className="mt-8">
               <h4 className="text-sm font-semibold text-neutral-700 mb-1">Exam Grades by Standard</h4>
               <p className="text-xs text-neutral-500 mb-3">Ek bar = ek std · grade-wise student count</p>
-              {data.gradeByStd.length > 0 ? (
+              {gradeStdData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={data.gradeByStd} margin={CHART_MARGIN}>
+                  <BarChart data={gradeStdData} margin={CHART_MARGIN}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
                     <XAxis
                       dataKey="standard"

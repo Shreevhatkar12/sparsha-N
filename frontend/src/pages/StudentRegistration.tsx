@@ -272,7 +272,8 @@ export const StudentRegistration: React.FC = () => {
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm"
               >
                 <option value="">Select Standard</option>
-                <option value="KG">KG</option>
+                <option value="Jr KG">Jr KG</option>
+                <option value="Sr KG">Sr KG</option>
                 <option value="1st">1st</option>
                 <option value="2nd">2nd</option>
                 <option value="3rd">3rd</option>
@@ -438,4 +439,4 @@ export const StudentRegistration: React.FC = () => {
       </form>
     </PageWrapper>
   );
-};
+};
