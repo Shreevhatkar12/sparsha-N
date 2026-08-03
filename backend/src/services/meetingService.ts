@@ -151,6 +151,40 @@ export async function createParentMeeting(userId: string, data: any) {
   return meeting;
 }
 
+export async function updateParentMeeting(id: string, data: any) {
+  const meeting = await prisma.parentMeeting.update({
+    where: { id },
+    data: {
+      ...(data.centerId ? { centerId: data.centerId } : {}),
+      ...(data.programId ? { programId: data.programId } : {}),
+      ...(data.standard !== undefined ? { standard: data.standard } : {}),
+      ...(data.meetingDate ? { meetingDate: new Date(data.meetingDate) } : {}),
+      ...(data.meetingTime !== undefined ? { meetingTime: data.meetingTime || null } : {}),
+      ...(data.topic ? { topic: data.topic } : {}),
+      ...(data.description !== undefined ? { description: data.description || null } : {}),
+    },
+  });
+
+  if (Array.isArray(data.parents)) {
+    await prisma.parentMeetingAttendance.deleteMany({ where: { meetingId: id } });
+    if (data.parents.length > 0) {
+      await prisma.parentMeetingAttendance.createMany({
+        data: data.parents
+          .filter((p: any) => p && p.parentName)
+          .map((p: any) => ({ meetingId: id, parentName: p.parentName, gender: p.gender })),
+      });
+    }
+  }
+
+  return meeting;
+}
+
+export async function deleteParentMeeting(id: string) {
+  await prisma.parentMeetingAttendance.deleteMany({ where: { meetingId: id } });
+  await prisma.parentMeeting.delete({ where: { id } });
+  return { success: true };
+}
+
 export async function listParentMeetings(user: any, filters?: any) {
   const where: any = {};
 

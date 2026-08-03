@@ -9,6 +9,8 @@ import {
   listStudentMeetingsController,
   getStudentMeetingController,
   createParentMeetingController,
+  updateParentMeetingController,
+  deleteParentMeetingController,
   listParentMeetingsController,
   getParentMeetingController,
 } from '../controllers/meetingController.js';
@@ -29,5 +31,7 @@ router.delete('/student/:id', requireAuth, deleteStudentMeetingController);
 router.post('/parent', requireAuth, createParentMeetingController);
 router.get('/parent', requireAuth, listParentMeetingsController);
 router.get('/parent/:id', requireAuth, getParentMeetingController);
+router.put('/parent/:id', requireAuth, updateParentMeetingController);
+router.delete('/parent/:id', requireAuth, deleteParentMeetingController);
 
 export default router;

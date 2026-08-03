@@ -7,6 +7,8 @@ import {
   listStudentMeetings,
   getStudentMeetingById,
   createParentMeeting,
+  updateParentMeeting,
+  deleteParentMeeting,
   listParentMeetings,
   getParentMeetingById,
 } from '../services/meetingService.js';
@@ -88,6 +90,26 @@ export async function createParentMeetingController(req: any, res: any) {
     }
     const meeting = await createParentMeeting(userId, req.body);
     return res.status(201).json({ success: true, data: meeting, id: meeting.id });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function updateParentMeetingController(req: any, res: any) {
+  try {
+    const meeting = await updateParentMeeting(req.params.id, req.body);
+    return res.status(200).json({ success: true, data: meeting, id: meeting.id });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function deleteParentMeetingController(req: any, res: any) {
+  try {
+    await deleteParentMeeting(req.params.id);
+    return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error(error);
     return res.status(500).json({ success: false, error: error.message });
