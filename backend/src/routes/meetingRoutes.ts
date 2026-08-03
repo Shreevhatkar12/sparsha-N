@@ -4,6 +4,8 @@ import {
   testMeetingController,
   getMeetingStatsController,
   createStudentMeetingController,
+  updateStudentMeetingController,
+  deleteStudentMeetingController,
   listStudentMeetingsController,
   getStudentMeetingController,
   createParentMeetingController,
@@ -20,10 +22,12 @@ router.get('/stats', getMeetingStatsController);
 router.post('/student', requireAuth, createStudentMeetingController);
 router.get('/student', requireAuth, listStudentMeetingsController);
 router.get('/student/:id', requireAuth, getStudentMeetingController);
+router.put('/student/:id', requireAuth, updateStudentMeetingController);
+router.delete('/student/:id', requireAuth, deleteStudentMeetingController);
 
 // Parent Meetings
 router.post('/parent', requireAuth, createParentMeetingController);
 router.get('/parent', requireAuth, listParentMeetingsController);
 router.get('/parent/:id', requireAuth, getParentMeetingController);
 
-export default router;
+export default router;

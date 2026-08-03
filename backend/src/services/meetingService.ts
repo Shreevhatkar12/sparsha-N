@@ -29,7 +29,62 @@ export async function createStudentMeeting(userId: string, data: any) {
       createdBy: userId,
     },
   });
+
+  // Save attendance rows (was previously dropped → "Students: 0").
+  if (Array.isArray(data.attendance) && data.attendance.length > 0) {
+    await prisma.studentMeetingAttendance.createMany({
+      data: data.attendance
+        .filter((a: any) => a && a.studentId)
+        .map((a: any) => ({
+          meetingId: meeting.id,
+          studentId: a.studentId,
+          isPresent: !!a.isPresent,
+        })),
+      skipDuplicates: true,
+    });
+  }
+
   return meeting;
+}
+
+export async function updateStudentMeeting(id: string, data: any) {
+  const meeting = await prisma.studentMeeting.update({
+    where: { id },
+    data: {
+      ...(data.centerId ? { centerId: data.centerId } : {}),
+      ...(data.programId ? { programId: data.programId } : {}),
+      ...(data.standard !== undefined ? { standard: data.standard } : {}),
+      ...(data.meetingDate ? { meetingDate: new Date(data.meetingDate) } : {}),
+      ...(data.meetingTime !== undefined ? { meetingTime: data.meetingTime || null } : {}),
+      ...(data.topic ? { topic: data.topic } : {}),
+      ...(data.description !== undefined ? { description: data.description || null } : {}),
+    },
+  });
+
+  // Replace attendance if a fresh list is provided.
+  if (Array.isArray(data.attendance)) {
+    await prisma.studentMeetingAttendance.deleteMany({ where: { meetingId: id } });
+    if (data.attendance.length > 0) {
+      await prisma.studentMeetingAttendance.createMany({
+        data: data.attendance
+          .filter((a: any) => a && a.studentId)
+          .map((a: any) => ({
+            meetingId: id,
+            studentId: a.studentId,
+            isPresent: !!a.isPresent,
+          })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  return meeting;
+}
+
+export async function deleteStudentMeeting(id: string) {
+  await prisma.studentMeetingAttendance.deleteMany({ where: { meetingId: id } });
+  await prisma.studentMeeting.delete({ where: { id } });
+  return { success: true };
 }
 
 export async function listStudentMeetings(user: any, filters?: any) {
@@ -127,4 +182,4 @@ export async function getParentMeetingById(id: string) {
       attendance: true,
     },
   });
-}
+}
