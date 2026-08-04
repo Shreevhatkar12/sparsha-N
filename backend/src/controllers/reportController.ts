@@ -9,6 +9,7 @@ import {
   getSkillsReport,
   getTeacherDashboard,
   getAdminAnalytics,
+  getExamCompletion,
 } from '../services/reportService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -37,6 +38,16 @@ export async function adminAnalyticsController(req: Request, res: Response, next
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getAdminAnalytics(user, req.query);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function examCompletionController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const data = await getExamCompletion(user, req.query);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

@@ -1486,3 +1486,194 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     },
   };
 }
+
+// ----------------------------------------------------------------------
+// EXAM COMPLETION — how many students' exams are done vs pending.
+// Teacher = own class; super/tech admin = all centers/programs (+ filters).
+// ----------------------------------------------------------------------
+export async function getExamCompletion(user: JwtPayload, query: any) {
+  const isSuper = user.role === "super_admin" || user.role === "tech_admin";
+  const isTeacher = user.role === "teacher" || user.role === "staff";
+  const myCenterIds = user.centerIds ?? [];
+
+  const pickUuid = (v: unknown): string | undefined =>
+    typeof v === "string" && v && TD_UUID_RE.test(v) ? v : undefined;
+  const fCenter = pickUuid(query.centerId);
+  const fProgram = pickUuid(query.programId);
+  const fStandard =
+    typeof query.standard === "string" && query.standard.trim() ? query.standard.trim() : undefined;
+
+  const centerIn: string[] | undefined = isSuper
+    ? fCenter
+      ? [fCenter]
+      : undefined
+    : fCenter && myCenterIds.includes(fCenter)
+      ? [fCenter]
+      : myCenterIds;
+
+  // ---- roster (students in scope) ----------------------------------
+  const studentWhere: Prisma.StudentWhereInput = { isActive: true };
+  if (isTeacher) studentWhere.createdById = user.userId;
+  if (!isTeacher && centerIn) studentWhere.centerId = { in: centerIn };
+  if (fProgram) studentWhere.programId = fProgram;
+  if (fStandard) studentWhere.standard = fStandard;
+
+  const roster = await prisma.student.findMany({
+    where: studentWhere,
+    select: {
+      id: true,
+      fullName: true,
+      rollNumber: true,
+      standard: true,
+      centerId: true,
+      programId: true,
+    },
+  });
+  const rosterIds = roster.map((s) => s.id);
+
+  // ---- exams that apply to this roster -----------------------------
+  const rosterCenters = Array.from(new Set(roster.map((s) => s.centerId)));
+  const examWhere: Prisma.ExamWhereInput = {};
+  if (centerIn) examWhere.centerId = { in: centerIn };
+  else if (isTeacher) examWhere.centerId = { in: rosterCenters.length ? rosterCenters : ["__none__"] };
+  if (fProgram) examWhere.programId = fProgram;
+
+  const exams = rosterIds.length
+    ? await prisma.exam.findMany({
+        where: examWhere,
+        select: { id: true, name: true, examDate: true, createdAt: true, centerId: true, programId: true },
+      })
+    : [];
+  const examIds = exams.map((e) => e.id);
+
+  // ---- scores for those exams among roster students ----------------
+  const scores =
+    rosterIds.length && examIds.length
+      ? await prisma.examScore.findMany({
+          where: { examId: { in: examIds }, studentId: { in: rosterIds } },
+          select: { examId: true, studentId: true, marks: true, isAbsent: true },
+        })
+      : [];
+  const scoreMap = new Map<string, { filled: boolean; absent: boolean }>();
+  for (const sc of scores) {
+    const key = `${sc.examId}|${sc.studentId}`;
+    const cur = scoreMap.get(key) ?? { filled: false, absent: false };
+    if (sc.isAbsent) cur.absent = true;
+    if (!sc.isAbsent && sc.marks !== null) cur.filled = true;
+    scoreMap.set(key, cur);
+  }
+
+  // ---- per-exam completion + monthly rollup ------------------------
+  const monthMap = new Map<string, { done: number; absent: number; pending: number }>();
+  let tDone = 0,
+    tAbsent = 0,
+    tPending = 0;
+  const examsOut = exams.map((e) => {
+    const expected = roster.filter((s) => s.centerId === e.centerId && s.programId === e.programId);
+    let done = 0,
+      absent = 0,
+      pending = 0;
+    const studentsOut = expected.map((s) => {
+      const st = scoreMap.get(`${e.id}|${s.id}`);
+      let status: "done" | "absent" | "pending";
+      if (st?.filled) {
+        status = "done";
+        done++;
+      } else if (st?.absent) {
+        status = "absent";
+        absent++;
+      } else {
+        status = "pending";
+        pending++;
+      }
+      return {
+        studentId: s.id,
+        name: s.fullName,
+        rollNumber: s.rollNumber || "",
+        standard: s.standard || "",
+        status,
+      };
+    });
+    const d = e.examDate ?? e.createdAt;
+    const mk = d ? tdMonthKey(new Date(d)) : "0000-00";
+    const m = monthMap.get(mk) ?? { done: 0, absent: 0, pending: 0 };
+    m.done += done;
+    m.absent += absent;
+    m.pending += pending;
+    monthMap.set(mk, m);
+    tDone += done;
+    tAbsent += absent;
+    tPending += pending;
+    return {
+      id: e.id,
+      name: e.name,
+      examDate: d,
+      monthKey: mk,
+      label: tdMonthLabel(mk),
+      total: expected.length,
+      done,
+      absent,
+      pending,
+      students: studentsOut,
+    };
+  });
+  examsOut.sort((a, b) => String(b.monthKey).localeCompare(String(a.monthKey)));
+
+  const monthly = Array.from(monthMap.keys())
+    .sort()
+    .map((k) => {
+      const m = monthMap.get(k)!;
+      return {
+        monthKey: k,
+        label: tdMonthLabel(k),
+        done: m.done,
+        absent: m.absent,
+        pending: m.pending,
+        total: m.done + m.absent + m.pending,
+      };
+    });
+
+  // ---- filter options (admins) -------------------------------------
+  const centerIds = Array.from(new Set(roster.map((s) => s.centerId).filter((x): x is string => !!x)));
+  const programIds = Array.from(new Set(roster.map((s) => s.programId).filter((x): x is string => !!x)));
+  const [centersList, programsList] = await Promise.all([
+    centerIds.length
+      ? prisma.center.findMany({ where: { id: { in: centerIds } }, select: { id: true, name: true } })
+      : Promise.resolve([] as Array<{ id: string; name: string }>),
+    programIds.length
+      ? prisma.program.findMany({ where: { id: { in: programIds } }, select: { id: true, name: true } })
+      : Promise.resolve([] as Array<{ id: string; name: string }>),
+  ]);
+  const stdWhere: Prisma.StudentWhereInput = { isActive: true };
+  if (isTeacher) stdWhere.createdById = user.userId;
+  if (!isTeacher && centerIn) stdWhere.centerId = { in: centerIn };
+  if (fProgram) stdWhere.programId = fProgram;
+  const stdRows = await prisma.student.findMany({ where: stdWhere, select: { standard: true } });
+  const standards = Array.from(
+    new Set(stdRows.map((r) => r.standard).filter((x): x is string => !!x && x.trim().length > 0)),
+  ).sort((a, b) => tdStandardRank(a) - tdStandardRank(b));
+
+  return {
+    scope: isSuper ? "all" : isTeacher ? "teacher" : "centers",
+    totals: {
+      totalStudents: roster.length,
+      examCount: exams.length,
+      done: tDone,
+      absent: tAbsent,
+      pending: tPending,
+      totalSlots: tDone + tAbsent + tPending,
+    },
+    monthly,
+    exams: examsOut,
+    filterOptions: {
+      centers: centersList,
+      programs: programsList,
+      standards,
+    },
+    appliedFilters: {
+      centerId: fCenter ?? null,
+      programId: fProgram ?? null,
+      standard: fStandard ?? null,
+    },
+  };
+}

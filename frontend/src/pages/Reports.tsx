@@ -3,6 +3,7 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { ExamCompletion } from '../components/dashboard/ExamCompletion';
 import {
   getReportsDashboard,
   getReportsAttendance,
@@ -224,6 +225,10 @@ export const Reports: React.FC = () => {
             </div>
           )}
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <ExamCompletion />
       </div>
     </PageWrapper>
   );

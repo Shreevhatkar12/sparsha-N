@@ -183,3 +183,46 @@ export interface AdminAnalyticsData {
 
 export const getAdminAnalytics = (params?: Record<string, string | undefined>) =>
   api.get<AdminAnalyticsData>('/reports/admin-analytics', { params }).then((r) => r.data);
+
+// ── Exam completion (done vs pending) ─────────────────────────────────
+export interface ExamCompletionStudent {
+  studentId: string;
+  name: string;
+  rollNumber: string;
+  standard: string;
+  status: 'done' | 'absent' | 'pending';
+}
+export interface ExamCompletionExam {
+  id: string;
+  name: string;
+  examDate: string | null;
+  monthKey: string;
+  label: string;
+  total: number;
+  done: number;
+  absent: number;
+  pending: number;
+  students: ExamCompletionStudent[];
+}
+export interface ExamCompletionData {
+  scope: string;
+  totals: {
+    totalStudents: number;
+    examCount: number;
+    done: number;
+    absent: number;
+    pending: number;
+    totalSlots: number;
+  };
+  monthly: Array<{ monthKey: string; label: string; done: number; absent: number; pending: number; total: number }>;
+  exams: ExamCompletionExam[];
+  filterOptions: {
+    centers: Array<{ id: string; name: string }>;
+    programs: Array<{ id: string; name: string }>;
+    standards: string[];
+  };
+  appliedFilters: { centerId: string | null; programId: string | null; standard: string | null };
+}
+
+export const getExamCompletion = (params?: Record<string, string | undefined>) =>
+  api.get<ExamCompletionData>('/reports/exam-completion', { params }).then((r) => r.data);

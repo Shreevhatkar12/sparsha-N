@@ -23,6 +23,7 @@ import {
   getTeacherDashboard,
   type TeacherDashboardData,
 } from "../../services/reports.service";
+import { ExamCompletion } from "./ExamCompletion";
 
 // Colour-blind-safe categorical palette (validated) — same system as the
 // Exam Report so the whole app reads as one visual language.
@@ -637,6 +638,8 @@ export const TeacherDashboard: React.FC = () => {
               </ResponsiveContainer>
             </ChartCard>
           </div>
+
+          <ExamCompletion />
         </div>
       ) : null}
     </PageWrapper>
