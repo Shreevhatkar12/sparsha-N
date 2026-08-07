@@ -538,6 +538,44 @@ function tdMonthLabel(key: string): string {
 const TD_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Resolve the time window for analytics. Default = current month. Year mode
+// widens it to the whole year. All time-based data is filtered to [start, end).
+function tdResolvePeriod(query: any): {
+  start: Date;
+  end: Date;
+  period: "month" | "year";
+  label: string;
+} {
+  const period = query?.period === "year" ? "year" : "month";
+  const now = new Date();
+  if (period === "year") {
+    let y = now.getUTCFullYear();
+    if (typeof query?.year === "string" && /^\d{4}$/.test(query.year)) y = Number(query.year);
+    return {
+      start: new Date(Date.UTC(y, 0, 1)),
+      end: new Date(Date.UTC(y + 1, 0, 1)),
+      period,
+      label: String(y),
+    };
+  }
+  let y = now.getUTCFullYear();
+  let m = now.getUTCMonth();
+  if (typeof query?.month === "string" && /^\d{4}-\d{2}$/.test(query.month)) {
+    const [yy, mm] = query.month.split("-").map(Number);
+    y = yy;
+    m = mm - 1;
+  }
+  return {
+    start: new Date(Date.UTC(y, m, 1)),
+    end: new Date(Date.UTC(y, m + 1, 1)),
+    period,
+    label: tdMonthLabel(`${y}-${String(m + 1).padStart(2, "0")}`),
+  };
+}
+
+const tdInRange = (d: Date | null | undefined, start: Date, end: Date) =>
+  !!d && d >= start && d < end;
+
 export async function getTeacherDashboard(user: JwtPayload, query: any) {
   const userId = user.userId;
 
@@ -560,6 +598,8 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       (s): s is string => typeof s === "string" && s.length > 0,
     );
   }
+
+  const { start, end, period, label: periodLabel } = tdResolvePeriod(query);
 
   // ---- teacher identity ---------------------------------------------
   const teacher = await prisma.user.findUnique({
@@ -619,10 +659,12 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
     (a, b) => tdStandardRank(a.standard) - tdStandardRank(b.standard),
   );
 
-  // ---- student growth (monthly by enrollment) ------------------------
+  // ---- student growth (monthly by enrollment, within period) ---------
   const growthMap = new Map<string, number>();
   for (const s of filtered) {
-    const key = tdMonthKey(new Date(s.enrollmentDate));
+    const enrolled = new Date(s.enrollmentDate);
+    if (!tdInRange(enrolled, start, end)) continue;
+    const key = tdMonthKey(enrolled);
     growthMap.set(key, (growthMap.get(key) ?? 0) + 1);
   }
   let cumulative = 0;
@@ -650,7 +692,10 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
   >();
   if (filteredIds.length) {
     const records = await prisma.attendanceRecord.findMany({
-      where: { studentId: { in: filteredIds } },
+      where: {
+        studentId: { in: filteredIds },
+        session: { sessionDate: { gte: start, lt: end } },
+      },
       select: { status: true, session: { select: { sessionDate: true } } },
     });
     let p = 0,
@@ -717,7 +762,7 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       const obt = Number(sc.marks);
       const pct = (obt / max) * 100;
       const d = sc.exam?.examDate ?? sc.exam?.createdAt;
-      if (!d) continue;
+      if (!d || !tdInRange(d, start, end)) continue;
       const key = tdMonthKey(new Date(d));
       const m =
         examMonthMap.get(key) ?? { sumPct: 0, n: 0, students: new Set<string>() };
@@ -842,15 +887,17 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
     select: { startDate: true, createdAt: true },
   });
   const actMonthMap = new Map<string, number>();
+  let totalActivities = 0;
   for (const act of activities) {
     const d = act.startDate ?? act.createdAt;
+    if (!tdInRange(d, start, end)) continue;
+    totalActivities++;
     const key = tdMonthKey(new Date(d));
     actMonthMap.set(key, (actMonthMap.get(key) ?? 0) + 1);
   }
   const activitiesMonthly = Array.from(actMonthMap.keys())
     .sort()
     .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: actMonthMap.get(k) ?? 0 }));
-  const totalActivities = activities.length;
 
   // ---- filter options (from ALL my students, ignoring filters) -------
   const centerIds = Array.from(
@@ -901,6 +948,7 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
       programs,
       standards: stdOptions,
     },
+    appliedPeriod: { period, label: periodLabel },
     appliedFilters: {
       centerId: safeCenter ?? null,
       programId: safeProgram ?? null,
@@ -945,6 +993,8 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   const emptyGrade = () => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
   const rate = (p: number, l: number, t: number) =>
     t === 0 ? 0 : Math.round(((p + l) / t) * 100);
+
+  const { start, end, period, label: periodLabel } = tdResolvePeriod(query);
 
   // ---- students -----------------------------------------------------
   const studentWhere: Prisma.StudentWhereInput = { isActive: true };
@@ -1027,6 +1077,8 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   const teacherExam = new Map<string, { obt: number; max: number; exams: Set<string> }>();
   const examIdSet = new Set<string>();
   for (const sc of effScores) {
+    const d = sc.exam?.examDate ?? sc.exam?.createdAt;
+    if (!tdInRange(d, start, end)) continue;
     examIdSet.add(sc.examId);
     if (sc.isAbsent || sc.marks === null) continue;
     const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
@@ -1036,7 +1088,6 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     ov.obt += obt;
     ov.max += max;
     psOverallEff.set(sc.studentId, ov);
-    const d = sc.exam?.examDate ?? sc.exam?.createdAt;
     if (d) {
       const mk = tdMonthKey(new Date(d));
       let bm = psMonth.get(sc.studentId);
@@ -1107,11 +1158,9 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     .sort((a, b) => b.avgPercent - a.avgPercent);
 
   // ---- attendance (last 12 months) ---------------------------------
-  const attFloor = new Date();
-  attFloor.setMonth(attFloor.getMonth() - 12);
   const records = ids.length
     ? await prisma.attendanceRecord.findMany({
-        where: { studentId: { in: ids }, session: { sessionDate: { gte: attFloor } } },
+        where: { studentId: { in: ids }, session: { sessionDate: { gte: start, lt: end } } },
         select: {
           status: true,
           studentId: true,
@@ -1177,7 +1226,9 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   // ---- enrollment growth -------------------------------------------
   const enrMap = new Map<string, { added: number; male: number; female: number }>();
   for (const s of students) {
-    const k = tdMonthKey(new Date(s.enrollmentDate));
+    const enrolled = new Date(s.enrollmentDate);
+    if (!tdInRange(enrolled, start, end)) continue;
+    const k = tdMonthKey(enrolled);
     const e = enrMap.get(k) ?? { added: 0, male: 0, female: 0 };
     e.added++;
     if (s.gender === "male") e.male++;
@@ -1205,8 +1256,11 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   const actMonth = new Map<string, number>();
   const actCenter = new Map<string, number>();
   const actTeacher = new Map<string, number>();
+  let actTotal = 0;
   for (const a of activities) {
     const d = a.startDate ?? a.createdAt;
+    if (!tdInRange(d, start, end)) continue;
+    actTotal++;
     const k = tdMonthKey(new Date(d));
     actMonth.set(k, (actMonth.get(k) ?? 0) + 1);
     actCenter.set(a.centerId, (actCenter.get(a.centerId) ?? 0) + 1);
@@ -1232,15 +1286,21 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   ]);
   const stuMeetMonth = new Map<string, number>();
   let stuMeetPresent = 0;
+  let stuMeetTotal = 0;
   for (const m of stuMeet) {
+    if (!tdInRange(new Date(m.meetingDate), start, end)) continue;
+    stuMeetTotal++;
     const k = tdMonthKey(new Date(m.meetingDate));
     stuMeetMonth.set(k, (stuMeetMonth.get(k) ?? 0) + 1);
     for (const a of m.attendance) if (a.isPresent) stuMeetPresent++;
   }
   const parMeetMonth = new Map<string, number>();
   let parMale = 0,
-    parFemale = 0;
+    parFemale = 0,
+    parMeetTotal = 0;
   for (const m of parMeet) {
+    if (!tdInRange(new Date(m.meetingDate), start, end)) continue;
+    parMeetTotal++;
     const k = tdMonthKey(new Date(m.meetingDate));
     parMeetMonth.set(k, (parMeetMonth.get(k) ?? 0) + 1);
     for (const a of m.attendance) {
@@ -1249,8 +1309,8 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     }
   }
   const meetings = {
-    studentTotal: stuMeet.length,
-    parentTotal: parMeet.length,
+    studentTotal: stuMeetTotal,
+    parentTotal: parMeetTotal,
     studentPresent: stuMeetPresent,
     parentAttendees: parMale + parFemale,
     parentMale: parMale,
@@ -1449,13 +1509,14 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     overallAttendanceRate,
     examsConducted: examIdSet.size,
     avgExamPercent: avgMax > 0 ? Math.round((avgObt / avgMax) * 100) : 0,
-    totalActivities: activities.length,
+    totalActivities: actTotal,
     studentMeetings: meetings.studentTotal,
     parentMeetings: meetings.parentTotal,
   };
 
   return {
     scope: isSuper ? "all" : "centers",
+    appliedPeriod: { period, label: periodLabel },
     kpis,
     attendanceMonthly,
     gradeOverall,
@@ -1511,6 +1572,8 @@ export async function getExamCompletion(user: JwtPayload, query: any) {
       ? [fCenter]
       : myCenterIds;
 
+  const { start, end, period, label: periodLabel } = tdResolvePeriod(query);
+
   // ---- roster (students in scope) ----------------------------------
   const studentWhere: Prisma.StudentWhereInput = { isActive: true };
   if (isTeacher) studentWhere.createdById = user.userId;
@@ -1538,12 +1601,13 @@ export async function getExamCompletion(user: JwtPayload, query: any) {
   else if (isTeacher) examWhere.centerId = { in: rosterCenters.length ? rosterCenters : ["__none__"] };
   if (fProgram) examWhere.programId = fProgram;
 
-  const exams = rosterIds.length
+  const rawExams = rosterIds.length
     ? await prisma.exam.findMany({
         where: examWhere,
         select: { id: true, name: true, examDate: true, createdAt: true, centerId: true, programId: true },
       })
     : [];
+  const exams = rawExams.filter((e) => tdInRange(e.examDate ?? e.createdAt, start, end));
   const examIds = exams.map((e) => e.id);
 
   // ---- scores for those exams among roster students ----------------
@@ -1655,6 +1719,7 @@ export async function getExamCompletion(user: JwtPayload, query: any) {
 
   return {
     scope: isSuper ? "all" : isTeacher ? "teacher" : "centers",
+    appliedPeriod: { period, label: periodLabel },
     totals: {
       totalStudents: roster.length,
       examCount: exams.length,

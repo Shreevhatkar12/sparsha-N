@@ -29,6 +29,7 @@ import {
   Cell,
 } from "recharts";
 import { getAdminAnalytics, type AdminAnalyticsData } from "../../services/reports.service";
+import { PeriodFilter, defaultPeriod, periodParams, type PeriodValue } from "./PeriodFilter";
 
 // Shared, colour-blind-safe system (same as the rest of the app).
 const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
@@ -87,6 +88,7 @@ export const AdminAnalytics: React.FC = () => {
   const [standard, setStandard] = useState("");
   const [grade, setGrade] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [periodVal, setPeriodVal] = useState<PeriodValue>(defaultPeriod);
 
   const [views, setViews] = useState<Record<string, "graph" | "table">>({});
   const viewOf = (k: string) => views[k] ?? "graph";
@@ -95,7 +97,7 @@ export const AdminAnalytics: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | undefined> = {};
+      const params: Record<string, string | undefined> = { ...periodParams(periodVal) };
       if (centerId) params.centerId = centerId;
       if (programId) params.programId = programId;
       if (standard) params.standard = standard;
@@ -108,7 +110,7 @@ export const AdminAnalytics: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [centerId, programId, standard, grade, teacherId]);
+  }, [centerId, programId, standard, grade, teacherId, periodVal]);
 
   useEffect(() => {
     void load();
@@ -168,12 +170,15 @@ export const AdminAnalytics: React.FC = () => {
 
   return (
     <div className="mt-8 flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <span className="h-6 w-1.5 rounded-full bg-brand-500" />
-        <h2 className="text-xl font-black text-neutral-900">Organisation Analytics</h2>
-        <span className="text-xs text-neutral-400 font-semibold">
-          {data.scope === "all" ? "All centers" : "Your centers"}
-        </span>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="h-6 w-1.5 rounded-full bg-brand-500" />
+          <h2 className="text-xl font-black text-neutral-900">Organisation Analytics</h2>
+          <span className="text-xs text-neutral-400 font-semibold">
+            {data.scope === "all" ? "All centers" : "Your centers"}
+          </span>
+        </div>
+        <PeriodFilter value={periodVal} onChange={setPeriodVal} />
       </div>
 
       {/* Filters */}

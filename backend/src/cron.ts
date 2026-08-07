@@ -1,8 +1,29 @@
 import cron from 'node-cron';
+import axios from 'axios';
 import prisma from './lib/prisma.js';
 
 export function startCronJobs() {
   console.log("Starting cron jobs...");
+
+  // Keep-alive: on Render/Neon free tier the server + DB "sleep" after a few
+  // minutes idle, which causes a slow 30-60s cold start on the next visit.
+  // Every 10 minutes we touch the DB (keeps Neon awake) and self-ping the
+  // public URL (keeps the Render web service from spinning down). Best-effort.
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      /* DB warm-up is best-effort */
+    }
+    const selfUrl = process.env.RENDER_EXTERNAL_URL;
+    if (selfUrl) {
+      try {
+        await axios.get(selfUrl, { timeout: 15000 });
+      } catch {
+        /* keep-alive ping is best-effort */
+      }
+    }
+  });
 
   // Run every day at 23:59
   cron.schedule('59 23 * * *', async () => {

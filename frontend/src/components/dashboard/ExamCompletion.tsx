@@ -15,6 +15,7 @@ import {
   LabelList,
 } from "recharts";
 import { getExamCompletion, type ExamCompletionData } from "../../services/reports.service";
+import { PeriodFilter, defaultPeriod, periodParams, type PeriodValue } from "./PeriodFilter";
 
 const C_DONE = "#008300";
 const C_ABSENT = "#e34948";
@@ -40,6 +41,7 @@ export const ExamCompletion: React.FC = () => {
   const [centerId, setCenterId] = useState("");
   const [programId, setProgramId] = useState("");
   const [standard, setStandard] = useState("");
+  const [periodVal, setPeriodVal] = useState<PeriodValue>(defaultPeriod);
   const [view, setView] = useState<"graph" | "table">("graph");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -47,7 +49,7 @@ export const ExamCompletion: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | undefined> = {};
+      const params: Record<string, string | undefined> = { ...periodParams(periodVal) };
       if (centerId) params.centerId = centerId;
       if (programId) params.programId = programId;
       if (standard) params.standard = standard;
@@ -58,7 +60,7 @@ export const ExamCompletion: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [centerId, programId, standard]);
+  }, [centerId, programId, standard, periodVal]);
 
   useEffect(() => {
     void load();
@@ -103,20 +105,23 @@ export const ExamCompletion: React.FC = () => {
               : "How many of your students' exams are filled vs still pending."}
           </p>
         </div>
-        <div className="inline-flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
-          {(["graph", "table"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setView(m)}
-              className={
-                "px-3 py-1.5 capitalize " +
-                (view === m ? "bg-brand-500 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50")
-              }
-            >
-              {m}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <PeriodFilter value={periodVal} onChange={setPeriodVal} />
+          <div className="inline-flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
+            {(["graph", "table"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setView(m)}
+                className={
+                  "px-3 py-1.5 capitalize " +
+                  (view === m ? "bg-brand-500 text-white" : "bg-white text-neutral-600 hover:bg-neutral-50")
+                }
+              >
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

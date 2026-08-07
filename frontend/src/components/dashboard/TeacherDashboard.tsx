@@ -24,6 +24,7 @@ import {
   type TeacherDashboardData,
 } from "../../services/reports.service";
 import { ExamCompletion } from "./ExamCompletion";
+import { PeriodFilter, defaultPeriod, periodParams, type PeriodValue } from "./PeriodFilter";
 
 // Colour-blind-safe categorical palette (validated) — same system as the
 // Exam Report so the whole app reads as one visual language.
@@ -125,12 +126,13 @@ export const TeacherDashboard: React.FC = () => {
   const [centerId, setCenterId] = useState<string>("");
   const [programId, setProgramId] = useState<string>("");
   const [selectedStandards, setSelectedStandards] = useState<string[]>([]);
+  const [periodVal, setPeriodVal] = useState<PeriodValue>(defaultPeriod);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, string | undefined> = {};
+      const params: Record<string, string | undefined> = { ...periodParams(periodVal) };
       if (centerId) params.centerId = centerId;
       if (programId) params.programId = programId;
       if (selectedStandards.length) params.standards = selectedStandards.join(",");
@@ -141,7 +143,7 @@ export const TeacherDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [centerId, programId, selectedStandards]);
+  }, [centerId, programId, selectedStandards, periodVal]);
 
   useEffect(() => {
     void load();
@@ -207,6 +209,10 @@ export const TeacherDashboard: React.FC = () => {
           {/* Filters */}
           <Card className="border-none shadow-sm">
             <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold">Period</span>
+                <PeriodFilter value={periodVal} onChange={setPeriodVal} />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">
