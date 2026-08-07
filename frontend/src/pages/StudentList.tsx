@@ -34,8 +34,8 @@ export const StudentList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCenterId, setFilterCenterId] = useState('');
-  const [filterProgramId, setFilterProgramId] = useState('');
-  const [filterStandard, setFilterStandard] = useState('');
+  const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
+  const [filterStandards, setFilterStandards] = useState<string[]>([]);
   const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'std_asc' | 'std_desc' | ''>('');
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
@@ -94,8 +94,8 @@ export const StudentList: React.FC = () => {
         page,
         limit: 50,
         ...(searchQuery.trim() ? { search: searchQuery.trim() } : {}),
-        ...(filterProgramId ? { programId: filterProgramId } : {}),
-        ...(filterStandard ? { standard: filterStandard } : {}),
+        ...(filterPrograms.length ? { programId: filterPrograms.join(',') } : {}),
+        ...(filterStandards.length ? { standard: filterStandards.join(',') } : {}),
         ...(sortOrder ? { sortOrder } : {}),
       };
 
@@ -129,7 +129,7 @@ export const StudentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterProgramId, filterStandard, sortOrder]);
+  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterPrograms, filterStandards, sortOrder]);
 
   useEffect(() => {
     if (!showTransferTab) {
@@ -637,38 +637,52 @@ export const StudentList: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick Filters — built from the real programs list (each chip = a valid program UUID) */}
+          {/* Quick Filters — built from the real programs list (each chip = a valid program UUID). Multi-select. */}
           <div className="flex flex-wrap gap-2 mb-3 px-1">
             <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Program:</span>
             <Button
-              variant={filterProgramId === '' ? 'primary' : 'secondary'}
+              variant={filterPrograms.length === 0 ? 'primary' : 'secondary'}
               size="sm"
               className="text-xs rounded-full"
-              onClick={() => { setFilterProgramId(''); setPage(1); }}
+              onClick={() => { setFilterPrograms([]); setPage(1); }}
             >All Programs</Button>
             {programs.map((p) => (
               <Button
                 key={p.id}
-                variant={filterProgramId === p.id ? 'primary' : 'secondary'}
+                variant={filterPrograms.includes(p.id) ? 'primary' : 'secondary'}
                 size="sm"
                 className="text-xs rounded-full"
-                onClick={() => { setFilterProgramId(p.id); setPage(1); }}
+                onClick={() => {
+                  setFilterPrograms((prev) => prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]);
+                  setPage(1);
+                }}
               >{p.name}</Button>
             ))}
           </div>
 
-          {/* Standard Filter */}
+          {/* Standard Filter — multi-select */}
           <div className="flex flex-wrap gap-2 items-center mb-4 px-1">
             <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Standard:</span>
-            {STANDARD_OPTIONS.map(std => (
-              <Button
-                key={std}
-                variant={filterStandard === (std === 'All' ? '' : std) ? 'primary' : 'secondary'}
-                size="sm"
-                className="text-xs rounded-full"
-                onClick={() => { setFilterStandard(std === 'All' ? '' : std); setPage(1); }}
-              >{std}</Button>
-            ))}
+            {STANDARD_OPTIONS.map((std) => {
+              const isAllChip = std === 'All';
+              const active = isAllChip ? filterStandards.length === 0 : filterStandards.includes(std);
+              return (
+                <Button
+                  key={std}
+                  variant={active ? 'primary' : 'secondary'}
+                  size="sm"
+                  className="text-xs rounded-full"
+                  onClick={() => {
+                    if (isAllChip) {
+                      setFilterStandards([]);
+                    } else {
+                      setFilterStandards((prev) => prev.includes(std) ? prev.filter((x) => x !== std) : [...prev, std]);
+                    }
+                    setPage(1);
+                  }}
+                >{std}</Button>
+              );
+            })}
           </div>
 
           {/* Transfer request banner */}

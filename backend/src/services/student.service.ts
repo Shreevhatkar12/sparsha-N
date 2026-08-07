@@ -143,6 +143,8 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
   // Build the base 'where' using the scope helper
   const where = scopedWhere(user, {
     isActive: isActive !== undefined ? isActive : true,
+    // Teachers see only the students they registered ("my students").
+    ...(user.role === 'teacher' ? { createdById: user.userId } : {}),
     ...(centerId ? { centerId } : {}),
     ...(programFilter ? { programId: programFilter } : {}),
     ...(standard ? { standard: { in: String(standard).split(',').map((s) => s.trim()).filter(Boolean) } } : {}),
