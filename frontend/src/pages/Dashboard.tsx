@@ -10,6 +10,7 @@ import { Users, BookOpen, PlusCircle, Trash2, TrendingUp, Target, Activity } fro
 import { getReportsDashboard } from '../services/reports.service';
 import { TeacherDashboard } from '../components/dashboard/TeacherDashboard';
 import { AdminAnalytics } from '../components/dashboard/AdminAnalytics';
+import { SwayamPanel } from './SwayamPanel';
 
 const AdminDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -268,6 +269,10 @@ export const Dashboard: React.FC = () => {
   const role = useAuthStore((s) => s.currentUser?.role);
   if (role === 'teacher') {
     return <TeacherDashboard />;
+  }
+  // Swayam coordinator's dashboard = the Swayam overview (tiles + charts only).
+  if (role === 'supervisor') {
+    return <SwayamPanel mode="dashboard" />;
   }
   return <AdminDashboard />;
 };

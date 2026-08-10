@@ -6,6 +6,11 @@ import {
   createSwayamStudent,
   updateSwayamStudent,
   deleteSwayamStudent,
+  listDropoutData,
+  createDropoutStudent,
+  updateDropoutStudent,
+  reenrollDropoutStudent,
+  updateReenrolledStudent,
 } from '../services/swayamService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -56,6 +61,58 @@ export async function deleteSwayamStudentController(req: Request, res: Response,
     ensureAccess(req);
     await deleteSwayamStudent(req.params.id as string);
     return res.status(200).json({ success: true });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---- Dropout tracking -------------------------------------------------
+
+export async function listDropoutController(req: Request, res: Response, next: NextFunction) {
+  try {
+    ensureAccess(req);
+    const data = await listDropoutData();
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function createDropoutController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await createDropoutStudent(user, req.body);
+    return res.status(201).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updateDropoutController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await updateDropoutStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function reenrollDropoutController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await reenrollDropoutStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updateReenrolledController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await updateReenrolledStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
   } catch (err) {
     return next(err);
   }

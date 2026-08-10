@@ -23,6 +23,7 @@ import { Activities } from './pages/Activities';
 import { StudentMeetingPage } from './pages/Meetings/StudentMeetingPage';
 import { ParentMeetingPage } from './pages/Meetings/ParentMeetingPage';
 import { SwayamPanel } from './pages/SwayamPanel';
+import { DropoutPage } from './pages/DropoutPage';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -73,7 +74,7 @@ function App() {
 
         {/* --- LEVEL 1: SHARED ACCESS (Teachers & Admins) --- */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : isSwayamCoordinator ? "/swayam" : "/students"} replace />} />
+          <Route path="/" element={<Navigate to={isAdmin || isSwayamCoordinator ? "/dashboard" : "/students"} replace />} />
 
           <Route path="/students" element={<StudentList />} />
           <Route path="/students/:id" element={<StudentDetails />} />
@@ -99,13 +100,14 @@ function App() {
         </Route>
 
         {/* --- DASHBOARD: Teachers see their self-dashboard, Admins see the admin dashboard --- */}
-        <Route element={<ProtectedRoute allowedRoles={['teacher', 'super_admin', 'center_admin', 'tech_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['teacher', 'supervisor', 'super_admin', 'center_admin', 'tech_admin']} />}>
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
         {/* --- SWAYAM 2 COORDINATOR PANEL (supervisor = Swayam Coordinator) --- */}
         <Route element={<ProtectedRoute allowedRoles={['supervisor', 'super_admin', 'tech_admin']} />}>
           <Route path="/swayam" element={<SwayamPanel />} />
+          <Route path="/swayam/dropout" element={<DropoutPage />} />
         </Route>
 
         {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}
