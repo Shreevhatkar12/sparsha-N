@@ -40,11 +40,15 @@ export const UsersAdmin: React.FC = () => {
   const canAccess = isAdmin;
   const canDelete = ['super_admin', 'tech_admin'].includes(currentUser?.role || '');
 
-  const roleOptions: UserRole[] = currentUser?.role === 'super_admin' 
-    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'volunteer'] 
+  const roleOptions: UserRole[] = currentUser?.role === 'super_admin'
+    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'supervisor', 'volunteer']
     : currentUser?.role === 'tech_admin'
     ? ['teacher', 'staff', 'volunteer']
     : ['teacher', 'staff', 'volunteer'];
+
+  // The 'supervisor' role is used as the Swayam 2 program coordinator.
+  const roleLabel = (r: string) =>
+    r === 'supervisor' ? 'SWAYAM COORDINATOR' : r.toUpperCase().replace(/_/g, ' ');
 
   const [rows, setRows] = useState<UserWithCenters[]>([]);
   const [centers, setCenters] = useState<{id: string, name: string}[]>([]);
@@ -222,7 +226,7 @@ export const UsersAdmin: React.FC = () => {
         </div>
       ),
     },
-    { id: 'role', header: 'Role', sortable: true, accessor: (u) => u.role.toUpperCase().replace('_', ' ') },
+    { id: 'role', header: 'Role', sortable: true, accessor: (u) => roleLabel(u.role) },
     { id: 'phone', header: 'Phone', accessor: (u) => u.phone || '-' },
     {
       id: 'centers',
@@ -419,7 +423,7 @@ export const UsersAdmin: React.FC = () => {
               onChange={(e) => setRole(e.target.value as UserRole)}
             >
               {roleOptions.map((r) => (
-                <option key={r} value={r}>{r.toUpperCase().replace('_', ' ')}</option>
+                <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
           </div>
@@ -474,4 +478,4 @@ export const UsersAdmin: React.FC = () => {
       </Card>
     </PageWrapper>
   );
-};
+};

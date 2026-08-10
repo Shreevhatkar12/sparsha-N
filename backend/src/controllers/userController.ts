@@ -59,7 +59,7 @@ export async function createUserController(req: Request, res: Response, next: Ne
     const requesterRole = requester.role as string;
 
     if (requesterRole === "super_admin") {
-      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer"];
+      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "supervisor"];
       if (!allowedForSuper.includes(targetRole)) {
         return res.status(403).json({ success: false, error: "Invalid role assignment for Super Admin." });
       }
@@ -201,4 +201,4 @@ export async function updateUserCentersController(
   } catch (error) {
     return next(error);
   }
-}
+}

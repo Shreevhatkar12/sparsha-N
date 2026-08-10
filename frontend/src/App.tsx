@@ -22,6 +22,7 @@ import { Announcements } from './pages/Announcements';
 import { Activities } from './pages/Activities';
 import { StudentMeetingPage } from './pages/Meetings/StudentMeetingPage';
 import { ParentMeetingPage } from './pages/Meetings/ParentMeetingPage';
+import { SwayamPanel } from './pages/SwayamPanel';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -63,6 +64,7 @@ function App() {
   }
 
   const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
+  const isSwayamCoordinator = currentUser?.role === 'supervisor';
 
   return (
     <BrowserRouter>
@@ -71,7 +73,7 @@ function App() {
 
         {/* --- LEVEL 1: SHARED ACCESS (Teachers & Admins) --- */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : "/students"} replace />} />
+          <Route path="/" element={<Navigate to={isAdmin ? "/dashboard" : isSwayamCoordinator ? "/swayam" : "/students"} replace />} />
 
           <Route path="/students" element={<StudentList />} />
           <Route path="/students/:id" element={<StudentDetails />} />
@@ -99,6 +101,11 @@ function App() {
         {/* --- DASHBOARD: Teachers see their self-dashboard, Admins see the admin dashboard --- */}
         <Route element={<ProtectedRoute allowedRoles={['teacher', 'super_admin', 'center_admin', 'tech_admin']} />}>
           <Route path="/dashboard" element={<Dashboard />} />
+        </Route>
+
+        {/* --- SWAYAM 2 COORDINATOR PANEL (supervisor = Swayam Coordinator) --- */}
+        <Route element={<ProtectedRoute allowedRoles={['supervisor', 'super_admin', 'tech_admin']} />}>
+          <Route path="/swayam" element={<SwayamPanel />} />
         </Route>
 
         {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}

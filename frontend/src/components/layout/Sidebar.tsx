@@ -32,6 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher'] },
+    { name: 'Swayam Panel', path: '/swayam', icon: <GraduationCap size={20} />, roles: ['supervisor'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Exams', path: '/exams', icon: <GraduationCap size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher'] },
@@ -39,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { name: 'Careers', path: '/careers', icon: <Briefcase size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher'] },
     { name: 'Forms', path: '/forms', icon: <FileText size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Activities', path: '/activities', icon: <Briefcase size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
-    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
+    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff','supervisor'] },
     { name: 'Centers', path: '/centers', icon: <Building2 size={20} />, roles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Programs', path: '/programs', icon: <BookOpen size={20} />, roles: ['super_admin','center_admin','tech_admin'] },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} />, roles: ['super_admin','center_admin','tech_admin'] },

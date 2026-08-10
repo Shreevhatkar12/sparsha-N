@@ -28,6 +28,8 @@ export const StudentList: React.FC = () => {
 
   const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
   const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'staff';
+  // supervisor = Swayam 2 coordinator: program-locked to Swayam 2.
+  const isCoordinator = currentUser?.role === 'supervisor';
 
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,12 @@ export const StudentList: React.FC = () => {
         } else {
           setCenters(cRes);
         }
-        setPrograms(pRes);
+        // Coordinator only works with Swayam 2 — hide other program chips.
+        if (isCoordinator) {
+          setPrograms(pRes.filter((p: ProgramSummary) => (p.name || '').toLowerCase().includes('swayam 2')));
+        } else {
+          setPrograms(pRes);
+        }
       })
       .catch(console.error);
 
@@ -84,7 +91,7 @@ export const StudentList: React.FC = () => {
         .then((res) => setTeachers(res.users))
         .catch(console.error);
     }
-  }, [isTeacher, isAdmin, currentUser?.centerIds]);
+  }, [isTeacher, isAdmin, isCoordinator, currentUser?.centerIds]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,7 +107,9 @@ export const StudentList: React.FC = () => {
       };
 
       // Center filtering logic:
-      if (isAdmin) {
+      // Swayam coordinator (supervisor) is program-scoped — sees all centers
+      // unless they explicitly pick one, same as admins.
+      if (isAdmin || isCoordinator) {
         if (filterCenterId) {
           params.centerId = filterCenterId;
         }
@@ -129,7 +138,7 @@ export const StudentList: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchQuery, isAdmin, selectedCenterId, filterCenterId, filterPrograms, filterStandards, sortOrder]);
+  }, [page, searchQuery, isAdmin, isCoordinator, selectedCenterId, filterCenterId, filterPrograms, filterStandards, sortOrder]);
 
   useEffect(() => {
     if (!showTransferTab) {
@@ -640,19 +649,22 @@ export const StudentList: React.FC = () => {
           {/* Quick Filters — built from the real programs list (each chip = a valid program UUID). Multi-select. */}
           <div className="flex flex-wrap gap-2 mb-3 px-1">
             <span className="text-xs font-semibold text-neutral-500 uppercase flex items-center mr-2">Program:</span>
-            <Button
-              variant={filterPrograms.length === 0 ? 'primary' : 'secondary'}
-              size="sm"
-              className="text-xs rounded-full"
-              onClick={() => { setFilterPrograms([]); setPage(1); }}
-            >All Programs</Button>
+            {!isCoordinator && (
+              <Button
+                variant={filterPrograms.length === 0 ? 'primary' : 'secondary'}
+                size="sm"
+                className="text-xs rounded-full"
+                onClick={() => { setFilterPrograms([]); setPage(1); }}
+              >All Programs</Button>
+            )}
             {programs.map((p) => (
               <Button
                 key={p.id}
-                variant={filterPrograms.includes(p.id) ? 'primary' : 'secondary'}
+                variant={isCoordinator || filterPrograms.includes(p.id) ? 'primary' : 'secondary'}
                 size="sm"
                 className="text-xs rounded-full"
                 onClick={() => {
+                  if (isCoordinator) return;
                   setFilterPrograms((prev) => prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]);
                   setPage(1);
                 }}

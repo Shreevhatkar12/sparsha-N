@@ -56,7 +56,8 @@ const scopedWhere = (user: TokenPayload, otherConditions: Record<string, unknown
   // super_admin & tech_admin → NO restrictions, see everything globally
   // center_admin → see everything in their centers
   // teachers → see everything in their centers (can be restricted further if needed)
-  if (userRole !== 'super_admin' && userRole !== 'tech_admin') {
+  // supervisor = Swayam 2 coordinator: a program-level role, not center-limited.
+  if (userRole !== 'super_admin' && userRole !== 'tech_admin' && userRole !== 'supervisor') {
      baseFilter.centerId = { in: user.centerIds || [] };
   }
 
@@ -140,6 +141,16 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
     else if (ids.length > 1) programFilter = { in: ids };
   }
 
+  // Swayam coordinator: always scoped to the Swayam 2 program (all centers).
+  let coordinatorProgramId: string | undefined;
+  if (user.role === 'supervisor') {
+    const swayamProgram = await prisma.program.findFirst({
+      where: { name: { equals: 'Swayam 2', mode: 'insensitive' } },
+      select: { id: true },
+    });
+    coordinatorProgramId = swayamProgram?.id;
+  }
+
   // Build the base 'where' using the scope helper
   const where = scopedWhere(user, {
     isActive: isActive !== undefined ? isActive : true,
@@ -147,12 +158,13 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
     ...(user.role === 'teacher' ? { createdById: user.userId } : {}),
     ...(centerId ? { centerId } : {}),
     ...(programFilter ? { programId: programFilter } : {}),
+    ...(coordinatorProgramId ? { programId: coordinatorProgramId } : {}),
     ...(standard ? { standard: { in: String(standard).split(',').map((s) => s.trim()).filter(Boolean) } } : {}),
     ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
   });
 
-  // Handle center filter overrides
-  if (centerId && user.role !== 'super_admin' && user.role !== 'tech_admin') {
+  // Handle center filter overrides (supervisor is program-scoped, any center ok)
+  if (centerId && user.role !== 'super_admin' && user.role !== 'tech_admin' && user.role !== 'supervisor') {
      if (!user.centerIds.includes(centerId)) {
         throw new ForbiddenError("You do not have access to this center");
      }
