@@ -11,6 +11,11 @@ import {
   updateDropoutStudent,
   reenrollDropoutStudent,
   updateReenrolledStudent,
+  listSponsorshipData,
+  createSponsorshipStudent,
+  updateSponsorshipStudent,
+  markSponsorshipDone,
+  revertSponsorshipStudent,
 } from '../services/swayamService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -112,6 +117,58 @@ export async function updateReenrolledController(req: Request, res: Response, ne
   try {
     const user = ensureAccess(req);
     const data = await updateReenrolledStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---- Sponsorship / scholarship tracking -------------------------------
+
+export async function listSponsorshipController(req: Request, res: Response, next: NextFunction) {
+  try {
+    ensureAccess(req);
+    const data = await listSponsorshipData();
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function createSponsorshipController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await createSponsorshipStudent(user, req.body);
+    return res.status(201).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updateSponsorshipController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await updateSponsorshipStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function markSponsorshipDoneController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await markSponsorshipDone(user, req.params.id as string);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function revertSponsorshipController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await revertSponsorshipStudent(user, req.params.id as string);
     return res.status(200).json({ success: true, ...data });
   } catch (err) {
     return next(err);

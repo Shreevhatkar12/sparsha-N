@@ -26,11 +26,13 @@ import {
   updateSwayamStudent,
   deleteSwayamStudent,
   listDropouts,
+  listSponsorships,
   type SwayamStudent,
   type SwayamStudentPayload,
   type SwayamLocation,
   type DropoutStudent,
   type DropoutListResponse,
+  type SponsorshipListResponse,
 } from '../services/swayam.service';
 import type { CenterSummary } from '../types';
 
@@ -91,6 +93,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
   const [error, setError] = useState<string | null>(null);
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [dropoutData, setDropoutData] = useState<DropoutListResponse | null>(null);
+  const [sponsorData, setSponsorData] = useState<SponsorshipListResponse | null>(null);
 
   // form state
   const [showForm, setShowForm] = useState(false);
@@ -146,6 +149,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
   useEffect(() => {
     void loadDropouts();
+    listSponsorships().then(setSponsorData).catch(console.error);
   }, [loadDropouts]);
 
   useEffect(() => {
@@ -360,6 +364,25 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
       .map(([year, v]) => ({ year, Dropout: v.d, 'Re-enrolled': v.r }))
       .sort((a, b) => a.year.localeCompare(b.year));
   }, [dropoutData]);
+
+  // Sponsorship vs Scholarship — pending/done split for the dashboard chart.
+  const sponsorChartData = useMemo(() => {
+    if (!sponsorData) return [];
+    const count = (rows: Array<{ supportType: string }>, t: string) =>
+      rows.filter((x) => x.supportType === t).length;
+    return [
+      {
+        name: 'Sponsorship',
+        Pending: count(sponsorData.pending, 'sponsorship'),
+        Done: count(sponsorData.done, 'sponsorship'),
+      },
+      {
+        name: 'Scholarship',
+        Pending: count(sponsorData.pending, 'scholarship'),
+        Done: count(sponsorData.done, 'scholarship'),
+      },
+    ];
+  }, [sponsorData]);
 
   // ---- combined student list (swayam + dropout + re-enrolled) --------
   const filteredRows = useMemo(() => {
@@ -718,6 +741,50 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
                   </Bar>
                   <Bar dataKey="Re-enrolled" fill="#008300" radius={[4, 4, 0, 0]} maxBarSize={48}>
                     <LabelList dataKey="Re-enrolled" position="top" fontSize={12} fill={AXIS_INK} formatter={hideZero} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          {/* ---- Sponsorship / Scholarship overview ---- */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="h-6 w-1.5 rounded-full bg-violet-500" />
+            <h2 className="text-lg font-black text-neutral-900">Sponsorship / Scholarship — Overview</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {tile('Total Students', sponsorData?.counts.total ?? 0)}
+            {tile('Pending', sponsorData?.counts.pending ?? 0, '#eda100')}
+            {tile('Done', sponsorData?.counts.done ?? 0, '#008300')}
+            {tile('Sponsorship', sponsorData?.counts.sponsorship ?? 0, '#2a78d6')}
+            {tile('Scholarship', sponsorData?.counts.scholarship ?? 0, '#4a3aa7')}
+            {tile('Male', sponsorData?.counts.male ?? 0, '#2a78d6')}
+            {tile('Female', sponsorData?.counts.female ?? 0, '#e87ba4')}
+          </div>
+
+          <Card className="border-none shadow-sm">
+            <h3 className="font-bold text-neutral-900 mb-1">Sponsorship vs Scholarship (pending / done)</h3>
+            <p className="text-xs text-neutral-500 mb-3">
+              Kiti students na support chi garaj ahe ani kiti na milala te type-wise.
+            </p>
+            {(sponsorData?.counts.total ?? 0) === 0 ? (
+              <EmptyState
+                title="No sponsorship data yet"
+                description="Sponsorship section madhun pahila student add kara."
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={sponsorChartData} margin={CHART_MARGIN}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} />
+                  <Tooltip formatter={(v) => `${v ?? 0} students`} cursor={{ fill: '#f6f8fa' }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Pending" fill="#eda100" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                    <LabelList dataKey="Pending" position="top" fontSize={12} fill={AXIS_INK} formatter={hideZero} />
+                  </Bar>
+                  <Bar dataKey="Done" fill="#008300" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                    <LabelList dataKey="Done" position="top" fontSize={12} fill={AXIS_INK} formatter={hideZero} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

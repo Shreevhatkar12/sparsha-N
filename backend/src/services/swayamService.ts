@@ -587,3 +587,257 @@ export async function listSwayamStudents() {
     }),
   };
 }
+
+// ----------------------------------------------------------------------
+// SPONSORSHIP / SCHOLARSHIP TRACKING (Swayam coordinator)
+// ONE auto-created program — "Sponsorship & Scholarship Students" — holds
+// both pending and done students, so the admin dashboard's Total Students
+// and Program Distribution show one clean count. The pending/done state
+// (plus donor, support type, area, animator…) lives in a "Sponsorship
+// Profile" FormSubmission. Done ⇄ Revert only flips the profile status —
+// the SAME student row migrates between the two lists, never counted twice.
+// ----------------------------------------------------------------------
+
+const SPONSORSHIP_TEMPLATE_NAME = 'Sponsorship Profile';
+
+const resolveSponsorshipProgram = () =>
+  resolveNamedProgram(
+    'Sponsorship & Scholarship Students',
+    'SPONSORSHIP',
+    'Students needing or receiving sponsorship / scholarship (Swayam tracking)',
+  );
+
+async function getSponsorshipTemplate(userId: string) {
+  let tpl = await prisma.formTemplate.findFirst({ where: { name: SPONSORSHIP_TEMPLATE_NAME } });
+  if (!tpl) {
+    tpl = await prisma.formTemplate.create({
+      data: {
+        name: SPONSORSHIP_TEMPLATE_NAME,
+        formType: 'system',
+        targetEntity: 'student',
+        createdBy: userId,
+        schema: { fields: [] },
+      },
+    });
+  }
+  return tpl;
+}
+
+async function upsertSponsorshipProfile(
+  userId: string,
+  studentId: string,
+  centerId: string,
+  patch: ProfilePatch,
+) {
+  const tpl = await getSponsorshipTemplate(userId);
+  const sub = await prisma.formSubmission.findFirst({
+    where: { templateId: tpl.id, studentId },
+    orderBy: { submittedAt: 'desc' },
+  });
+  if (sub) {
+    const existing =
+      sub.data && typeof sub.data === 'object' && !Array.isArray(sub.data)
+        ? (sub.data as unknown as ProfilePatch)
+        : {};
+    const merged: ProfilePatch = { ...existing, ...patch };
+    await prisma.formSubmission.update({ where: { id: sub.id }, data: { data: merged, centerId } });
+  } else {
+    await prisma.formSubmission.create({
+      data: { templateId: tpl.id, studentId, centerId, submittedBy: userId, data: patch },
+    });
+  }
+}
+
+function parseSponsorshipInput(body: SwayamBody) {
+  const fullName = String(body.fullName ?? '').trim();
+  if (fullName.length < 2) throw new ValidationError('Student full name is required');
+
+  const age = Number(body.age);
+  if (!Number.isFinite(age) || age < 3 || age > 60) {
+    throw new ValidationError('Valid age is required (3 to 60)');
+  }
+
+  const genderRaw = String(body.gender ?? '').trim().toLowerCase();
+  const gender =
+    genderRaw === 'male' || genderRaw === 'female' || genderRaw === 'other' ? genderRaw : '';
+
+  const phone = String(body.phone ?? '').trim();
+  if (phone && !/^\d{10}$/.test(phone)) {
+    throw new ValidationError('Phone must be exactly 10 digits');
+  }
+
+  const email = String(body.email ?? '').trim();
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+    throw new ValidationError('Enter a valid email id');
+  }
+
+  const area = String(body.area ?? '').trim();
+  const schoolName = String(body.schoolName ?? '').trim();
+  const stream = String(body.stream ?? '').trim();
+
+  const stdCourse = String(body.stdCourse ?? '').trim();
+  if (!stdCourse) throw new ValidationError('Std / course is required');
+
+  const animatorName = String(body.animatorName ?? '').trim();
+  const donorName = String(body.donorName ?? '').trim();
+
+  const supportTypeRaw = String(body.supportType ?? '').trim().toLowerCase();
+  if (supportTypeRaw !== 'sponsorship' && supportTypeRaw !== 'scholarship') {
+    throw new ValidationError('Select Sponsorship or Scholarship');
+  }
+
+  return {
+    fullName,
+    age,
+    gender,
+    phone,
+    email,
+    area,
+    schoolName,
+    stream,
+    stdCourse,
+    animatorName,
+    donorName,
+    supportType: supportTypeRaw,
+  };
+}
+
+function sponsorshipProfileData(input: ReturnType<typeof parseSponsorshipInput>) {
+  // NOTE: status is intentionally NOT here — updates must never overwrite
+  // the pending/done state; only Done / Revert change it.
+  return {
+    sponsorship: true,
+    age: input.age,
+    email: input.email,
+    area: input.area,
+    animatorName: input.animatorName,
+    donorName: input.donorName,
+    supportType: input.supportType,
+  };
+}
+
+export async function createSponsorshipStudent(user: JwtPayload, body: SwayamBody) {
+  const input = parseSponsorshipInput(body);
+  const program = await resolveSponsorshipProgram();
+  // Tracked by area name (no SPARSHA center attached) — same as out-center children.
+  const center = await getOutCenter();
+
+  const student = await prisma.student.create({
+    data: {
+      fullName: input.fullName,
+      standard: input.stdCourse,
+      stream: input.stream || null,
+      collegeName: input.schoolName || null,
+      gender: input.gender ? (input.gender as 'male' | 'female' | 'other') : null,
+      guardianPhone: input.phone || null,
+      address: input.area || null,
+      centerId: center.id,
+      programId: program.id,
+      createdById: user.userId,
+    },
+  });
+
+  await upsertSponsorshipProfile(user.userId, student.id, center.id, {
+    ...sponsorshipProfileData(input),
+    status: 'pending',
+  });
+  return { id: student.id };
+}
+
+export async function updateSponsorshipStudent(user: JwtPayload, studentId: string, body: SwayamBody) {
+  const input = parseSponsorshipInput(body);
+  const program = await resolveSponsorshipProgram();
+  const existing = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!existing || existing.programId !== program.id) throw new NotFoundError('Sponsorship student');
+
+  await prisma.student.update({
+    where: { id: studentId },
+    data: {
+      fullName: input.fullName,
+      standard: input.stdCourse,
+      stream: input.stream || null,
+      collegeName: input.schoolName || null,
+      gender: input.gender ? (input.gender as 'male' | 'female' | 'other') : null,
+      guardianPhone: input.phone || null,
+      address: input.area || null,
+    },
+  });
+
+  await upsertSponsorshipProfile(user.userId, studentId, existing.centerId, sponsorshipProfileData(input));
+  return { id: studentId };
+}
+
+async function setSponsorshipStatus(user: JwtPayload, studentId: string, status: 'pending' | 'done') {
+  const program = await resolveSponsorshipProgram();
+  const existing = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!existing || existing.programId !== program.id) throw new NotFoundError('Sponsorship student');
+  await upsertSponsorshipProfile(user.userId, studentId, existing.centerId, { status });
+  return { id: studentId };
+}
+
+// Done → student got the sponsorship/scholarship (migrates to Done list).
+export const markSponsorshipDone = (user: JwtPayload, studentId: string) =>
+  setSponsorshipStatus(user, studentId, 'done');
+
+// Revert → back to the Pending list (same record, same id).
+export const revertSponsorshipStudent = (user: JwtPayload, studentId: string) =>
+  setSponsorshipStatus(user, studentId, 'pending');
+
+export async function listSponsorshipData() {
+  const program = await resolveSponsorshipProgram();
+  const students = await prisma.student.findMany({
+    where: { isActive: true, programId: program.id },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const tpl = await prisma.formTemplate.findFirst({ where: { name: SPONSORSHIP_TEMPLATE_NAME } });
+  const subs =
+    tpl && students.length
+      ? await prisma.formSubmission.findMany({
+          where: { templateId: tpl.id, studentId: { in: students.map((s) => s.id) } },
+          orderBy: { submittedAt: 'asc' },
+          select: { studentId: true, data: true },
+        })
+      : [];
+  const profiles = new Map<string, Record<string, unknown>>();
+  for (const s of subs) {
+    if (s.studentId) profiles.set(s.studentId, (s.data as Record<string, unknown>) || {});
+  }
+
+  const rows = students.map((s) => {
+    const p = profiles.get(s.id) || {};
+    return {
+      id: s.id,
+      fullName: s.fullName,
+      gender: s.gender || '',
+      phone: s.guardianPhone || '',
+      age: typeof p.age === 'number' ? p.age : null,
+      email: typeof p.email === 'string' ? p.email : '',
+      area: typeof p.area === 'string' && p.area ? p.area : s.address || '',
+      schoolName: s.collegeName || '',
+      stream: s.stream || '',
+      stdCourse: s.standard || '',
+      animatorName: typeof p.animatorName === 'string' ? p.animatorName : '',
+      donorName: typeof p.donorName === 'string' ? p.donorName : '',
+      supportType: p.supportType === 'scholarship' ? 'scholarship' : 'sponsorship',
+      status: p.status === 'done' ? 'done' : 'pending',
+    };
+  });
+
+  const pending = rows.filter((r) => r.status === 'pending');
+  const done = rows.filter((r) => r.status === 'done');
+
+  return {
+    pending,
+    done,
+    counts: {
+      total: rows.length,
+      pending: pending.length,
+      done: done.length,
+      sponsorship: rows.filter((r) => r.supportType === 'sponsorship').length,
+      scholarship: rows.filter((r) => r.supportType === 'scholarship').length,
+      male: rows.filter((r) => r.gender === 'male').length,
+      female: rows.filter((r) => r.gender === 'female').length,
+    },
+  };
+}

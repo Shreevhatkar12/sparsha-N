@@ -24,6 +24,7 @@ import { StudentMeetingPage } from './pages/Meetings/StudentMeetingPage';
 import { ParentMeetingPage } from './pages/Meetings/ParentMeetingPage';
 import { SwayamPanel } from './pages/SwayamPanel';
 import { DropoutPage } from './pages/DropoutPage';
+import { SponsorshipPage } from './pages/SponsorshipPage';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -108,6 +109,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={['supervisor', 'super_admin', 'tech_admin']} />}>
           <Route path="/swayam" element={<SwayamPanel />} />
           <Route path="/swayam/dropout" element={<DropoutPage />} />
+          <Route path="/swayam/sponsorship" element={<SponsorshipPage />} />
         </Route>
 
         {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}

@@ -121,3 +121,71 @@ export const reenrollDropout = (id: string, body: ReenrollPayload) =>
 
 export const updateReenrolled = (id: string, body: ReenrollPayload) =>
   api.put<{ success: boolean; id: string }>(`/swayam/dropouts/${id}/reenroll`, body).then((r) => r.data);
+
+// ── Sponsorship / Scholarship tracking ────────────────────────────────
+
+export type SupportType = 'sponsorship' | 'scholarship';
+export type SponsorshipStatus = 'pending' | 'done';
+
+export interface SponsorshipStudent {
+  id: string;
+  fullName: string;
+  gender: string;
+  phone: string;
+  age: number | null;
+  email: string;
+  area: string;
+  schoolName: string;
+  stream: string;
+  stdCourse: string;
+  animatorName: string;
+  donorName: string;
+  supportType: SupportType;
+  status: SponsorshipStatus;
+}
+
+export interface SponsorshipCounts {
+  total: number;
+  pending: number;
+  done: number;
+  sponsorship: number;
+  scholarship: number;
+  male: number;
+  female: number;
+}
+
+export interface SponsorshipListResponse {
+  pending: SponsorshipStudent[];
+  done: SponsorshipStudent[];
+  counts: SponsorshipCounts;
+}
+
+export interface SponsorshipPayload {
+  fullName: string;
+  age: number;
+  gender?: string;
+  phone?: string;
+  email?: string;
+  area?: string;
+  schoolName?: string;
+  stream?: string;
+  stdCourse: string;
+  animatorName?: string;
+  donorName?: string;
+  supportType: SupportType;
+}
+
+export const listSponsorships = () =>
+  api.get<SponsorshipListResponse>('/swayam/sponsorships').then((r) => r.data);
+
+export const createSponsorship = (body: SponsorshipPayload) =>
+  api.post<{ success: boolean; id: string }>('/swayam/sponsorships', body).then((r) => r.data);
+
+export const updateSponsorship = (id: string, body: SponsorshipPayload) =>
+  api.put<{ success: boolean; id: string }>(`/swayam/sponsorships/${id}`, body).then((r) => r.data);
+
+export const markSponsorshipDone = (id: string) =>
+  api.post<{ success: boolean; id: string }>(`/swayam/sponsorships/${id}/done`, {}).then((r) => r.data);
+
+export const revertSponsorship = (id: string) =>
+  api.post<{ success: boolean; id: string }>(`/swayam/sponsorships/${id}/revert`, {}).then((r) => r.data);
