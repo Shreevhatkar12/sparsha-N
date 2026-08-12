@@ -24,10 +24,12 @@ import {
 
 interface SidebarProps {
   isOpen: boolean;
+  /** Desktop collapse toggle — ☰ button in the top bar flips this. */
+  isDesktopOpen?: boolean;
   onClose: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, isDesktopOpen = true, onClose }) => {
   const currentUser = useAuthStore((state) => state.currentUser);
   const [meetingsOpen, setMeetingsOpen] = useState(false);
 
@@ -65,12 +67,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       <aside className={cn(
-        'fixed inset-y-0 left-0 bg-white border-r border-neutral-200 w-[240px] z-40 transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:flex-shrink-0 flex flex-col',
+        'fixed inset-y-0 left-0 bg-white border-r border-neutral-200 w-[240px] z-40 transform transition-transform duration-300 ease-in-out flex flex-col',
         isOpen ? 'translate-x-0' : '-translate-x-full',
+        isDesktopOpen ? 'md:translate-x-0 md:static md:flex-shrink-0' : 'md:hidden',
       )}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-neutral-100">
-          <span className="font-bold text-xl text-brand-600 tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-            SPARSHA
+        <div className="h-16 flex items-center justify-between px-4 border-b border-neutral-100">
+          <span className="flex items-center gap-2.5 min-w-0">
+            <img
+              src="/sparsha-logo.png"
+              alt="Sparsha logo"
+              draggable={false}
+              className="h-9 w-9 rounded-full shadow-sm select-none shrink-0"
+            />
+            <span className="font-bold text-xl text-brand-600 tracking-tight truncate" style={{ fontFamily: 'var(--font-heading)' }}>
+              SPARSHA
+            </span>
           </span>
           <button onClick={onClose} className="md:hidden p-1 text-neutral-400 hover:text-neutral-600 rounded-lg">
             <X size={20} />
