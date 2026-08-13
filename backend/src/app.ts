@@ -20,6 +20,7 @@ import skillRoutes from './routes/skillRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
 import koboRoutes from './routes/kobo.routes.js';
 import swayamRoutes from './routes/swayamRoutes.js';
+import digitalRoutes from './routes/digitalRoutes.js';
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -74,6 +75,7 @@ app.use("/api/skills", skillRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/kobo", koboRoutes);
 app.use("/api/swayam", swayamRoutes);
+app.use("/api/digital", digitalRoutes);
 
 // Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);

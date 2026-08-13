@@ -6,6 +6,14 @@ interface TopBarProps {
   onMenuClick: () => void;
 }
 
+// Friendly role names for the top-right badge.
+const displayRole = (r?: string | null) => {
+  if (!r) return 'Guest';
+  if (r === 'volunteer') return 'Staff';
+  if (r === 'supervisor') return 'Swayam Coordinator';
+  return r.replace(/_/g, ' ');
+};
+
 export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const { currentUser, logout } = useAuthStore();
 
@@ -37,7 +45,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-end hidden sm:flex">
           <span className="text-sm font-medium text-neutral-900">{currentUser?.email || 'User'}</span>
-          <span className="text-xs text-neutral-500 capitalize">{currentUser?.role?.replace('_', ' ') || 'Guest'}</span>
+          <span className="text-xs text-neutral-500 capitalize">{displayRole(currentUser?.role)}</span>
         </div>
         
         <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20">

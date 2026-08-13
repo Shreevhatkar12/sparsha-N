@@ -208,6 +208,7 @@ export const refreshAccessToken = async (token: string) => {
       user: {
         id: user.id,
         email: user.email,
+        fullName: user.fullName,
         role: user.role,
         centerIds,
       },
@@ -268,4 +269,4 @@ export const changePassword = async (
     console.error("Change Password Service Error:", err);
     throw err;
   }
-};
+};

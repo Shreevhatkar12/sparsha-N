@@ -46,9 +46,14 @@ export const UsersAdmin: React.FC = () => {
     ? ['teacher', 'staff', 'volunteer']
     : ['teacher', 'staff', 'volunteer'];
 
-  // The 'supervisor' role is used as the Swayam 2 program coordinator.
+  // The 'supervisor' role is the Swayam 2 coordinator; 'volunteer' is the
+  // Digital Literacy (computer class) teacher.
   const roleLabel = (r: string) =>
-    r === 'supervisor' ? 'SWAYAM COORDINATOR' : r.toUpperCase().replace(/_/g, ' ');
+    r === 'supervisor'
+      ? 'SWAYAM COORDINATOR'
+      : r === 'volunteer'
+        ? 'DIGITAL LITERACY'
+        : r.toUpperCase().replace(/_/g, ' ');
 
   const [rows, setRows] = useState<UserWithCenters[]>([]);
   const [centers, setCenters] = useState<{id: string, name: string}[]>([]);

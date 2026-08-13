@@ -11,6 +11,7 @@ import { getReportsDashboard } from '../services/reports.service';
 import { TeacherDashboard } from '../components/dashboard/TeacherDashboard';
 import { AdminAnalytics } from '../components/dashboard/AdminAnalytics';
 import { SwayamPanel } from './SwayamPanel';
+import { DigitalDashboard } from './DigitalDashboard';
 
 const AdminDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -273,6 +274,10 @@ export const Dashboard: React.FC = () => {
   // Swayam coordinator's dashboard = the Swayam overview (tiles + charts only).
   if (role === 'supervisor') {
     return <SwayamPanel mode="dashboard" />;
+  }
+  // Digital Literacy teacher's dashboard.
+  if (role === 'volunteer') {
+    return <DigitalDashboard />;
   }
   return <AdminDashboard />;
 };
