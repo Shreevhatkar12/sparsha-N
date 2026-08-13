@@ -93,3 +93,44 @@ export const getDigitalPickStudents = (programId: string, centerId: string, stan
       `/digital/pick?programId=${programId}&centerId=${centerId}&standard=${encodeURIComponent(standard)}`,
     )
     .then((r) => r.data);
+
+// ── Digital Literacy exams ────────────────────────────────────────────
+
+export interface DLExamMark {
+  score: number | null;
+  absent: boolean;
+}
+
+export interface DLExam {
+  id: string;
+  name: string;
+  date: string;
+  topic: string;
+  subject: string;
+  batch: string;
+  totalMarks: number;
+  marks: Record<string, DLExamMark>; // keyed by studentId
+  createdAt: string;
+}
+
+export interface DLExamPayload {
+  name?: string;
+  date?: string;
+  topic?: string;
+  subject?: string;
+  batch?: string;
+  totalMarks?: number;
+  marks?: Record<string, DLExamMark>;
+}
+
+export const listDigitalExams = () =>
+  api.get<{ exams: DLExam[] }>('/digital/exams').then((r) => r.data);
+
+export const createDigitalExam = (body: DLExamPayload) =>
+  api.post<{ success: boolean; id: string }>('/digital/exams', body).then((r) => r.data);
+
+export const updateDigitalExam = (id: string, body: DLExamPayload) =>
+  api.put<{ success: boolean; id: string }>(`/digital/exams/${id}`, body).then((r) => r.data);
+
+export const deleteDigitalExam = (id: string) =>
+  api.delete<{ success: boolean }>(`/digital/exams/${id}`).then((r) => r.data);

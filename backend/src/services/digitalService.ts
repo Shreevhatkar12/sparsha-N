@@ -440,3 +440,148 @@ export async function digitalPick(user: JwtPayload, programId: string, centerId:
     })),
   };
 }
+
+// ----------------------------------------------------------------------
+// DIGITAL LITERACY EXAMS
+// One "Digital Exams" FormSubmission per exam (studentId = null). The
+// exam meta (name, date, topic, subject, batch, totalMarks) plus the
+// marks map — keyed by the real studentId, { score, absent } — all live
+// in the submission's JSON data. No DB migration needed.
+// ----------------------------------------------------------------------
+
+const DL_EXAM_TEMPLATE = 'Digital Exams';
+
+type DLExamMark = { score: number | null; absent: boolean };
+
+function parseDLExamInput(body: DLBody) {
+  const name = String(body.name ?? '').trim();
+  if (name.length < 2) throw new ValidationError('Exam name is required');
+
+  const date = String(body.date ?? '').trim();
+  if (!date || Number.isNaN(new Date(date).getTime())) {
+    throw new ValidationError('Valid exam date is required');
+  }
+
+  const topic = String(body.topic ?? '').trim();
+
+  const subject = String(body.subject ?? '').trim();
+  if (!subject) throw new ValidationError('Subject is required');
+
+  const batch = parseBatch(body);
+
+  const totalMarks = Number(body.totalMarks);
+  if (!Number.isInteger(totalMarks) || totalMarks < 1 || totalMarks > 1000) {
+    throw new ValidationError('Total marks must be between 1 and 1000');
+  }
+
+  return { name, date, topic, subject, batch, totalMarks };
+}
+
+function parseDLMarks(raw: unknown, totalMarks: number) {
+  const out: Record<string, DLExamMark> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    const entry = value as Record<string, unknown>;
+    const absent = entry.absent === true;
+    let score: number | null = null;
+    if (!absent && entry.score != null && entry.score !== '') {
+      const n = Number(entry.score);
+      if (!Number.isFinite(n) || n < 0 || n > totalMarks) {
+        throw new ValidationError(`Marks must be between 0 and ${totalMarks}`);
+      }
+      score = n;
+    }
+    if (absent || score != null) out[key] = { score, absent };
+  }
+  return out;
+}
+
+export async function createDigitalExam(user: JwtPayload, body: DLBody) {
+  const input = parseDLExamInput(body);
+  const marks = parseDLMarks(body.marks, input.totalMarks);
+  const tpl = await getDLTemplate(DL_EXAM_TEMPLATE, user.userId);
+  const center = await getDLOutCenter(); // anchor center (submission needs one)
+
+  const sub = await prisma.formSubmission.create({
+    data: {
+      templateId: tpl.id,
+      centerId: center.id,
+      submittedBy: user.userId,
+      data: { dlExam: true, ...input, marks },
+    },
+  });
+  return { id: sub.id };
+}
+
+export async function updateDigitalExam(user: JwtPayload, id: string, body: DLBody) {
+  const tpl = await getDLTemplate(DL_EXAM_TEMPLATE, user.userId);
+  const sub = await prisma.formSubmission.findFirst({ where: { id, templateId: tpl.id } });
+  if (!sub) throw new NotFoundError('Digital exam');
+
+  const prev = (
+    sub.data && typeof sub.data === 'object' && !Array.isArray(sub.data) ? sub.data : {}
+  ) as Record<string, unknown>;
+
+  const eff: DLBody = {
+    name: body.name ?? prev.name,
+    date: body.date ?? prev.date,
+    topic: body.topic ?? prev.topic,
+    subject: body.subject ?? prev.subject,
+    batch: body.batch ?? prev.batch,
+    totalMarks: body.totalMarks ?? prev.totalMarks,
+  };
+  const input = parseDLExamInput(eff);
+  const marks =
+    body.marks !== undefined
+      ? parseDLMarks(body.marks, input.totalMarks)
+      : parseDLMarks(prev.marks, input.totalMarks);
+
+  await prisma.formSubmission.update({
+    where: { id: sub.id },
+    data: { data: { dlExam: true, ...input, marks } },
+  });
+  return { id };
+}
+
+export async function deleteDigitalExam(user: JwtPayload, id: string) {
+  const tpl = await getDLTemplate(DL_EXAM_TEMPLATE, user.userId);
+  const sub = await prisma.formSubmission.findFirst({ where: { id, templateId: tpl.id } });
+  if (!sub) throw new NotFoundError('Digital exam');
+  await prisma.formSubmission.delete({ where: { id: sub.id } });
+  return { success: true };
+}
+
+export async function listDigitalExams(user: JwtPayload) {
+  const tpl = await getDLTemplate(DL_EXAM_TEMPLATE, user.userId);
+  const subs = await prisma.formSubmission.findMany({
+    where: { templateId: tpl.id },
+    orderBy: { submittedAt: 'desc' },
+    select: { id: true, data: true, submittedAt: true },
+  });
+
+  const exams = subs
+    .map((s) => {
+      const d = (
+        s.data && typeof s.data === 'object' && !Array.isArray(s.data) ? s.data : {}
+      ) as Record<string, unknown>;
+      const marks =
+        d.marks && typeof d.marks === 'object' && !Array.isArray(d.marks)
+          ? (d.marks as unknown as Record<string, DLExamMark>)
+          : {};
+      return {
+        id: s.id,
+        name: typeof d.name === 'string' ? d.name : '',
+        date: typeof d.date === 'string' ? d.date : '',
+        topic: typeof d.topic === 'string' ? d.topic : '',
+        subject: typeof d.subject === 'string' ? d.subject : '',
+        batch: typeof d.batch === 'string' ? d.batch : '',
+        totalMarks: typeof d.totalMarks === 'number' ? d.totalMarks : 0,
+        marks,
+        createdAt: s.submittedAt,
+      };
+    })
+    .filter((e) => e.name);
+
+  return { exams };
+}

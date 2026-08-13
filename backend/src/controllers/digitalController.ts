@@ -8,6 +8,10 @@ import {
   deleteDigitalStudent,
   digitalMeta,
   digitalPick,
+  listDigitalExams,
+  createDigitalExam,
+  updateDigitalExam,
+  deleteDigitalExam,
 } from '../services/digitalService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -84,6 +88,48 @@ export async function digitalPickController(req: Request, res: Response, next: N
       String(req.query.standard ?? ''),
     );
     return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// ---- Digital Literacy exams -------------------------------------------
+
+export async function listDigitalExamsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await listDigitalExams(user);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function createDigitalExamController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await createDigitalExam(user, req.body);
+    return res.status(201).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function updateDigitalExamController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await updateDigitalExam(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function deleteDigitalExamController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    await deleteDigitalExam(user, req.params.id as string);
+    return res.status(200).json({ success: true });
   } catch (err) {
     return next(err);
   }

@@ -17,7 +17,12 @@ import {
   Legend,
 } from 'recharts';
 import { listCenters } from '../services/centers.service';
-import { listDigitalStudents, type DigitalListResponse } from '../services/digital.service';
+import {
+  listDigitalStudents,
+  listDigitalExams,
+  type DigitalListResponse,
+  type DLExam,
+} from '../services/digital.service';
 import type { CenterSummary } from '../types';
 
 const AXIS_INK = '#6b7280';
@@ -37,6 +42,7 @@ const MONTHS = [
 export const DigitalDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
   const [data, setData] = useState<DigitalListResponse | null>(null);
+  const [exams, setExams] = useState<DLExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [centers, setCenters] = useState<CenterSummary[]>([]);
 
@@ -50,6 +56,9 @@ export const DigitalDashboard: React.FC = () => {
       .then(setData)
       .catch(console.error)
       .finally(() => setLoading(false));
+    listDigitalExams()
+      .then((r) => setExams(r.exams))
+      .catch(console.error);
     listCenters()
       .then((res) => setCenters(Array.isArray(res) ? res : []))
       .catch(() => setCenters([]));
@@ -117,6 +126,47 @@ export const DigitalDashboard: React.FC = () => {
       });
     return { total: filtered.length, inC, outC, male, female, batchData, monthData };
   }, [filtered]);
+
+  // Exam-wise average % (date order) — growth over exams, same filters applied.
+  const examGrowth = useMemo(() => {
+    const list = exams
+      .filter((e) => !batchFilter || e.batch === batchFilter)
+      .filter((e) => {
+        if (!e.date) return !yearFilter && !monthFilter;
+        const d = new Date(e.date);
+        if (yearFilter && String(d.getFullYear()) !== yearFilter) return false;
+        if (monthFilter && String(d.getMonth()) !== monthFilter) return false;
+        return true;
+      })
+      .slice()
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    return list.map((e) => {
+      const entries = Object.values(e.marks || {});
+      const scored = entries.filter((m) => !m.absent && m.score != null);
+      const avg =
+        scored.length && e.totalMarks > 0
+          ? Math.round(
+              scored.reduce((a, m) => a + ((m.score ?? 0) / e.totalMarks) * 100, 0) / scored.length,
+            )
+          : 0;
+      return { name: e.name, 'Average %': avg };
+    });
+  }, [exams, batchFilter, yearFilter, monthFilter]);
+
+  const axisLabelX = (text: string) => ({
+    value: text,
+    position: 'insideBottom' as const,
+    offset: -4,
+    fontSize: 12,
+    fill: AXIS_INK,
+  });
+  const axisLabelY = (text: string) => ({
+    value: text,
+    angle: -90,
+    position: 'insideLeft' as const,
+    fontSize: 12,
+    fill: AXIS_INK,
+  });
 
   const tile = (label: string, value: React.ReactNode, color?: string) => (
     <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-3 text-center">
@@ -217,8 +267,8 @@ export const DigitalDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={stats.batchData} margin={CHART_MARGIN}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelX('Batch')} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelY('Students')} />
                   <Tooltip formatter={(v) => `${v ?? 0} students`} cursor={{ fill: '#f6f8fa' }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey="In Center" fill={C_IN} radius={[4, 4, 0, 0]} maxBarSize={48}>
@@ -242,8 +292,8 @@ export const DigitalDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={stats.monthData} margin={CHART_MARGIN}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelX('Month')} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelY('Students')} />
                   <Tooltip formatter={(v) => `${v ?? 0} students`} cursor={{ fill: '#f6f8fa' }} />
                   <Bar dataKey="count" fill="#4a3aa7" radius={[4, 4, 0, 0]} maxBarSize={48}>
                     <LabelList dataKey="count" position="top" fontSize={12} fill={AXIS_INK} formatter={hideZero} />
@@ -253,13 +303,36 @@ export const DigitalDashboard: React.FC = () => {
             )}
           </Card>
 
-          {/* exam analytics placeholder */}
-          <Card className="border-none shadow-sm border-dashed">
-            <h3 className="font-bold text-neutral-900 mb-1">Exam Performance &amp; Growth Index</h3>
-            <p className="text-sm text-neutral-500">
-              Digital Exams section build zalya var ithe exam graphs, marks table ani class + individual
-              student growth index automatic yeil. 📊
+          {/* exam growth */}
+          <Card className="border-none shadow-sm">
+            <h3 className="font-bold text-neutral-900 mb-1">Exam Growth — Average % per Exam</h3>
+            <p className="text-xs text-neutral-500 mb-3">
+              Date order madhe pratek exam cha class average % — growth kiti zali te ithe samjel ({exams.length} exams)
             </p>
+            {examGrowth.length === 0 ? (
+              <EmptyState
+                title="No exam data yet"
+                description="Digital Exams section madhun exam create karun marks bhara — growth ithe disel."
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={examGrowth} margin={CHART_MARGIN}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelX('Exam (date order)')} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: AXIS_INK }} label={axisLabelY('Average %')} />
+                  <Tooltip formatter={(v) => `${v ?? 0}%`} cursor={{ fill: '#f6f8fa' }} />
+                  <Bar dataKey="Average %" fill="#eb6834" radius={[4, 4, 0, 0]} maxBarSize={48}>
+                    <LabelList
+                      dataKey="Average %"
+                      position="top"
+                      fontSize={12}
+                      fill={AXIS_INK}
+                      formatter={(v: unknown) => (Number(v) > 0 ? `${v}%` : '')}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </Card>
         </div>
       )}
