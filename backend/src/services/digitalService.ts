@@ -262,7 +262,22 @@ export async function deleteDigitalStudent(user: JwtPayload, id: string, mode: s
   const program = await resolveDigitalProgram();
   const existing = await prisma.student.findUnique({ where: { id } });
   if (!existing || existing.programId !== program.id) throw new NotFoundError('Digital Literacy student');
-  await prisma.student.update({ where: { id }, data: { isActive: false } });
+  // PERMANENT delete of the out-center student + all referencing records.
+  await prisma.$transaction([
+    prisma.attendanceRecord.deleteMany({ where: { studentId: id } }),
+    prisma.examScore.deleteMany({ where: { studentId: id } }),
+    prisma.studentMeetingAttendance.deleteMany({ where: { studentId: id } }),
+    prisma.formSubmission.deleteMany({ where: { studentId: id } }),
+    prisma.formAssignment.deleteMany({ where: { studentId: id } }),
+    prisma.studentSkillLog.deleteMany({ where: { studentId: id } }),
+    prisma.feePayment.deleteMany({ where: { studentId: id } }),
+    prisma.studentTransfer.deleteMany({ where: { studentId: id } }),
+    prisma.activityEnrollment.deleteMany({ where: { studentId: id } }),
+    prisma.batchEnrollment.deleteMany({ where: { studentId: id } }),
+    prisma.parentStudent.deleteMany({ where: { studentId: id } }),
+    prisma.alert.deleteMany({ where: { studentId: id } }),
+    prisma.student.delete({ where: { id } }),
+  ]);
   return { success: true };
 }
 

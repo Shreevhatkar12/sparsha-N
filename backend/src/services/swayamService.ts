@@ -215,8 +215,22 @@ export async function updateSwayamStudent(user: JwtPayload, studentId: string, b
 export async function deleteSwayamStudent(studentId: string) {
   const existing = await prisma.student.findUnique({ where: { id: studentId } });
   if (!existing) throw new NotFoundError('Student');
-  // Soft delete — keeps history but removes from every list/report/count.
-  await prisma.student.update({ where: { id: studentId }, data: { isActive: false } });
+  // PERMANENT delete — student + every record referencing them, one transaction.
+  await prisma.$transaction([
+    prisma.attendanceRecord.deleteMany({ where: { studentId } }),
+    prisma.examScore.deleteMany({ where: { studentId } }),
+    prisma.studentMeetingAttendance.deleteMany({ where: { studentId } }),
+    prisma.formSubmission.deleteMany({ where: { studentId } }),
+    prisma.formAssignment.deleteMany({ where: { studentId } }),
+    prisma.studentSkillLog.deleteMany({ where: { studentId } }),
+    prisma.feePayment.deleteMany({ where: { studentId } }),
+    prisma.studentTransfer.deleteMany({ where: { studentId } }),
+    prisma.activityEnrollment.deleteMany({ where: { studentId } }),
+    prisma.batchEnrollment.deleteMany({ where: { studentId } }),
+    prisma.parentStudent.deleteMany({ where: { studentId } }),
+    prisma.alert.deleteMany({ where: { studentId } }),
+    prisma.student.delete({ where: { id: studentId } }),
+  ]);
   return { success: true };
 }
 

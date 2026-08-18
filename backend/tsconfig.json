@@ -8,18 +8,17 @@
     "strictNullChecks": true,
     "rootDir": "src",
     "outDir": "dist",
-    "baseUrl": "src",
     "allowImportingTsExtensions": false,
     "noEmit": false,
     "paths": {
       "@/*": [
-        "*"
+        "./src/*"
       ],
       "@lib/*": [
-        "lib/*"
+        "./src/lib/*"
       ],
       "@middleware/*": [
-        "middleware/*"
+        "./src/middleware/*"
       ]
     },
     "esModuleInterop": true,

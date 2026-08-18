@@ -89,9 +89,13 @@ export async function deleteStudentMeeting(id: string) {
 
 export async function listStudentMeetings(user: any, filters?: any) {
   const where: any = {};
-  
+
   if (user.role === 'teacher' || user.role === 'center_admin') {
     where.centerId = { in: user.centerIds };
+  }
+  // Teachers see ONLY the meetings they created themselves.
+  if (user.role === 'teacher') {
+    where.createdBy = user.userId;
   }
   if (filters?.centerId) where.centerId = filters.centerId;
   if (filters?.programId) where.programId = filters.programId;
@@ -102,26 +106,44 @@ export async function listStudentMeetings(user: any, filters?: any) {
       center: { select: { id: true, name: true } },
       program: { select: { id: true, name: true } },
       createdByUser: { select: { id: true, fullName: true } },
-      attendance: true,
+      // Deleted students never appear in meeting counts.
+      attendance: { where: { student: { isActive: true } } },
     },
     orderBy: { meetingDate: 'desc' },
   });
 }
 
 export async function getStudentMeetingById(id: string) {
-  return prisma.studentMeeting.findUnique({
+  const meeting = await prisma.studentMeeting.findUnique({
     where: { id },
     include: {
       center: { select: { id: true, name: true } },
       program: { select: { id: true, name: true } },
       createdByUser: { select: { id: true, fullName: true } },
       attendance: {
+        // Deleted students never show up in a meeting's student list.
+        where: { student: { isActive: true } },
         include: {
           student: { select: { id: true, fullName: true, gender: true, rollNumber: true } },
         },
       },
     },
   });
+  if (meeting) {
+    // Roll-number order by default (numeric aware), then name.
+    meeting.attendance.sort((a, b) => {
+      const ra = (a.student.rollNumber || '').trim();
+      const rb = (b.student.rollNumber || '').trim();
+      if (ra && !rb) return -1;
+      if (!ra && rb) return 1;
+      if (ra && rb) {
+        const cmp = ra.localeCompare(rb, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+      }
+      return a.student.fullName.localeCompare(b.student.fullName);
+    });
+  }
+  return meeting;
 }
 
 export async function createParentMeeting(userId: string, data: any) {
@@ -190,6 +212,10 @@ export async function listParentMeetings(user: any, filters?: any) {
 
   if (user.role === 'teacher' || user.role === 'center_admin') {
     where.centerId = { in: user.centerIds };
+  }
+  // Teachers see ONLY the parent meetings they created themselves.
+  if (user.role === 'teacher') {
+    where.createdBy = user.userId;
   }
   if (filters?.centerId) where.centerId = filters.centerId;
   if (filters?.programId) where.programId = filters.programId;

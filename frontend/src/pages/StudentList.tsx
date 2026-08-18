@@ -38,7 +38,7 @@ export const StudentList: React.FC = () => {
   const [filterCenterId, setFilterCenterId] = useState('');
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterStandards, setFilterStandards] = useState<string[]>([]);
-  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'std_asc' | 'std_desc' | ''>('');
+  const [sortOrder, setSortOrder] = useState<'name_asc' | 'name_desc' | 'roll_asc' | 'roll_desc' | 'std_asc' | 'std_desc' | ''>('roll_asc');
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
@@ -360,7 +360,7 @@ export const StudentList: React.FC = () => {
             variant="ghost"
             size="sm"
             className="px-2 text-danger hover:bg-danger/10"
-            title="Deactivate"
+            title="Delete permanently"
             onClick={() => {
               setDeleteName(s.fullName);
               setDeleteId(s.id);
@@ -428,9 +428,9 @@ export const StudentList: React.FC = () => {
     >
       <ConfirmModal
         open={Boolean(deleteId)}
-        title="Deactivate student?"
-        message={`This will mark ${deleteName} as inactive. You can continue to see them in filtered lists.`}
-        confirmLabel="Deactivate"
+        title="Delete student permanently?"
+        message={`${deleteName} will be permanently deleted along with all their attendance, exam marks, meeting and form records. This cannot be undone.`}
+        confirmLabel="Delete Permanently"
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteId(null)}
       />

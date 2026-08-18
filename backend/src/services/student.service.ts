@@ -55,10 +55,13 @@ const scopedWhere = (user: TokenPayload, otherConditions: Record<string, unknown
 
   // super_admin & tech_admin → NO restrictions, see everything globally
   // center_admin → see everything in their centers
-  // teachers → see everything in their centers (can be restricted further if needed)
+  // teachers → ONLY the students they registered themselves (createdById)
   // supervisor = Swayam 2 coordinator: a program-level role, not center-limited.
   if (userRole !== 'super_admin' && userRole !== 'tech_admin' && userRole !== 'supervisor') {
      baseFilter.centerId = { in: user.centerIds || [] };
+  }
+  if (userRole === 'teacher') {
+     baseFilter.createdById = effectiveUserId;
   }
 
   return {
@@ -193,12 +196,31 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
     return { students, total, page: currentPage, totalPages: Math.ceil(total / safeLimit) };
   }
 
+  // Roll-number sort must be numeric-aware ("2" before "10") → sort in memory.
+  if (sortOrder === 'roll_asc' || sortOrder === 'roll_desc') {
+    const all = await prisma.student.findMany({ where, include });
+    const cmp = (a: any, b: any) => {
+      const ra = String(a.rollNumber || '').trim();
+      const rb = String(b.rollNumber || '').trim();
+      if (ra && !rb) return -1;
+      if (!ra && rb) return 1;
+      if (ra && rb) {
+        const c = ra.localeCompare(rb, undefined, { numeric: true, sensitivity: 'base' });
+        if (c !== 0) return c;
+      }
+      return String(a.fullName).localeCompare(String(b.fullName));
+    };
+    all.sort(cmp);
+    if (sortOrder === 'roll_desc') all.reverse();
+    const total = all.length;
+    const students = all.slice(skip, skip + safeLimit);
+    return { students, total, page: currentPage, totalPages: Math.ceil(total / safeLimit) };
+  }
+
   // SQL-level sorting for every other mode
   let orderBy: any = { createdAt: 'desc' };
   if (sortOrder === 'name_asc') orderBy = { fullName: 'asc' };
   else if (sortOrder === 'name_desc') orderBy = { fullName: 'desc' };
-  else if (sortOrder === 'roll_asc') orderBy = { rollNumber: 'asc' };
-  else if (sortOrder === 'roll_desc') orderBy = { rollNumber: 'desc' };
   else if (sortOrder === 'class_asc') orderBy = { program: { name: 'asc' } };
   else if (sortOrder === 'class_desc') orderBy = { program: { name: 'desc' } };
 
@@ -243,6 +265,10 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
   if (user.role !== 'super_admin' && user.role !== 'tech_admin' && !user.centerIds.includes(student.centerId)) {
     throw new ForbiddenError("Cannot access student from another center");
   }
+  // Teachers may only open the students they registered themselves.
+  if (user.role === 'teacher' && student.createdById !== user.userId) {
+    throw new ForbiddenError("You can only view students you registered");
+  }
 
   return student;
 };
@@ -278,15 +304,40 @@ export const updateStudent = async (user: TokenPayload, id: string, data: Record
   });
 };
 
+/**
+ * PERMANENT DELETE. Removes the student AND every record that references
+ * them (attendance, exam scores, meeting attendance, form data, skills,
+ * fees, transfers, activity/batch enrollments, parent links, alerts) in
+ * one transaction, so nothing about the student remains anywhere in the app.
+ * Access is still governed by scopedWhere (teacher → own students only,
+ * center_admin → own centers, super/tech admin → all).
+ */
 export const deleteStudent = async (user: TokenPayload, id: string) => {
-  const result = await prisma.student.updateMany({
+  const student = await prisma.student.findFirst({
     where: scopedWhere(user, { id }),
-    data: { isActive: false },
+    select: { id: true },
   });
-  if (result.count === 0) {
+  if (!student) {
     throw new NotFoundError("Student");
   }
-  return { message: "Student deactivated successfully" };
+
+  await prisma.$transaction([
+    prisma.attendanceRecord.deleteMany({ where: { studentId: id } }),
+    prisma.examScore.deleteMany({ where: { studentId: id } }),
+    prisma.studentMeetingAttendance.deleteMany({ where: { studentId: id } }),
+    prisma.formSubmission.deleteMany({ where: { studentId: id } }),
+    prisma.formAssignment.deleteMany({ where: { studentId: id } }),
+    prisma.studentSkillLog.deleteMany({ where: { studentId: id } }),
+    prisma.feePayment.deleteMany({ where: { studentId: id } }),
+    prisma.studentTransfer.deleteMany({ where: { studentId: id } }),
+    prisma.activityEnrollment.deleteMany({ where: { studentId: id } }),
+    prisma.batchEnrollment.deleteMany({ where: { studentId: id } }),
+    prisma.parentStudent.deleteMany({ where: { studentId: id } }),
+    prisma.alert.deleteMany({ where: { studentId: id } }),
+    prisma.student.delete({ where: { id } }),
+  ]);
+
+  return { message: "Student permanently deleted" };
 };
 
 export const filterStudents = async (user: TokenPayload, query: Record<string, any> = {}) => {

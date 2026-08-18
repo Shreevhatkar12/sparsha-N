@@ -114,7 +114,7 @@ export function ParentMeetingPage() {
       try {
         const stdParam = selectedStandards.length > 0 ? `&standard=${selectedStandards.join(",")}` : "";
         const res = await api.get(
-          `/students?centerId=${formData.centerId}&programId=${formData.programId}${stdParam}&limit=200`,
+          `/students?centerId=${formData.centerId}&programId=${formData.programId}${stdParam}&limit=200&sortOrder=roll_asc`,
         );
         const list: Student[] = res.data?.students || res.data?.data || [];
         setStudents(list);

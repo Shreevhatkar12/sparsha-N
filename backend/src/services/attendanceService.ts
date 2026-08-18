@@ -22,6 +22,29 @@ function ensureCenterAccess(user: JwtPayload, centerId: string): void {
   }
 }
 
+/**
+ * Teachers only ever see / mark the students they registered themselves
+ * (createdById). Everyone else sees the whole session roster.
+ */
+function teacherStudentScope(user: JwtPayload): Record<string, unknown> {
+  return user.role === "teacher"
+    ? { student: { is: { createdById: user.userId, isActive: true } } }
+    : { student: { is: { isActive: true } } };
+}
+
+// Roll-number order (numeric aware); students without roll no go last.
+function byRollNumber<T extends { rollNumber: string | null; fullName: string }>(a: T, b: T) {
+  const ra = (a.rollNumber || "").trim();
+  const rb = (b.rollNumber || "").trim();
+  if (ra && !rb) return -1;
+  if (!ra && rb) return 1;
+  if (ra && rb) {
+    const cmp = ra.localeCompare(rb, undefined, { numeric: true, sensitivity: "base" });
+    if (cmp !== 0) return cmp;
+  }
+  return a.fullName.localeCompare(b.fullName);
+}
+
 function applyCenterScopeToWhere(user: JwtPayload, where: Record<string, unknown>, centerId?: string) {
   if (user.role === "super_admin") {
     if (centerId) {
@@ -201,17 +224,23 @@ export async function getTodayFreshSheet(user: JwtPayload, centerId: string, pro
     });
   }
 
-  // 4. Return the fully updated session with all students
-  return prisma.attendanceSession.findFirst({
+  // 4. Return the fully updated session — teachers get ONLY their own students,
+  //    rows in roll-number order.
+  const fresh = await prisma.attendanceSession.findFirst({
     where: { centerId, programId, sessionDate: today },
     include: {
       records: {
+        where: teacherStudentScope(user) as never,
         include: {
-          student: { select: { id: true, fullName: true, rollNumber: true , standard: true } }
+          student: { select: { id: true, fullName: true, rollNumber: true } }
         }
       }
     }
   });
+  if (fresh) {
+    fresh.records.sort((a, b) => byRollNumber(a.student, b.student));
+  }
+  return fresh;
 }
 
 export async function markHoliday(user: JwtPayload, sessionId: string, isHoliday: boolean) {
@@ -261,6 +290,7 @@ export async function listSessions(
       program: true,
       activity: true,
       records: {
+        where: teacherStudentScope(user) as never,
         select: { status: true },
       },
     },
@@ -296,6 +326,7 @@ export async function getSessionById(
       program: true,
       activity: true,
       records: {
+        where: teacherStudentScope(user) as never,
         include: {
           student: true,
         },
@@ -319,14 +350,16 @@ export async function getSessionById(
       center: session.center,
       program: session.program,
     },
-    records: session.records.map((record) => ({
-      student: record.student,
-      record: {
-        id: record.id,
-        status: record.status,
-        remarks: record.remarks,
-      },
-    })),
+    records: [...session.records]
+      .sort((a, b) => byRollNumber(a.student, b.student))
+      .map((record) => ({
+        student: record.student,
+        record: {
+          id: record.id,
+          status: record.status,
+          remarks: record.remarks,
+        },
+      })),
   };
 }
 
@@ -397,7 +430,9 @@ export async function getStudentAttendanceHistory(
   const student = await prisma.student.findFirst({
     where: ({
       id: studentId,
-      ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
+      isActive: true,
+      ...(user.role === "super_admin" || user.role === "tech_admin" ? {} : { centerId: { in: user.centerIds } }),
+      ...(user.role === "teacher" ? { createdById: user.userId } : {}),
     } as never),
     select: {
       id: true,
@@ -587,11 +622,12 @@ export async function getRecentAbsentees(
   cutoff.setDate(cutoff.getDate() - days);
   cutoff.setHours(0, 0, 0, 0);
 
-  const centerIds = user.role === "super_admin" ? undefined : user.centerIds;
+  const centerIds = user.role === "super_admin" || user.role === "tech_admin" ? undefined : user.centerIds;
 
   const records = await prisma.attendanceRecord.findMany({
     where: {
       status: "absent",
+      ...(teacherStudentScope(user) as object),
       session: {
         sessionDate: { gte: cutoff },
         ...(centerIds ? { centerId: { in: centerIds } } : {})

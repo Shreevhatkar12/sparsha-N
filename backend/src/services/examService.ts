@@ -40,6 +40,28 @@ function applyCenterFilter(user: JwtPayload, where: any) {
   where.centerId = { in: user.centerIds };
 }
 
+/**
+ * Teachers only see the students they registered themselves — everywhere in
+ * exams (sheet, scores, reports). Other roles see the full roster.
+ */
+function teacherOwnStudents(user: JwtPayload): Record<string, unknown> {
+  return user.role === UserRole.teacher ? { createdById: user.userId } : {};
+}
+
+// Roll numbers are free text ("1", "10", "2A") — sort them numerically first,
+// students without a roll number go last (alphabetically).
+export function byRollNumber<T extends { rollNumber: string | null; fullName: string }>(a: T, b: T) {
+  const ra = (a.rollNumber || "").trim();
+  const rb = (b.rollNumber || "").trim();
+  if (ra && !rb) return -1;
+  if (!ra && rb) return 1;
+  if (ra && rb) {
+    const cmp = ra.localeCompare(rb, undefined, { numeric: true, sensitivity: "base" });
+    if (cmp !== 0) return cmp;
+  }
+  return a.fullName.localeCompare(b.fullName);
+}
+
 // ================= CREATE EXAM =================
 
 export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
@@ -109,28 +131,30 @@ export async function getExamSheet(user: JwtPayload, examId: string) {
 
   enforceCenterAccess(user, exam.centerId);
 
-  // 1. Get all active students for this center+program
+  // 1. Get all active students for this center+program (teacher → own students only)
   const students = await prisma.student.findMany({
     where: {
       centerId: exam.centerId,
       programId: exam.programId,
       isActive: true,
+      ...teacherOwnStudents(user),
     },
     select: { id: true, fullName: true, rollNumber: true, standard: true },
-    orderBy: { fullName: "asc" },
   });
+  // Roll-number order by default (numeric aware), then name.
+  students.sort(byRollNumber);
 
-  // 2. Get existing scores with subject info
+  // 2. Get existing scores with subject info (only for visible, active students)
   const scores = await prisma.examScore.findMany({
-    where: { examId: exam.id },
+    where: { examId: exam.id, student: { isActive: true, ...teacherOwnStudents(user) } },
     include: {
       student: {
         select: { id: true, fullName: true, rollNumber: true },
       },
       subject: true,
     },
-    orderBy: { student: { fullName: "asc" } },
   });
+  scores.sort((a, b) => byRollNumber(a.student, b.student));
 
   // 3. Return exam + students + scores separately
   //    Frontend uses students[] for row rendering, scores[] for filling marks
@@ -358,6 +382,7 @@ export async function getPendingExamScores(user: JwtPayload, examId: string) {
       centerId: exam.centerId,
       programId: exam.programId,
       isActive: true,
+      ...teacherOwnStudents(user),
     },
   });
 
@@ -420,7 +445,7 @@ export async function getExamComparison(
     where,
     include: {
       scores: {
-        where: { student: { isActive: true } },
+        where: { student: { isActive: true, ...teacherOwnStudents(user) } },
         include: {
           subject: true,
         },
@@ -558,8 +583,8 @@ export async function getExamReport(user: JwtPayload, query: ExamReportQuery) {
       program: true,
       academicYear: true,
       scores: {
-        // Never count soft-deleted (isActive=false) students in any report.
-        where: { student: { isActive: true } },
+        // Never count deleted students in any report; teachers → own students only.
+        where: { student: { isActive: true, ...teacherOwnStudents(user) } },
         include: {
           subject: true,
           student: {

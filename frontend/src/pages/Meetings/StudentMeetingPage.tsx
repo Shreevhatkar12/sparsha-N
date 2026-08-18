@@ -94,7 +94,7 @@ export function StudentMeetingPage() {
       try {
         const standardParam = selectedStandards.length > 0 ? `&standard=${selectedStandards.join(",")}` : "";
         const res = await api.get(
-          `/students?centerId=${formData.centerId}&programId=${formData.programId}${standardParam}&limit=200`,
+          `/students?centerId=${formData.centerId}&programId=${formData.programId}${standardParam}&limit=200&sortOrder=roll_asc`,
         );
         const list: Student[] = res.data?.students || res.data?.data || [];
         setStudents(list);
