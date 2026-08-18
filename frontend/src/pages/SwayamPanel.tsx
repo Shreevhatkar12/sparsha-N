@@ -702,7 +702,11 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
             <span className="h-6 w-1.5 rounded-full bg-red-500" />
             <h2 className="text-lg font-black text-neutral-900">Dropout Tracking — Overview</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {tile(
+              'Total Tracked',
+              (dropoutData?.counts.dropouts ?? 0) + (dropoutData?.counts.reenrolled ?? 0),
+            )}
             {tile('Total Dropout', dropoutData?.counts.dropouts ?? 0, '#e34948')}
             {tile('Dropout In Center', dropoutData?.counts.dropoutIn ?? 0, C_IN)}
             {tile('Dropout Out of Center', dropoutData?.counts.dropoutOut ?? 0, C_OUT)}

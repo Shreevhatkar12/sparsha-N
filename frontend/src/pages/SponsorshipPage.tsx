@@ -50,13 +50,10 @@ export const SponsorshipPage: React.FC = () => {
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [area, setArea] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [stream, setStream] = useState('');
   const [stdCourse, setStdCourse] = useState('');
-  const [animatorName, setAnimatorName] = useState('');
-  const [donorName, setDonorName] = useState('');
   const [supportType, setSupportType] = useState<SupportType>('sponsorship');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -95,7 +92,7 @@ export const SponsorshipPage: React.FC = () => {
     const q = search.trim().toLowerCase();
     if (!q) return byType;
     return byType.filter((r) =>
-      [r.fullName, r.schoolName, r.stdCourse, r.stream, r.area, r.animatorName, r.donorName, r.email, r.phone]
+      [r.fullName, r.schoolName, r.stdCourse, r.stream, r.area, r.phone]
         .some((x) => (x || '').toLowerCase().includes(q)),
     );
   }, [data, tab, typeFilter, search]);
@@ -106,13 +103,10 @@ export const SponsorshipPage: React.FC = () => {
     setAge('');
     setGender('');
     setPhone('');
-    setEmail('');
     setArea('');
     setSchoolName('');
     setStream('');
     setStdCourse('');
-    setAnimatorName('');
-    setDonorName('');
     setSupportType('sponsorship');
     setFormError(null);
   };
@@ -130,13 +124,10 @@ export const SponsorshipPage: React.FC = () => {
     setAge(r.age != null ? String(r.age) : '');
     setGender(r.gender || '');
     setPhone(r.phone || '');
-    setEmail(r.email || '');
     setArea(r.area || '');
     setSchoolName(r.schoolName || '');
     setStream(r.stream || '');
     setStdCourse(r.stdCourse || '');
-    setAnimatorName(r.animatorName || '');
-    setDonorName(r.donorName || '');
     setSupportType(r.supportType);
     setFormError(null);
     setFormSuccess(null);
@@ -154,20 +145,16 @@ export const SponsorshipPage: React.FC = () => {
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setFormError('Valid age is required (3–60).');
     if (!stdCourse.trim()) return setFormError('Std / course is required (e.g. 8th, 10th, B.Com).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setFormError('Phone number must be exactly 10 digits.');
-    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) return setFormError('Enter a valid email id.');
 
     const payload: SponsorshipPayload = {
       fullName: fullName.trim(),
       age: ageNum,
       gender,
       phone: phone.trim(),
-      email: email.trim(),
       area: area.trim(),
       schoolName: schoolName.trim(),
       stream: stream.trim(),
       stdCourse: stdCourse.trim(),
-      animatorName: animatorName.trim(),
-      donorName: donorName.trim(),
       supportType,
     };
 
@@ -280,13 +267,10 @@ export const SponsorshipPage: React.FC = () => {
                 ['Age', viewRow.age != null ? `${viewRow.age} yrs` : '—'],
                 ['Gender', genderFull(viewRow.gender)],
                 ['Mobile No', viewRow.phone || '—'],
-                ['Email Id', viewRow.email || '—'],
                 ['Area Name', viewRow.area || '—'],
                 ['School / College', viewRow.schoolName || '—'],
                 ['Std / Course', viewRow.stdCourse || '—'],
                 ['Stream', viewRow.stream || '—'],
-                ['Animator / Teacher', viewRow.animatorName || '—'],
-                ['Sponsor / Donor', viewRow.donorName || '—'],
                 ['Type', TYPE_LABEL[viewRow.supportType]],
                 ['Status', viewRow.status === 'done' ? 'Done ✅' : 'Pending ⏳'],
               ].map(([k, v]) => (
@@ -377,10 +361,6 @@ export const SponsorshipPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Email Id</label>
-                  <input className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Student email (asel tr)" />
-                </div>
-                <div>
                   <label className={labelCls}>Area Name</label>
                   <input className={inputCls} value={area} onChange={(e) => setArea(e.target.value)} placeholder="e.g. Bhim Nagar, Kamla Nagar…" />
                 </div>
@@ -398,15 +378,7 @@ export const SponsorshipPage: React.FC = () => {
                   <label className={labelCls}>Std / Course *</label>
                   <input className={inputCls} value={stdCourse} onChange={(e) => setStdCourse(e.target.value)} placeholder="Std number kimva course name (e.g. 8th, B.Com)" />
                 </div>
-                <div>
-                  <label className={labelCls}>Animator / Teacher Name</label>
-                  <input className={inputCls} value={animatorName} onChange={(e) => setAnimatorName(e.target.value)} placeholder="Ha student kutun ala te samjnyasathi" />
-                </div>
 
-                <div>
-                  <label className={labelCls}>Sponsor / Donor Name</label>
-                  <input className={inputCls} value={donorName} onChange={(e) => setDonorName(e.target.value)} placeholder="Sponsor / scholarship / donor name" />
-                </div>
                 <div>
                   <label className={labelCls}>Type — Sponsorship / Scholarship *</label>
                   <select
@@ -466,7 +438,7 @@ export const SponsorshipPage: React.FC = () => {
                 </div>
                 <input
                   className="block w-full pl-9 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                  placeholder="Search by name / school / area / donor…"
+                  placeholder="Search by name / school / area…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -522,8 +494,6 @@ export const SponsorshipPage: React.FC = () => {
                       <th className="py-2.5 px-3 font-medium text-center">Std / Course</th>
                       <th className="py-2.5 px-3 font-medium">School / College</th>
                       <th className="py-2.5 px-3 font-medium">Area</th>
-                      <th className="py-2.5 px-3 font-medium">Animator</th>
-                      <th className="py-2.5 px-3 font-medium">Sponsor / Donor</th>
                       <th className="py-2.5 px-3 font-medium text-center">Actions</th>
                     </tr>
                   </thead>
@@ -549,8 +519,6 @@ export const SponsorshipPage: React.FC = () => {
                         <td className="py-2.5 px-3 text-center text-neutral-700">{r.stdCourse || '—'}</td>
                         <td className="py-2.5 px-3 text-neutral-700">{r.schoolName || '—'}</td>
                         <td className="py-2.5 px-3 text-neutral-700">{r.area || '—'}</td>
-                        <td className="py-2.5 px-3 text-neutral-700">{r.animatorName || '—'}</td>
-                        <td className="py-2.5 px-3 text-neutral-700">{r.donorName || '—'}</td>
                         <td className="py-2.5 px-3">
                           <div className="flex items-center justify-center gap-1 flex-wrap">
                             <Button variant="ghost" size="sm" className="px-2" title="View full details" onClick={() => setViewRow(r)}>
