@@ -85,6 +85,7 @@ function parseSwayamInput(body: SwayamBody) {
   const genderRaw = String(body.gender ?? '').trim().toLowerCase();
   const gender =
     genderRaw === 'male' || genderRaw === 'female' || genderRaw === 'other' ? genderRaw : '';
+  if (!gender) throw new ValidationError('Gender is required (Male / Female / Other)');
 
   const aadharNumber = String(body.aadharNumber ?? '').trim();
   if (aadharNumber && !/^\d{12}$/.test(aadharNumber)) {
@@ -318,6 +319,7 @@ function parseDropoutInput(body: SwayamBody) {
   const genderRaw = String(body.gender ?? '').trim().toLowerCase();
   const gender =
     genderRaw === 'male' || genderRaw === 'female' || genderRaw === 'other' ? genderRaw : '';
+  if (!gender) throw new ValidationError('Gender is required (Male / Female / Other)');
 
   const phone = String(body.phone ?? '').trim();
   if (phone && !/^\d{10}$/.test(phone)) {
@@ -455,6 +457,40 @@ export async function reenrollDropoutStudent(user: JwtPayload, studentId: string
     reenrollSchool: input.school,
     reenrollYear: input.year,
     reenrollStd: input.std,
+  });
+
+  return { id: studentId };
+}
+
+// Back to Dropout — migrates the SAME record from the Re-enrolled list back to
+// the Dropout list (re-enrollment details cleared). One identity, never double counted.
+export async function revertReenrolledStudent(user: JwtPayload, studentId: string) {
+  const dropProgram = await resolveDropoutProgram();
+  const reProgram = await resolveReenrolledProgram();
+  const existing = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!existing || existing.programId !== reProgram.id) throw new NotFoundError('Re-enrolled student');
+
+  const tpl = await getDropoutTemplate(user.userId);
+  const sub = await prisma.formSubmission.findFirst({
+    where: { templateId: tpl.id, studentId },
+    orderBy: { submittedAt: 'desc' },
+  });
+  const p =
+    sub && sub.data && typeof sub.data === 'object' && !Array.isArray(sub.data)
+      ? (sub.data as Record<string, unknown>)
+      : {};
+  const dropoutStd = typeof p.dropoutStd === 'string' && p.dropoutStd ? p.dropoutStd : existing.standard || '';
+
+  await prisma.student.update({
+    where: { id: studentId },
+    data: { programId: dropProgram.id, collegeName: null, standard: dropoutStd || null },
+  });
+
+  await upsertDropoutProfile(user.userId, studentId, existing.centerId, {
+    reenrolled: false,
+    reenrollSchool: '',
+    reenrollYear: null,
+    reenrollStd: '',
   });
 
   return { id: studentId };
@@ -674,6 +710,7 @@ function parseSponsorshipInput(body: SwayamBody) {
   const genderRaw = String(body.gender ?? '').trim().toLowerCase();
   const gender =
     genderRaw === 'male' || genderRaw === 'female' || genderRaw === 'other' ? genderRaw : '';
+  if (!gender) throw new ValidationError('Gender is required (Male / Female / Other)');
 
   const phone = String(body.phone ?? '').trim();
   if (phone && !/^\d{10}$/.test(phone)) {

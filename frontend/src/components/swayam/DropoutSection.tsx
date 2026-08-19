@@ -3,12 +3,13 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { EmptyState } from '../ui/EmptyState';
-import { Eye, Edit2, Trash2, Plus, X, ArrowRightLeft } from 'lucide-react';
+import { Eye, Edit2, Trash2, Plus, X, ArrowRightLeft, Undo2 } from 'lucide-react';
 import {
   createDropout,
   updateDropout,
   reenrollDropout,
   updateReenrolled,
+  revertReenrolled,
   deleteSwayamStudent,
   type DropoutStudent,
   type DropoutListResponse,
@@ -124,6 +125,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     const yearNum = Number(dropYear);
     if (fullName.trim().length < 2) return setError('Child full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setError('Valid age is required (3–60).');
+    if (!gender) return setError('Gender select kara (Male / Female / Other) — required.');
     if (!dropStd.trim()) return setError('Dropout std is required (e.g. 9th).');
     if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) return setError('Valid dropout year is required (e.g. 2025).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setError('Phone must be exactly 10 digits.');
@@ -173,6 +175,17 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
       await onReload();
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Delete failed.');
+    }
+  };
+
+  const handleBackToDropout = async (s: DropoutStudent) => {
+    if (!window.confirm(`${s.fullName} la parat Dropout list madhe pathvaych? (Re-enroll details clear hotil.)`)) return;
+    try {
+      await revertReenrolled(s.id);
+      setSuccess(`${s.fullName} → Dropout list madhe parat gela ↩`);
+      await onReload();
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Back to dropout failed.');
     }
   };
 
@@ -270,6 +283,16 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
         >
           <ArrowRightLeft size={16} />
         </Button>
+      )}
+      {isRe && (
+        <button
+          type="button"
+          onClick={() => void handleBackToDropout(s)}
+          title="Back to Dropout — parat dropout list madhe pathva"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+        >
+          <Undo2 size={14} /> Back to Dropout
+        </button>
       )}
       <Button
         variant="ghost"
@@ -407,8 +430,8 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                   <input className={inputCls} type="number" min={3} max={60} value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 15" required />
                 </div>
                 <div>
-                  <label className={labelCls}>Gender</label>
-                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)}>
+                  <label className={labelCls}>Gender *</label>
+                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)} required>
                     <option value="">Select gender…</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>

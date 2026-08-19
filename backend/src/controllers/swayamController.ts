@@ -11,6 +11,7 @@ import {
   updateDropoutStudent,
   reenrollDropoutStudent,
   updateReenrolledStudent,
+  revertReenrolledStudent,
   listSponsorshipData,
   createSponsorshipStudent,
   updateSponsorshipStudent,
@@ -117,6 +118,16 @@ export async function updateReenrolledController(req: Request, res: Response, ne
   try {
     const user = ensureAccess(req);
     const data = await updateReenrolledStudent(user, req.params.id as string, req.body);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function revertReenrolledController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await revertReenrolledStudent(user, req.params.id as string);
     return res.status(200).json({ success: true, ...data });
   } catch (err) {
     return next(err);

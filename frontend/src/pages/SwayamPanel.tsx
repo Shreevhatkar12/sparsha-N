@@ -259,6 +259,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
     if (fullName.trim().length < 2) return setFormError('Full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setFormError('Valid age is required (3–60).');
+    if (!gender) return setFormError('Gender select kara (Male / Female / Other) — required.');
     if (!currentStd) return setFormError('Current std / course is required (Other → type the course name).');
     if (streamChoice === 'Other' && !stream) return setFormError('Stream madhe "Other" nivadla — course/stream type kara.');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setFormError('Phone number must be exactly 10 digits.');
@@ -823,8 +824,8 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
                 </div>
 
                 <div>
-                  <label className={labelCls}>Gender</label>
-                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)}>
+                  <label className={labelCls}>Gender *</label>
+                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)} required>
                     <option value="">Select gender…</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>

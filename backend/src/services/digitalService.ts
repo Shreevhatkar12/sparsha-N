@@ -97,6 +97,7 @@ function parseOutInput(body: DLBody) {
   const genderRaw = String(body.gender ?? '').trim().toLowerCase();
   const gender =
     genderRaw === 'male' || genderRaw === 'female' || genderRaw === 'other' ? genderRaw : '';
+  if (!gender) throw new ValidationError('Gender is required (Male / Female / Other)');
 
   const contact = String(body.contact ?? '').trim();
   if (contact && !/^\d{10}$/.test(contact)) {

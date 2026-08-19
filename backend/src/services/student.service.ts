@@ -20,7 +20,8 @@ const studentCreateSchema = z.object({
     .nullable()
     .transform((val) => (val === "" ? null : val))
     .refine((val) => !val || !Number.isNaN(Date.parse(val)), "Invalid date format"),
-  gender: z.enum(["male", "female", "other"]).optional().nullable(),
+  // Gender is mandatory everywhere so male/female counts are always correct.
+  gender: z.enum(["male", "female", "other"], { message: "Gender is required (Male / Female / Other)" }),
   guardianName: z.string().optional().nullable(),
   guardianPhone: phone10Digit,
   centerId: z.string().uuid("Invalid Center ID"),

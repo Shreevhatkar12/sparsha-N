@@ -143,6 +143,7 @@ export const SponsorshipPage: React.FC = () => {
     const ageNum = Number(age);
     if (fullName.trim().length < 2) return setFormError('Full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setFormError('Valid age is required (3–60).');
+    if (!gender) return setFormError('Gender select kara (Male / Female / Other) — required.');
     if (!stdCourse.trim()) return setFormError('Std / course is required (e.g. 8th, 10th, B.Com).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setFormError('Phone number must be exactly 10 digits.');
 
@@ -347,8 +348,8 @@ export const SponsorshipPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className={labelCls}>Gender</label>
-                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)}>
+                  <label className={labelCls}>Gender *</label>
+                  <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)} required>
                     <option value="">Select gender…</option>
                     <option value="male">Male</option>
                     <option value="female">Female</option>

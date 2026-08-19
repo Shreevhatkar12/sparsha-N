@@ -10,6 +10,7 @@ import {
   updateDropoutController,
   reenrollDropoutController,
   updateReenrolledController,
+  revertReenrolledController,
   listSponsorshipController,
   createSponsorshipController,
   updateSponsorshipController,
@@ -32,6 +33,7 @@ router.post('/dropouts', createDropoutController);
 router.put('/dropouts/:id', updateDropoutController);
 router.post('/dropouts/:id/reenroll', reenrollDropoutController);
 router.put('/dropouts/:id/reenroll', updateReenrolledController);
+router.post('/dropouts/:id/revert', revertReenrolledController);
 
 // Sponsorship / scholarship tracking (delete reuses /students/:id soft delete)
 router.get('/sponsorships', listSponsorshipController);

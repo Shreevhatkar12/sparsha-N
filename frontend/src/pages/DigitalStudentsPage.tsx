@@ -205,6 +205,10 @@ export const DigitalStudentsPage: React.FC = () => {
           setSaving(false);
           return setFormError('Valid age is required (3–80).');
         }
+        if (!gender) {
+          setSaving(false);
+          return setFormError('Gender select kara (Male / Female / Other) — required.');
+        }
         if (!stdCourse.trim()) {
           setSaving(false);
           return setFormError('Std / course name is required.');
@@ -502,8 +506,8 @@ export const DigitalStudentsPage: React.FC = () => {
                       <input className={inputCls} type="number" min={3} max={80} value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 16" />
                     </div>
                     <div>
-                      <label className={labelCls}>Gender</label>
-                      <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)}>
+                      <label className={labelCls}>Gender *</label>
+                      <select className={inputCls} value={gender} onChange={(e) => setGender(e.target.value)} required>
                         <option value="">Select gender…</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>

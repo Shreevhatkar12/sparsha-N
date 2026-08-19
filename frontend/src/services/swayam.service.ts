@@ -122,6 +122,10 @@ export const reenrollDropout = (id: string, body: ReenrollPayload) =>
 export const updateReenrolled = (id: string, body: ReenrollPayload) =>
   api.put<{ success: boolean; id: string }>(`/swayam/dropouts/${id}/reenroll`, body).then((r) => r.data);
 
+// Back to Dropout — same record moves from Re-enrolled list back to Dropout list.
+export const revertReenrolled = (id: string) =>
+  api.post<{ success: boolean; id: string }>(`/swayam/dropouts/${id}/revert`, {}).then((r) => r.data);
+
 // ── Sponsorship / Scholarship tracking ────────────────────────────────
 
 export type SupportType = 'sponsorship' | 'scholarship';

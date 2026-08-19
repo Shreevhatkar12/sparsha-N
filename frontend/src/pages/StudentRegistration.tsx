@@ -138,6 +138,10 @@ export const StudentRegistration: React.FC = () => {
       setPhoneError('Phone must be exactly 10 digits');
       return;
     }
+    if (!formData.gender) {
+      setError('Gender select kara (Male / Female / Other) — required.');
+      return;
+    }
     console.log("SUBMITTING:", formData.standard, formData.aadharNumber);
     setSaving(true);
     setError(null);
@@ -236,14 +240,15 @@ export const StudentRegistration: React.FC = () => {
               onChange={handleChange}
             />
             <div className="flex flex-col gap-1.5 touch-manipulation">
-              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Gender</label>
+              <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Gender *</label>
               <select
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
+                required
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">—</option>
+                <option value="">Select gender…</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
@@ -439,4 +444,4 @@ export const StudentRegistration: React.FC = () => {
       </form>
     </PageWrapper>
   );
-};
+};
