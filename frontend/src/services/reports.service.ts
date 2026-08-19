@@ -84,6 +84,14 @@ export const getTeacherDashboard = (params?: Record<string, string | undefined>)
 type Grade5 = { A: number; B: number; C: number; D: number; E: number };
 type MonthPoint = { monthKey: string; label: string; count: number };
 
+export interface StdGenderRow {
+  standard: string;
+  male: number;
+  female: number;
+  other: number;
+  total: number;
+}
+
 export interface AdminAnalyticsData {
   scope: string;
   kpis: {
@@ -100,6 +108,8 @@ export interface AdminAnalyticsData {
     studentMeetings: number;
     parentMeetings: number;
   };
+  stdWise?: StdGenderRow[];
+  stdWiseByCenter?: Array<{ centerId: string; centerName: string; rows: StdGenderRow[]; total: number }>;
   attendanceMonthly: Array<{ monthKey: string; label: string; rate: number }>;
   gradeOverall: Grade5;
   gradeByMonth: Array<{ monthKey: string; label: string } & Grade5 & { total: number }>;

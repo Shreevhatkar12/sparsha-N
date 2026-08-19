@@ -340,7 +340,7 @@ export const TeacherDashboard: React.FC = () => {
             hasData={stdChartData.length > 0}
           >
             <ResponsiveContainer width="100%" height={CHART_H}>
-              <BarChart data={stdChartData} margin={CHART_MARGIN}>
+              <BarChart data={stdChartData} margin={{ ...CHART_MARGIN, top: 24 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
                 <XAxis
                   dataKey="standard"
@@ -355,7 +355,13 @@ export const TeacherDashboard: React.FC = () => {
                   axisLine={false}
                   label={{ value: "Students", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }}
                 />
-                <Tooltip cursor={{ fill: "#f6f8fa" }} />
+                <Tooltip
+                  cursor={{ fill: "#f6f8fa" }}
+                  labelFormatter={(l) => {
+                    const row = stdChartData.find((r) => r.standard === l);
+                    return row ? `${l} — Total ${row.count}` : String(l);
+                  }}
+                />
                 <Legend />
                 <Bar dataKey="Male" stackId="g" fill={C_MALE} radius={[0, 0, 0, 0]}>
                   <LabelList dataKey="Male" position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
@@ -365,6 +371,15 @@ export const TeacherDashboard: React.FC = () => {
                 </Bar>
                 <Bar dataKey="Other" stackId="g" fill={C_OTHER} radius={[4, 4, 0, 0]}>
                   <LabelList dataKey="Other" position="center" fontSize={11} fill="#ffffff" formatter={hideZero} />
+                  {/* Total on top of every stacked bar */}
+                  <LabelList
+                    dataKey="count"
+                    position="top"
+                    fontSize={12}
+                    fill="#111827"
+                    fontWeight={700}
+                    formatter={(v: unknown) => (Number(v) > 0 ? `Total ${v}` : "")}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

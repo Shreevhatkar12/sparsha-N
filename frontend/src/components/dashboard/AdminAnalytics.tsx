@@ -250,6 +250,111 @@ export const AdminAnalytics: React.FC = () => {
         <Kpi icon={<TrendingUp size={20} />} tint="#e87ba4" label="Girls / Boys" value={`${k.female} / ${k.male}`} sub={k.other ? `${k.other} other` : undefined} />
       </div>
 
+      {/* Standard-wise students (whole scope) */}
+      <SectionCard
+        title="Standard-wise Students"
+        subtitle="Kontya std la kiti students — total ani Male / Female split (whole class)"
+        toggleKey="std"
+      >
+        {!data.stdWise || data.stdWise.length === 0 ? (
+          <EmptyBox />
+        ) : viewOf("std") === "graph" ? (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={data.stdWise} margin={{ ...CHART_MARGIN, top: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
+              <XAxis dataKey="standard" tick={{ fontSize: 12, fill: AXIS_INK }} tickLine={false} label={{ value: "Standard", position: "insideBottom", offset: -12, fill: AXIS_INK, fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} tickLine={false} axisLine={false} label={{ value: "Students", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }} />
+              <Tooltip
+                cursor={{ fill: "#f6f8fa" }}
+                formatter={(v, name) => [`${v ?? 0}`, String(name)]}
+                labelFormatter={(l) => {
+                  const row = data.stdWise?.find((r) => r.standard === l);
+                  return row ? `${l} — Total ${row.total}` : String(l);
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="male" name="Male" stackId="g" fill={C_MALE} maxBarSize={56}>
+                <LabelList dataKey="male" position="center" fontSize={11} fill="#fff" formatter={hideZero} />
+              </Bar>
+              <Bar dataKey="female" name="Female" stackId="g" fill={C_FEMALE} maxBarSize={56}>
+                <LabelList dataKey="female" position="center" fontSize={11} fill="#fff" formatter={hideZero} />
+              </Bar>
+              <Bar dataKey="other" name="Other" stackId="g" fill="#9ca3af" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                <LabelList dataKey="other" position="center" fontSize={11} fill="#fff" formatter={hideZero} />
+                {/* Total on top of every stacked bar */}
+                <LabelList
+                  dataKey="total"
+                  position="top"
+                  fontSize={12}
+                  fill="#111827"
+                  fontWeight={700}
+                  formatter={(v: unknown) => (Number(v) > 0 ? `Total ${v}` : "")}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <SimpleTable
+            head={["Standard", "Total", "Male", "Female", "Other"]}
+            rows={[
+              ...data.stdWise.map((r) => [r.standard, r.total, r.male, r.female, r.other]),
+              [
+                "All",
+                data.stdWise.reduce((a, r) => a + r.total, 0),
+                data.stdWise.reduce((a, r) => a + r.male, 0),
+                data.stdWise.reduce((a, r) => a + r.female, 0),
+                data.stdWise.reduce((a, r) => a + r.other, 0),
+              ],
+            ]}
+          />
+        )}
+      </SectionCard>
+
+      {/* Standard-wise students — per center */}
+      {data.stdWiseByCenter && data.stdWiseByCenter.length > 0 && (
+        <SectionCard
+          title="Standard-wise Students — per Center"
+          subtitle="Har center madhe std-wise total ani Male / Female count"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {data.stdWiseByCenter.map((c) => (
+              <div key={c.centerId} className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-neutral-800">{c.centerName}</span>
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-white border border-neutral-200 text-brand-700">
+                    Total {c.total}
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-neutral-500 border-b border-neutral-200">
+                        <th className="py-1.5 pr-2 font-semibold">Std</th>
+                        <th className="py-1.5 px-2 font-semibold text-center">Total</th>
+                        <th className="py-1.5 px-2 font-semibold text-center" style={{ color: C_MALE }}>Male</th>
+                        <th className="py-1.5 px-2 font-semibold text-center" style={{ color: C_FEMALE }}>Female</th>
+                        <th className="py-1.5 pl-2 font-semibold text-center">Other</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {c.rows.map((r) => (
+                        <tr key={r.standard} className="border-b border-neutral-100 last:border-0">
+                          <td className="py-1.5 pr-2 font-medium text-neutral-800">{r.standard}</td>
+                          <td className="py-1.5 px-2 text-center font-bold text-neutral-900">{r.total}</td>
+                          <td className="py-1.5 px-2 text-center text-neutral-700">{r.male}</td>
+                          <td className="py-1.5 px-2 text-center text-neutral-700">{r.female}</td>
+                          <td className="py-1.5 pl-2 text-center text-neutral-500">{r.other || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
       {/* Attendance trend */}
       <SectionCard title="Attendance Trend (month-wise)" subtitle="Overall attendance % dar mahina" toggleKey="att">
         {data.attendanceMonthly.length === 0 ? (

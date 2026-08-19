@@ -1514,10 +1514,46 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     parentMeetings: meetings.parentTotal,
   };
 
+  // ---- standard-wise students (whole scope + per center) -----------
+  type StdGenderRow = { standard: string; male: number; female: number; other: number; total: number };
+  const bumpStd = (map: Map<string, StdGenderRow>, std: string, gender: string | null) => {
+    const row = map.get(std) ?? { standard: std, male: 0, female: 0, other: 0, total: 0 };
+    if (gender === "male") row.male++;
+    else if (gender === "female") row.female++;
+    else row.other++;
+    row.total++;
+    map.set(std, row);
+  };
+  const stdAllMap = new Map<string, StdGenderRow>();
+  const stdCenterMap = new Map<string, Map<string, StdGenderRow>>();
+  for (const s of students) {
+    const std = (s.standard || "").trim() || "—";
+    bumpStd(stdAllMap, std, s.gender);
+    let cm = stdCenterMap.get(s.centerId);
+    if (!cm) {
+      cm = new Map();
+      stdCenterMap.set(s.centerId, cm);
+    }
+    bumpStd(cm, std, s.gender);
+  }
+  const sortStd = (rows: StdGenderRow[]) =>
+    rows.sort((a, b) => tdStandardRank(a.standard) - tdStandardRank(b.standard));
+  const stdWise = sortStd(Array.from(stdAllMap.values()));
+  const stdWiseByCenter = Array.from(stdCenterMap.entries())
+    .map(([cid, m]) => ({
+      centerId: cid,
+      centerName: centerName.get(cid) ?? "—",
+      rows: sortStd(Array.from(m.values())),
+      total: Array.from(m.values()).reduce((a, r) => a + r.total, 0),
+    }))
+    .sort((a, b) => a.centerName.localeCompare(b.centerName));
+
   return {
     scope: isSuper ? "all" : "centers",
     appliedPeriod: { period, label: periodLabel },
     kpis,
+    stdWise,
+    stdWiseByCenter,
     attendanceMonthly,
     gradeOverall,
     gradeByMonth,
