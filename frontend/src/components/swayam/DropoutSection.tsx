@@ -51,6 +51,8 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
   const [aadhar, setAadhar] = useState('');
   const [dropStd, setDropStd] = useState('');
   const [dropYear, setDropYear] = useState('');
+  // "Illiterate" = kadhi shalech nahi gelela — year field lagat nahi.
+  const isIlliterate = dropStd.trim().toLowerCase() === 'illiterate';
   const [animator, setAnimator] = useState('');
   const [reason, setReason] = useState('');
   const [locationType, setLocationType] = useState<SwayamLocation>('in');
@@ -122,12 +124,12 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setError(null);
     setSuccess(null);
     const ageNum = Number(age);
-    const yearNum = Number(dropYear);
+    const yearNum = isIlliterate ? 0 : Number(dropYear);
     if (fullName.trim().length < 2) return setError('Child full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setError('Valid age is required (3–60).');
     if (!gender) return setError('Gender select kara (Male / Female / Other) — required.');
-    if (!dropStd.trim()) return setError('Dropout std is required (e.g. 9th).');
-    if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) return setError('Valid dropout year is required (e.g. 2025).');
+    if (!dropStd.trim()) return setError('Dropout std is required (e.g. 9th) — kimva Illiterate select kara.');
+    if (!isIlliterate && (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100)) return setError('Valid dropout year is required (e.g. 2025).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setError('Phone must be exactly 10 digits.');
     if (aadhar.trim() && !/^\d{12}$/.test(aadhar.trim())) return setError('Aadhar must be exactly 12 digits.');
     if (locationType === 'in' && !centerId) return setError('Please select a center.');
@@ -140,7 +142,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
       phone: phone.trim(),
       aadharNumber: aadhar.trim(),
       dropoutStd: dropStd.trim(),
-      dropoutYear: yearNum,
+      dropoutYear: isIlliterate ? null : yearNum,
       animatorName: animator.trim(),
       reason: reason.trim(),
       locationType,
@@ -444,12 +446,35 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                 </div>
                 <div>
                   <label className={labelCls}>Dropout Std *</label>
-                  <input className={inputCls} value={dropStd} onChange={(e) => setDropStd(e.target.value)} placeholder="e.g. 9th — kontya std la dropout zala" required />
+                  <div className="flex gap-2">
+                    <input
+                      className={inputCls}
+                      value={dropStd}
+                      onChange={(e) => setDropStd(e.target.value)}
+                      placeholder="e.g. 9th — kontya std la dropout zala"
+                      readOnly={isIlliterate}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setDropStd(isIlliterate ? '' : 'Illiterate'); setDropYear(''); }}
+                      title="Kadhi shalech nahi gelela — year lagnar nahi"
+                      className={`shrink-0 px-3 h-11 rounded-lg text-xs font-bold border transition-colors ${
+                        isIlliterate
+                          ? 'bg-brand-500 text-white border-brand-500'
+                          : 'bg-white text-neutral-600 border-neutral-300 hover:border-brand-400'
+                      }`}
+                    >
+                      Illiterate
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className={labelCls}>Dropout Year *</label>
-                  <input className={inputCls} type="number" min={2000} max={2100} value={dropYear} onChange={(e) => setDropYear(e.target.value)} placeholder="e.g. 2025" required />
-                </div>
+                {!isIlliterate && (
+                  <div>
+                    <label className={labelCls}>Dropout Year *</label>
+                    <input className={inputCls} type="number" min={2000} max={2100} value={dropYear} onChange={(e) => setDropYear(e.target.value)} placeholder="e.g. 2025" required />
+                  </div>
+                )}
                 <div>
                   <label className={labelCls}>Aadhar Card Number (optional)</label>
                   <input className={inputCls} value={aadhar} onChange={(e) => setAadhar(e.target.value)} placeholder="12-digit Aadhar number" />

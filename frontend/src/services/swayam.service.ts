@@ -93,7 +93,7 @@ export interface DropoutPayload {
   phone?: string;
   aadharNumber?: string;
   dropoutStd: string;
-  dropoutYear: number;
+  dropoutYear?: number | null; // null / absent when the child is Illiterate
   animatorName?: string;
   reason?: string;
   locationType: SwayamLocation;

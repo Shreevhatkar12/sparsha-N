@@ -332,11 +332,20 @@ function parseDropoutInput(body: SwayamBody) {
   }
 
   const dropoutStd = String(body.dropoutStd ?? '').trim();
-  if (!dropoutStd) throw new ValidationError('Dropout std is required');
+  if (!dropoutStd) throw new ValidationError('Dropout std is required (kimva Illiterate select kara)');
 
-  const dropoutYear = Number(body.dropoutYear);
-  if (!Number.isInteger(dropoutYear) || dropoutYear < 2000 || dropoutYear > 2100) {
-    throw new ValidationError('Valid dropout year is required (e.g. 2025)');
+  // "Illiterate" = kadhi shalech nahi gelela — dropout year lagat nahi.
+  const isIlliterate = dropoutStd.toLowerCase() === 'illiterate';
+  let dropoutYear: number | null = null;
+  if (!isIlliterate) {
+    const y = Number(body.dropoutYear);
+    if (!Number.isInteger(y) || y < 2000 || y > 2100) {
+      throw new ValidationError('Valid dropout year is required (e.g. 2025)');
+    }
+    dropoutYear = y;
+  } else if (body.dropoutYear != null && body.dropoutYear !== '') {
+    const y = Number(body.dropoutYear);
+    if (Number.isInteger(y) && y >= 2000 && y <= 2100) dropoutYear = y;
   }
 
   const animatorName = String(body.animatorName ?? '').trim();
