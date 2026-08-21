@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "prisma generate",
+    "postinstall": "prisma generate",
     "start": "tsx src/server.ts",
     "db:setup": "prisma generate && prisma migrate deploy",
     "db:reset": "prisma migrate reset --force",
