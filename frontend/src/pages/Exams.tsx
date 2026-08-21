@@ -334,6 +334,13 @@ export const Exams: React.FC = () => {
     });
   };
 
+  // Teacher edits a subject's name inline in the grid header (like "out of").
+  const updateSubjectName = (colId: string, value: string) => {
+    setSubjects((prev) =>
+      prev.map((c) => (c.id === colId ? { ...c, name: value } : c)),
+    );
+  };
+
   // Teacher edits a subject's "out of" (max marks) in the grid header.
   const updateSubjectMax = (colId: string, value: string) => {
     const n = value === "" ? 0 : Number(value);
@@ -392,14 +399,29 @@ export const Exams: React.FC = () => {
   };
 
   // Submit scores — sends subject name for new subjects (backend auto-creates)
+  // and the (possibly renamed) name for existing subjects (backend renames).
   const submitScores = async () => {
     if (!examId) return;
+
+    // Subject names must be non-empty and unique before saving.
+    const names = subjects.map((s) => s.name.trim());
+    if (names.some((n) => n === "")) {
+      setError("Subject name cannot be empty — type a name in the header.");
+      return;
+    }
+    const lowered = names.map((n) => n.toLowerCase());
+    if (new Set(lowered).size !== lowered.length) {
+      setError("Two subject columns have the same name — make them unique.");
+      return;
+    }
+
     const scores: any[] = [];
 
     for (const { id: sid } of studentOrder) {
       const g = grid[sid];
       if (!g) continue;
       for (const col of subjects) {
+        const cleanName = col.name.trim();
         const maxM = col.maxMarks > 0 ? col.maxMarks : 100;
         let n: number | null = null;
         if (!g.isAbsent) {
@@ -407,15 +429,15 @@ export const Exams: React.FC = () => {
           if (raw === "") continue;
           n = Number(raw);
           if (Number.isNaN(n) || n < 0 || n > maxM) {
-            setError(`Marks must be 0–${maxM} for ${col.name}.`);
+            setError(`Marks must be 0–${maxM} for ${cleanName}.`);
             return;
           }
         }
         scores.push({
           studentId: sid,
           ...(col.isNew
-            ? { subject: col.name }
-            : { subjectId: col.id, subject: col.name }),
+            ? { subject: cleanName }
+            : { subjectId: col.id, subject: cleanName }),
           marks: n,
           isAbsent: g.isAbsent,
           maxMarks: maxM,
@@ -790,7 +812,15 @@ export const Exams: React.FC = () => {
                   {subjects.map((col) => (
                     <th key={col.id} className="py-2 pr-2 font-medium align-bottom">
                       <div className="flex items-center gap-1">
-                        <span className="capitalize">{col.name}</span>
+                        <input
+                          value={col.name}
+                          onChange={(e) =>
+                            updateSubjectName(col.id, e.target.value)
+                          }
+                          className="w-28 rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-sm font-semibold text-neutral-800 capitalize hover:border-neutral-400 focus:ring-1 focus:ring-brand-500 focus:border-transparent"
+                          title="Edit subject name"
+                          placeholder="Subject"
+                        />
                         {col.isNew && (
                           <button
                             onClick={() => removeSubjectColumn(col.id)}
@@ -890,8 +920,9 @@ export const Exams: React.FC = () => {
             </table>
           )}
           <p className="text-xs text-neutral-500 mt-3">
-            Add subjects above, enter marks, then save. Rows with empty subjects
-            are highlighted.
+            Add subjects above, enter marks, then save. Subject names and "out
+            of" marks are editable in the header — changes apply everywhere
+            after saving. Rows with empty subjects are highlighted.
           </p>
         </Card>
       )}

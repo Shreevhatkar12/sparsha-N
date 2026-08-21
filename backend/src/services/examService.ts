@@ -255,19 +255,56 @@ export async function upsertExamScores(
 
   // Build subject lookup: id → id, name → id
   const subjectMap = new Map<string, string>();
+  const subjectById = new Map<string, { id: string; name: string }>();
   exam.program?.subjects.forEach((s) => {
     subjectMap.set(s.id, s.id);
     subjectMap.set(s.name.toLowerCase(), s.id);
+    subjectById.set(s.id, { id: s.id, name: s.name });
   });
 
   // Resolve each score's subjectId — auto-create if subject name is new
   const processedScores: any[] = [];
   const maxUpdates = new Map<string, number>(); // subjectId -> new max marks
+  const nameUpdates = new Map<string, string>(); // subjectId -> renamed subject
   for (const s of input.scores) {
     let subjectId =
       s.subjectId && subjectMap.has(s.subjectId)
         ? s.subjectId
         : subjectMap.get((s.subject || "").toLowerCase());
+
+    // Rename support: the teacher edited an existing subject's name in the
+    // grid header. Only applies when the row explicitly carries a subjectId
+    // (so name-only lookups never rename anything by accident).
+    if (subjectId && s.subjectId === subjectId) {
+      const current = subjectById.get(subjectId);
+      const newName = typeof s.subject === "string" ? s.subject.trim() : "";
+      if (
+        current &&
+        newName &&
+        newName !== current.name &&
+        !nameUpdates.has(subjectId)
+      ) {
+        const lower = newName.toLowerCase();
+        const clash =
+          (exam.program?.subjects.some(
+            (ps) => ps.id !== subjectId && ps.name.toLowerCase() === lower,
+          ) ??
+            false) ||
+          Array.from(nameUpdates.entries()).some(
+            ([id, n]) => id !== subjectId && n.toLowerCase() === lower,
+          );
+        if (clash) {
+          throw new Error(
+            `Subject name "${newName}" is already used by another subject in this program.`,
+          );
+        }
+        nameUpdates.set(subjectId, newName);
+        // Keep the lookup maps in sync with the post-rename reality.
+        subjectMap.delete(current.name.toLowerCase());
+        subjectMap.set(lower, subjectId);
+        subjectById.set(subjectId, { id: subjectId, name: newName });
+      }
+    }
 
     // Auto-create subject if it doesn't exist yet
     if (!subjectId && s.subject && exam.programId) {
@@ -285,9 +322,17 @@ export async function upsertExamScores(
           maxMarks: s.maxMarks || 100,
         },
       });
+      // Guard: a "new" subject that resolves to a subject being renamed in
+      // this same save means the teacher reused a renamed subject's old name.
+      if (nameUpdates.has(newSubject.id)) {
+        throw new Error(
+          `"${s.subject}" is being renamed in this save — save first, then add a new subject with that name.`,
+        );
+      }
       subjectId = newSubject.id;
       subjectMap.set(newSubject.id, newSubject.id);
       subjectMap.set(newSubject.name.toLowerCase(), newSubject.id);
+      subjectById.set(newSubject.id, { id: newSubject.id, name: newSubject.name });
     }
 
     if (!subjectId) {
@@ -325,6 +370,14 @@ export async function upsertExamScores(
   // expiring. Decimal columns are written via Prisma.Decimal (same as marks).
   await prisma.$transaction(
     async (tx) => {
+      // Apply subject renames first (edited inline in the grid header).
+      for (const [subjectId, name] of nameUpdates) {
+        await tx.programSubject.update({
+          where: { id: subjectId },
+          data: { name },
+        });
+      }
+
       for (const [subjectId, maxMarks] of maxUpdates) {
         await tx.programSubject.update({
           where: { id: subjectId },
