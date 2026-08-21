@@ -244,95 +244,148 @@ export async function upsertExamScores(
   examId: string,
   input: { scores: any[] },
 ) {
-  const exam = await prisma.exam.findUnique({
-    where: { id: examId },
-    include: { program: { include: { subjects: true } } },
-  });
+  const exam = await prisma.exam.findUnique({ where: { id: examId } });
 
   if (!exam) throw new NotFoundError("Exam not found");
 
   enforceCenterAccess(user, exam.centerId);
 
-  // Build subject lookup: id → id, name → id
-  const subjectMap = new Map<string, string>();
-  const subjectById = new Map<string, { id: string; name: string }>();
-  exam.program?.subjects.forEach((s) => {
-    subjectMap.set(s.id, s.id);
-    subjectMap.set(s.name.toLowerCase(), s.id);
-    subjectById.set(s.id, { id: s.id, name: s.name });
+  // ---- EXAM-SCOPED SUBJECTS ----
+  // Subjects visible to THIS exam only:
+  //   1. subjects created for this exam (examId = exam.id)
+  //   2. legacy shared subjects (examId = null) this exam already scores on
+  // Adding a column, renaming, changing "out of" or deleting NEVER touches
+  // any other exam: shared subjects get copied for this exam first
+  // (copy-on-write) and new columns are always created exam-scoped.
+  const visible = await prisma.programSubject.findMany({
+    where: {
+      programId: exam.programId,
+      OR: [
+        { examId: exam.id },
+        { examId: null, examScores: { some: { examId: exam.id } } },
+      ],
+    },
   });
 
-  // Resolve each score's subjectId — auto-create if subject name is new
+  type SubjMeta = { id: string; name: string; maxMarks: number; shared: boolean };
+  const subjectMap = new Map<string, string>(); // id / lowercased name → current id
+  const subjectById = new Map<string, SubjMeta>();
+  for (const s of visible) {
+    subjectMap.set(s.id, s.id);
+    subjectMap.set(s.name.toLowerCase(), s.id);
+    subjectById.set(s.id, {
+      id: s.id,
+      name: s.name,
+      maxMarks: s.maxMarks ? Number(s.maxMarks) : 100,
+      shared: s.examId == null,
+    });
+  }
+
+  // Copy-on-write: before changing a legacy shared subject for this exam,
+  // hand this exam its own copy so every other exam keeps its old values.
+  const ensureExamOwned = async (subjectId: string): Promise<string> => {
+    const meta = subjectById.get(subjectId);
+    if (!meta || !meta.shared) return subjectId;
+
+    const usedElsewhere = await prisma.examScore.count({
+      where: { subjectId, examId: { not: exam.id } },
+    });
+
+    let ownedId: string;
+    if (usedElsewhere === 0) {
+      // No other exam references it — adopt it as this exam's own subject.
+      await prisma.programSubject.update({
+        where: { id: subjectId },
+        data: { examId: exam.id },
+      });
+      ownedId = subjectId;
+    } else {
+      // Clone for this exam and repoint this exam's scores to the clone.
+      ownedId = await prisma.$transaction(async (tx) => {
+        const clone = await tx.programSubject.create({
+          data: {
+            programId: exam.programId,
+            examId: exam.id,
+            name: meta.name,
+            maxMarks: new Prisma.Decimal(meta.maxMarks),
+          },
+        });
+        await tx.examScore.updateMany({
+          where: { examId: exam.id, subjectId },
+          data: { subjectId: clone.id },
+        });
+        return clone.id;
+      });
+    }
+
+    subjectMap.set(subjectId, ownedId); // the old id keeps resolving
+    subjectMap.set(meta.name.toLowerCase(), ownedId);
+    subjectById.set(ownedId, { ...meta, id: ownedId, shared: false });
+    return ownedId;
+  };
+
+  // Resolve each score's subjectId — auto-create (exam-scoped) if new
   const processedScores: any[] = [];
   const maxUpdates = new Map<string, number>(); // subjectId -> new max marks
   const nameUpdates = new Map<string, string>(); // subjectId -> renamed subject
   for (const s of input.scores) {
     let subjectId =
-      s.subjectId && subjectMap.has(s.subjectId)
-        ? s.subjectId
-        : subjectMap.get((s.subject || "").toLowerCase());
+      (s.subjectId ? subjectMap.get(s.subjectId) : undefined) ??
+      subjectMap.get((s.subject || "").toLowerCase());
+
+    const wantName = typeof s.subject === "string" ? s.subject.trim() : "";
 
     // Rename support: the teacher edited an existing subject's name in the
     // grid header. Only applies when the row explicitly carries a subjectId
     // (so name-only lookups never rename anything by accident).
-    if (subjectId && s.subjectId === subjectId) {
+    if (subjectId && s.subjectId && subjectMap.get(s.subjectId) === subjectId) {
       const current = subjectById.get(subjectId);
-      const newName = typeof s.subject === "string" ? s.subject.trim() : "";
       if (
         current &&
-        newName &&
-        newName !== current.name &&
+        wantName &&
+        wantName !== current.name &&
         !nameUpdates.has(subjectId)
       ) {
-        const lower = newName.toLowerCase();
-        const clash =
-          (exam.program?.subjects.some(
-            (ps) => ps.id !== subjectId && ps.name.toLowerCase() === lower,
-          ) ??
-            false) ||
-          Array.from(nameUpdates.entries()).some(
-            ([id, n]) => id !== subjectId && n.toLowerCase() === lower,
-          );
-        if (clash) {
+        const lower = wantName.toLowerCase();
+        const clashId = subjectMap.get(lower);
+        if (clashId && clashId !== subjectId) {
           throw new Error(
-            `Subject name "${newName}" is already used by another subject in this program.`,
+            `Subject name "${wantName}" is already used by another subject in this exam.`,
           );
         }
-        nameUpdates.set(subjectId, newName);
+        const ownedId = await ensureExamOwned(subjectId);
+        nameUpdates.set(ownedId, wantName);
         // Keep the lookup maps in sync with the post-rename reality.
         subjectMap.delete(current.name.toLowerCase());
-        subjectMap.set(lower, subjectId);
-        subjectById.set(subjectId, { id: subjectId, name: newName });
+        subjectMap.set(lower, ownedId);
+        const om = subjectById.get(ownedId);
+        if (om) subjectById.set(ownedId, { ...om, name: wantName });
+        subjectId = ownedId;
       }
     }
 
-    // Auto-create subject if it doesn't exist yet
-    if (!subjectId && s.subject && exam.programId) {
-      const newSubject = await prisma.programSubject.upsert({
-        where: {
-          programId_name: {
-            programId: exam.programId,
-            name: s.subject,
-          },
-        },
-        update: {},
-        create: {
+    // Auto-create: a brand-new column, created for THIS exam only.
+    if (!subjectId && wantName && exam.programId) {
+      const mmNew = Number(s.maxMarks);
+      const created = await prisma.programSubject.create({
+        data: {
           programId: exam.programId,
-          name: s.subject,
-          maxMarks: s.maxMarks || 100,
+          examId: exam.id,
+          name: wantName,
+          maxMarks: new Prisma.Decimal(
+            Number.isFinite(mmNew) && mmNew > 0 ? mmNew : 100,
+          ),
         },
       });
-      // Guard: a "new" subject that resolves to a subject being renamed in
-      // this same save means the teacher reused a renamed subject's old name.
-      if (nameUpdates.has(newSubject.id)) {
-        throw new Error(
-          `"${s.subject}" is being renamed in this save — save first, then add a new subject with that name.`,
-        );
-      }
-      subjectId = newSubject.id;
-      subjectMap.set(newSubject.id, newSubject.id);
-      subjectMap.set(newSubject.name.toLowerCase(), newSubject.id);
-      subjectById.set(newSubject.id, { id: newSubject.id, name: newSubject.name });
+      subjectId = created.id;
+      subjectMap.set(created.id, created.id);
+      subjectMap.set(wantName.toLowerCase(), created.id);
+      subjectById.set(created.id, {
+        id: created.id,
+        name: wantName,
+        maxMarks: Number.isFinite(mmNew) && mmNew > 0 ? mmNew : 100,
+        shared: false,
+      });
     }
 
     if (!subjectId) {
@@ -341,11 +394,18 @@ export async function upsertExamScores(
       );
     }
 
-    // Keep the subject's "out of" (max marks) in sync with what the teacher
-    // typed in the grid, so the report totals/% use the correct denominator.
+    // "Out of" (max marks) sync — ONLY when it actually changed, and only
+    // ever on this exam's own copy of the subject.
     const mm = Number(s.maxMarks);
     if (Number.isFinite(mm) && mm > 0 && !maxUpdates.has(subjectId)) {
-      maxUpdates.set(subjectId, mm);
+      const cur = subjectById.get(subjectId);
+      if (cur && cur.maxMarks !== mm) {
+        const ownedId = await ensureExamOwned(subjectId);
+        maxUpdates.set(ownedId, mm);
+        const om = subjectById.get(ownedId);
+        if (om) subjectById.set(ownedId, { ...om, maxMarks: mm });
+        subjectId = ownedId;
+      }
     }
 
     // Safely convert marks
@@ -439,9 +499,15 @@ export async function getPendingExamScores(user: JwtPayload, examId: string) {
     },
   });
 
+  // Only subjects that belong to THIS exam (its own + legacy shared ones it
+  // already scores on) — never other exams' subjects.
   const subjects = await prisma.programSubject.findMany({
     where: {
       programId: exam.programId,
+      OR: [
+        { examId: exam.id },
+        { examId: null, examScores: { some: { examId: exam.id } } },
+      ],
     },
   });
 
@@ -773,11 +839,16 @@ export async function deleteExamSubject(
   if (subject.programId !== exam.programId) {
     throw new ForbiddenError("Subject does not belong to this exam's program");
   }
+  // Exam-scoped subject of a DIFFERENT exam can never be touched from here.
+  if (subject.examId && subject.examId !== examId) {
+    throw new ForbiddenError("Subject belongs to a different exam");
+  }
 
-  // Remove this subject's scores from this exam.
+  // Remove this subject's scores from this exam ONLY.
   await prisma.examScore.deleteMany({ where: { examId, subjectId } });
 
-  // Clean up the subject itself if nothing references it any more.
+  // Clean up the subject row itself only when nothing references it any more
+  // (an exam-scoped subject of this exam, or a shared one no exam uses).
   const stillUsed = await prisma.examScore.count({ where: { subjectId } });
   let subjectRemoved = false;
   if (stillUsed === 0) {
