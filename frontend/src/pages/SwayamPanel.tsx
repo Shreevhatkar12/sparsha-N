@@ -234,7 +234,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
   };
 
   const handleDelete = async (s: SwayamStudent) => {
-    if (!window.confirm(`Delete ${s.fullName}? Student list ani reports madhun nighel.`)) return;
+    if (!window.confirm(`Delete ${s.fullName}? This will remove them from all lists and reports.`)) return;
     try {
       await deleteSwayamStudent(s.id);
       setFormSuccess('Student deleted ✅');
@@ -259,13 +259,13 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
     if (fullName.trim().length < 2) return setFormError('Full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setFormError('Valid age is required (3–60).');
-    if (!gender) return setFormError('Gender select kara (Male / Female / Other) — required.');
+    if (!gender) return setFormError('Please select gender (Male / Female / Other).');
     if (!currentStd) return setFormError('Current std / course is required (Other → type the course name).');
-    if (streamChoice === 'Other' && !stream) return setFormError('Stream madhe "Other" nivadla — course/stream type kara.');
+    if (streamChoice === 'Other' && !stream) return setFormError('You selected "Other" for stream — please type the course/stream.');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setFormError('Phone number must be exactly 10 digits.');
     if (aadhar.trim() && !/^\d{12}$/.test(aadhar.trim())) return setFormError('Aadhar number must be exactly 12 digits.');
     if (locationType === 'in' && !centerId) return setFormError('Please select a center.');
-    if (locationType === 'out' && !area.trim()) return setFormError('Out center nivadla — area name takaych.');
+    if (locationType === 'out' && !area.trim()) return setFormError('Out Center selected — please enter the area name.');
 
     const payload: SwayamStudentPayload = {
       fullName: fullName.trim(),
@@ -599,9 +599,9 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
           <Card className="border-none shadow-sm">
             <h3 className="font-bold text-neutral-900 mb-1">Students by Std / Course</h3>
-            <p className="text-xs text-neutral-500 mb-3">11th, 12th ani course-wise student count</p>
+            <p className="text-xs text-neutral-500 mb-3">11th, 12th and course-wise student count</p>
             {stats.stdData.length === 0 ? (
-              <EmptyState title="No students yet" description="Swayam Panel madhun pahila student add kara." />
+              <EmptyState title="No students yet" description="Add the first student from the Swayam Panel." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={stats.stdData} margin={CHART_MARGIN}>
@@ -668,7 +668,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
             <Card className="border-none shadow-sm">
               <h3 className="font-bold text-neutral-900 mb-1">Enrollment by Year</h3>
-              <p className="text-xs text-neutral-500 mb-3">Kontya varshi kiti students add zale</p>
+              <p className="text-xs text-neutral-500 mb-3">Students added per year</p>
               {stats.yearData.length === 0 ? (
                 <EmptyState title="No data" />
               ) : (
@@ -716,11 +716,11 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
 
           <Card className="border-none shadow-sm">
             <h3 className="font-bold text-neutral-900 mb-1">Dropout vs Re-enrolled (year-wise)</h3>
-            <p className="text-xs text-neutral-500 mb-3">Kontya varshi kiti dropout zale ani kiti re-enrolled zale</p>
+            <p className="text-xs text-neutral-500 mb-3">Dropouts vs re-enrollments per year</p>
             {dropYearData.length === 0 ? (
               <EmptyState
                 title="No dropout data yet"
-                description="Dropout Info page varun record add kelyavar ithe graph disel."
+                description="The graph appears once records are added on the Dropout Info page."
               />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -770,12 +770,12 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
           <Card className="border-none shadow-sm">
             <h3 className="font-bold text-neutral-900 mb-1">Sponsorship vs Scholarship (pending / done)</h3>
             <p className="text-xs text-neutral-500 mb-3">
-              Kiti students na support chi garaj ahe ani kiti na milala te type-wise.
+              How many students need support and how many received it, type-wise.
             </p>
             {(sponsorData?.counts.total ?? 0) === 0 ? (
               <EmptyState
                 title="No sponsorship data yet"
-                description="Sponsorship section madhun pahila student add kara."
+                description="Add the first student from the Sponsorship section."
               />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -806,7 +806,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
                 {editingId ? 'Edit Student' : 'Register New Student (11th / 12th / Course)'}
               </h2>
               <p className="text-xs text-neutral-500 mb-4">
-                Enrollment date automatic save hoto. * fields required ahet.
+                Enrollment date is saved automatically. * fields are required.
               </p>
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">
@@ -1007,7 +1007,7 @@ export const SwayamPanel: React.FC<{ mode?: 'dashboard' | 'students' }> = ({ mod
             {filteredRows.length === 0 ? (
               <EmptyState
                 title="No students found"
-                description="Filter badla kimva Add Student madhun navin student add kara."
+                description="Change the filter or add a new student via Add Student."
                 action={
                   <Button variant="primary" onClick={openAddForm}>
                     <Plus size={16} className="mr-1" /> Add Student

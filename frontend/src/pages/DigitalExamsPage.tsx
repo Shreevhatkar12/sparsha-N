@@ -175,9 +175,9 @@ export const DigitalExamsPage: React.FC = () => {
     if (exName.trim().length < 2) return setFormError('Exam name is required.');
     if (!exDate) return setFormError('Exam date is required.');
     if (!exSubject.trim()) return setFormError('Subject is required.');
-    if (!batch) return setFormError('Batch select kara (kimva custom batch type kara).');
+    if (!batch) return setFormError('Please select a batch (or type a custom one).');
     if (!Number.isInteger(total) || total < 1 || total > 1000)
-      return setFormError('Total marks 1 te 1000 madhe pahijet (e.g. 50).');
+      return setFormError('Total marks must be between 1 and 1000 (e.g. 50).');
 
     setSaving(true);
     try {
@@ -204,7 +204,7 @@ export const DigitalExamsPage: React.FC = () => {
           totalMarks: total,
           marks: {},
         });
-        setSuccess('Exam created ✅ — ata marks bhara.');
+        setSuccess('Exam created ✅ — now enter the marks.');
         resetForm();
         setShowForm(false);
         const fresh = await load();
@@ -219,7 +219,7 @@ export const DigitalExamsPage: React.FC = () => {
   };
 
   const handleDeleteExam = async (e: DLExam) => {
-    if (!window.confirm(`Delete exam "${e.name}"? Marks pan delete hotil.`)) return;
+    if (!window.confirm(`Delete exam "${e.name}"? Its marks will be deleted too.`)) return;
     try {
       await deleteDigitalExam(e.id);
       setSuccess('Exam deleted ✅');
@@ -272,7 +272,7 @@ export const DigitalExamsPage: React.FC = () => {
       } else if (m.score.trim() !== '') {
         const n = Number(m.score);
         if (!Number.isFinite(n) || n < 0 || n > total) {
-          setError(`Marks 0 te ${total} madhech pahijet.`);
+          setError(`Marks must be between 0 and ${total}.`);
           return;
         }
         marks[sid] = { score: n, absent: false };
@@ -429,7 +429,7 @@ export const DigitalExamsPage: React.FC = () => {
                 <Card className="border-none shadow-sm">
                   <h2 className="text-lg font-semibold mb-1">{editingExam ? 'Edit Exam' : 'Create Exam'}</h2>
                   <p className="text-xs text-neutral-500 mb-4">
-                    Exam create kelya var tya batch che sagle students (in + out center) marks entry madhe distil.
+                    After creating the exam, all students of that batch (in + out center) appear in marks entry.
                   </p>
                   {formError && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">
@@ -506,8 +506,8 @@ export const DigitalExamsPage: React.FC = () => {
 
                   {batchStudents(activeExam.batch).length === 0 ? (
                     <EmptyState
-                      title="Ya batch madhe students nahit"
-                      description={`"${activeExam.batch}" batch madhe Students section madhun students add kara.`}
+                      title="No students in this batch"
+                      description={`Add students to "${activeExam.batch}" from the Students section first.`}
                     />
                   ) : (
                     <>
@@ -559,7 +559,7 @@ export const DigitalExamsPage: React.FC = () => {
                                           ? 'bg-red-600 text-white border-red-600'
                                           : 'bg-white text-neutral-600 border-neutral-300 hover:border-red-400'
                                       }`}
-                                      title="Absent mark kara"
+                                      title="Mark as absent"
                                     >
                                       <UserX size={14} /> {d.absent ? 'Absent' : 'Mark Absent'}
                                     </button>
@@ -587,7 +587,7 @@ export const DigitalExamsPage: React.FC = () => {
                   {exams.length === 0 ? (
                     <EmptyState
                       title="No exams yet"
-                      description="Create Exam button ne pahili exam create kara."
+                      description="Use the Create Exam button to create your first exam."
                       action={
                         <Button variant="primary" onClick={openCreate}>
                           <Plus size={16} className="mr-1" /> Create Exam
@@ -664,7 +664,7 @@ export const DigitalExamsPage: React.FC = () => {
             <>
               {exams.length === 0 ? (
                 <Card className="border-none shadow-sm">
-                  <EmptyState title="No exams yet" description="Adhi Exams tab madhun exam create karun marks bhara." />
+                  <EmptyState title="No exams yet" description="First create an exam and enter marks from the Exams tab." />
                 </Card>
               ) : (
                 <>
@@ -729,7 +729,7 @@ export const DigitalExamsPage: React.FC = () => {
                       <Card className="border-none shadow-sm">
                         <h3 className="font-bold text-neutral-900 mb-1">In Center vs Out Center</h3>
                         <p className="text-xs text-neutral-500 mb-3">
-                          Ya exam sathi in-center ani out-center students cha average % comparison
+                          Average % comparison of in-center vs out-center students for this exam
                         </p>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
                           <ResponsiveContainer width="100%" height={240}>

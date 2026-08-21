@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { AnnouncementPopup } from './AnnouncementPopup';
 
 // Define the roles based on your Prisma Schema
 type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
@@ -52,6 +53,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
           <Outlet key={location.pathname} />
         </main>
       </div>
+
+      {/* Unread announcements pop up as an alert the user must acknowledge. */}
+      <AnnouncementPopup />
     </div>
   );
 };

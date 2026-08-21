@@ -204,7 +204,7 @@ export function ParentMeetingPage() {
   };
 
   const deleteMeeting = async (id: string) => {
-    if (!window.confirm("Ha parent meeting delete karaycha? He undo hoणार nahi.")) return;
+    if (!window.confirm("Delete this parent meeting? This cannot be undone.")) return;
     try {
       await api.delete(`/meetings/parent/${id}`);
       setSuccess("Meeting deleted ✅");
@@ -392,7 +392,7 @@ export function ParentMeetingPage() {
 
             {loadingStudents && <p className="text-sm text-neutral-500">Loading students...</p>}
             {!loadingStudents && formData.centerId && formData.programId && visibleStudents.length === 0 && (
-              <p className="text-sm text-neutral-400">Ya filter sathi students nahit.</p>
+              <p className="text-sm text-neutral-400">No students for this filter.</p>
             )}
             {visibleStudents.length > 0 && (
               <div>

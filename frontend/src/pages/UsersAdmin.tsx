@@ -317,7 +317,7 @@ export const UsersAdmin: React.FC = () => {
               Delete "{deleteConfirmUser.fullName}"?
             </h3>
             <p className="text-sm text-neutral-600 mb-4">
-              He user permanently delete hoil — data recover honar nahi. Are you sure?
+              This user will be permanently deleted — the data cannot be recovered. Are you sure?
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setDeleteConfirmUser(null)}>Cancel</Button>

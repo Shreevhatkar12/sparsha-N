@@ -262,7 +262,7 @@ export const DigitalDashboard: React.FC = () => {
             <h3 className="font-bold text-neutral-900 mb-1">Students by Batch</h3>
             <p className="text-xs text-neutral-500 mb-3">Batch-wise in-center / out-center student count</p>
             {stats.batchData.length === 0 ? (
-              <EmptyState title="No students yet" description="Students section madhun pahila student add kara." />
+              <EmptyState title="No students yet" description="Add your first student from the Students section." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={stats.batchData} margin={CHART_MARGIN}>
@@ -287,7 +287,7 @@ export const DigitalDashboard: React.FC = () => {
             <h3 className="font-bold text-neutral-900 mb-1">Admissions by Month</h3>
             <p className="text-xs text-neutral-500 mb-3">Month-wise student add count (growth)</p>
             {stats.monthData.length === 0 ? (
-              <EmptyState title="No data yet" description="Students add kelya var month-wise growth ithe disel." />
+              <EmptyState title="No data yet" description="Month-wise growth will appear here once students are added." />
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={stats.monthData} margin={CHART_MARGIN}>
@@ -307,12 +307,12 @@ export const DigitalDashboard: React.FC = () => {
           <Card className="border-none shadow-sm">
             <h3 className="font-bold text-neutral-900 mb-1">Exam Growth — Average % per Exam</h3>
             <p className="text-xs text-neutral-500 mb-3">
-              Date order madhe pratek exam cha class average % — growth kiti zali te ithe samjel ({exams.length} exams)
+              Class average % of every exam in date order — see how much growth happened ({exams.length} exams)
             </p>
             {examGrowth.length === 0 ? (
               <EmptyState
                 title="No exam data yet"
-                description="Digital Exams section madhun exam create karun marks bhara — growth ithe disel."
+                description="Create exams and enter marks in Digital Exams — growth will appear here."
               />
             ) : (
               <ResponsiveContainer width="100%" height={280}>

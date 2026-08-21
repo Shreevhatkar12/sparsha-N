@@ -74,7 +74,7 @@ const Kpi: React.FC<KpiProps> = ({ icon, tint, label, value, sub }) => (
 
 const EmptyBox: React.FC<{ msg?: string }> = ({ msg }) => (
   <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
-    <p className="text-sm text-neutral-400">{msg || "Ajun ithe data nahi"}</p>
+    <p className="text-sm text-neutral-400">{msg || "No data here yet"}</p>
   </div>
 );
 
@@ -106,7 +106,7 @@ export const AdminAnalytics: React.FC = () => {
       const d = await getAdminAnalytics(params);
       setData(d);
     } catch {
-      setError("Admin analytics load nahi zala. Parat try kara.");
+      setError("Could not load admin analytics. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -253,7 +253,7 @@ export const AdminAnalytics: React.FC = () => {
       {/* Standard-wise students (whole scope) */}
       <SectionCard
         title="Standard-wise Students"
-        subtitle="Kontya std la kiti students — total ani Male / Female split (whole class)"
+        subtitle="Students per standard — total with Male / Female split (whole class)"
         toggleKey="std"
       >
         {!data.stdWise || data.stdWise.length === 0 ? (
@@ -314,7 +314,7 @@ export const AdminAnalytics: React.FC = () => {
       {data.stdWiseByCenter && data.stdWiseByCenter.length > 0 && (
         <SectionCard
           title="Standard-wise Students — per Center"
-          subtitle="Har center madhe std-wise total ani Male / Female count"
+          subtitle="Standard-wise totals with Male / Female count for every center"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {data.stdWiseByCenter.map((c) => (
@@ -356,7 +356,7 @@ export const AdminAnalytics: React.FC = () => {
       )}
 
       {/* Attendance trend */}
-      <SectionCard title="Attendance Trend (month-wise)" subtitle="Overall attendance % dar mahina" toggleKey="att">
+      <SectionCard title="Attendance Trend (month-wise)" subtitle="Overall attendance % per month" toggleKey="att">
         {data.attendanceMonthly.length === 0 ? (
           <EmptyBox />
         ) : viewOf("att") === "graph" ? (
@@ -377,9 +377,9 @@ export const AdminAnalytics: React.FC = () => {
       </SectionCard>
 
       {/* Exam grades by month */}
-      <SectionCard title="Exam Grades by Month" subtitle="Ek bar = ek mahina, grade-wise student count (A–E)" toggleKey="grades">
+      <SectionCard title="Exam Grades by Month" subtitle="One bar = one month, grade-wise student count (A–E)" toggleKey="grades">
         {data.gradeByMonth.length === 0 ? (
-          <EmptyBox msg="Ajun exam data nahi" />
+          <EmptyBox msg="No exam data yet" />
         ) : viewOf("grades") === "graph" ? (
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={data.gradeByMonth} margin={CHART_MARGIN}>
@@ -405,7 +405,7 @@ export const AdminAnalytics: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Enrollment growth */}
-        <SectionCard title="Enrollment Growth" subtitle="Dar mahina add zale + total (gender split)" toggleKey="enr">
+        <SectionCard title="Enrollment Growth" subtitle="Added per month + running total (gender split)" toggleKey="enr">
           {data.enrollmentMonthly.length === 0 ? (
             <EmptyBox />
           ) : viewOf("enr") === "graph" ? (
@@ -428,7 +428,7 @@ export const AdminAnalytics: React.FC = () => {
         </SectionCard>
 
         {/* Activities */}
-        <SectionCard title="Activities Conducted" subtitle="Dar mahina kiti activities" toggleKey="act">
+        <SectionCard title="Activities Conducted" subtitle="Activities conducted per month" toggleKey="act">
           {data.activitiesMonthly.length === 0 ? (
             <EmptyBox />
           ) : viewOf("act") === "graph" ? (
@@ -450,7 +450,7 @@ export const AdminAnalytics: React.FC = () => {
       </div>
 
       {/* Center comparison */}
-      <SectionCard title="Center Comparison" subtitle="Students, attendance % ani avg exam % — center-wise" toggleKey="cmp">
+      <SectionCard title="Center Comparison" subtitle="Students, attendance % and avg exam % — center-wise" toggleKey="cmp">
         {data.centerComparison.length === 0 ? (
           <EmptyBox />
         ) : viewOf("cmp") === "graph" ? (
@@ -482,7 +482,7 @@ export const AdminAnalytics: React.FC = () => {
 
       {/* Avg by subject */}
       {data.avgBySubject.length > 0 && (
-        <SectionCard title="Average % by Subject" subtitle="Kontya subject madhe mule kशी kartat">
+        <SectionCard title="Average % by Subject" subtitle="How students perform in each subject">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.avgBySubject} margin={CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
@@ -501,7 +501,7 @@ export const AdminAnalytics: React.FC = () => {
       )}
 
       {/* Teacher-wise summary */}
-      <SectionCard title="Teacher-wise Summary" subtitle="Har teacher cha students / attendance / exams / activities">
+      <SectionCard title="Teacher-wise Summary" subtitle="Each teacher\u2019s students / attendance / exams / activities">
         {data.teacherSummary.length === 0 ? (
           <EmptyBox />
         ) : (
@@ -542,7 +542,7 @@ export const AdminAnalytics: React.FC = () => {
         {/* Gender equity — attendance */}
         <Card className="border-none shadow-sm">
           <h3 className="font-bold text-neutral-900 mb-1">Gender Equity</h3>
-          <p className="text-xs text-neutral-500 mb-4">Attendance % — mulगी vs mulga</p>
+          <p className="text-xs text-neutral-500 mb-4">Attendance % — girls vs boys</p>
           <Meter label="Girls attendance" value={data.genderEquity.attendanceByGender.femaleRate} color={C_FEMALE} />
           <div className="h-3" />
           <Meter label="Boys attendance" value={data.genderEquity.attendanceByGender.maleRate} color={C_MALE} />
@@ -551,7 +551,7 @@ export const AdminAnalytics: React.FC = () => {
 
       {/* Gender by program */}
       {data.genderEquity.byProgram.length > 0 && (
-        <SectionCard title="Gender by Program" subtitle="Program-wise mulगी / mulga count">
+        <SectionCard title="Gender by Program" subtitle="Girl / boy count per program">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={data.genderEquity.byProgram} margin={CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
@@ -571,7 +571,7 @@ export const AdminAnalytics: React.FC = () => {
       )}
 
       {/* At-risk students */}
-      <SectionCard title="At-risk Students" subtitle="Attendance <60% kimva grade D/E — konala lक्ष dyaych">
+      <SectionCard title="At-risk Students" subtitle="Attendance below 60% or grade D/E — students who need attention">
         {data.atRisk.length === 0 ? (
           <EmptyBox msg="Koni at-risk nahi 🎉" />
         ) : (

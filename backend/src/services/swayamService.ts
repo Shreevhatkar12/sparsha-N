@@ -332,7 +332,7 @@ function parseDropoutInput(body: SwayamBody) {
   }
 
   const dropoutStd = String(body.dropoutStd ?? '').trim();
-  if (!dropoutStd) throw new ValidationError('Dropout std is required (kimva Illiterate select kara)');
+  if (!dropoutStd) throw new ValidationError('Dropout std is required (or select Illiterate)');
 
   // "Illiterate" = kadhi shalech nahi gelela — dropout year lagat nahi.
   const isIlliterate = dropoutStd.toLowerCase() === 'illiterate';

@@ -127,8 +127,8 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     const yearNum = isIlliterate ? 0 : Number(dropYear);
     if (fullName.trim().length < 2) return setError('Child full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setError('Valid age is required (3–60).');
-    if (!gender) return setError('Gender select kara (Male / Female / Other) — required.');
-    if (!dropStd.trim()) return setError('Dropout std is required (e.g. 9th) — kimva Illiterate select kara.');
+    if (!gender) return setError('Please select gender (Male / Female / Other).');
+    if (!dropStd.trim()) return setError('Dropout std is required (e.g. 9th) — or select Illiterate.');
     if (!isIlliterate && (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100)) return setError('Valid dropout year is required (e.g. 2025).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setError('Phone must be exactly 10 digits.');
     if (aadhar.trim() && !/^\d{12}$/.test(aadhar.trim())) return setError('Aadhar must be exactly 12 digits.');
@@ -170,7 +170,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
   };
 
   const handleDelete = async (s: DropoutStudent) => {
-    if (!window.confirm(`Delete ${s.fullName}? List ani counts madhun nighel.`)) return;
+    if (!window.confirm(`Delete ${s.fullName}? This will remove them from all lists and counts.`)) return;
     try {
       await deleteSwayamStudent(s.id);
       setSuccess('Deleted ✅');
@@ -181,10 +181,10 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
   };
 
   const handleBackToDropout = async (s: DropoutStudent) => {
-    if (!window.confirm(`${s.fullName} la parat Dropout list madhe pathvaych? (Re-enroll details clear hotil.)`)) return;
+    if (!window.confirm(`Send ${s.fullName} back to the Dropout list? (Re-enrollment details will be cleared.)`)) return;
     try {
       await revertReenrolled(s.id);
-      setSuccess(`${s.fullName} → Dropout list madhe parat gela ↩`);
+      setSuccess(`${s.fullName} moved back to the Dropout list ↩`);
       await onReload();
     } catch (err: any) {
       setError(err?.response?.data?.error || 'Back to dropout failed.');
@@ -241,7 +241,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
         setSuccess('Re-enrolled details updated ✅');
       } else if (reTarget) {
         await reenrollDropout(reTarget.id, body);
-        setSuccess(`${reTarget.fullName} re-enrolled ✅ (dropout list madhun migrate zala)`);
+        setSuccess(`${reTarget.fullName} re-enrolled ✅ (migrated from the dropout list)`);
       }
       cancelReenroll();
       await onReload();
@@ -290,7 +290,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
         <button
           type="button"
           onClick={() => void handleBackToDropout(s)}
-          title="Back to Dropout — parat dropout list madhe pathva"
+          title="Back to Dropout — send back to the dropout list"
           className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
         >
           <Undo2 size={14} /> Back to Dropout
@@ -451,14 +451,14 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                       className={inputCls}
                       value={dropStd}
                       onChange={(e) => setDropStd(e.target.value)}
-                      placeholder="e.g. 9th — kontya std la dropout zala"
+                      placeholder="e.g. 9th — std at the time of dropout"
                       readOnly={isIlliterate}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => { setDropStd(isIlliterate ? '' : 'Illiterate'); setDropYear(''); }}
-                      title="Kadhi shalech nahi gelela — year lagnar nahi"
+                      title="Never went to school — no dropout year needed"
                       className={`shrink-0 px-3 h-11 rounded-lg text-xs font-bold border transition-colors ${
                         isIlliterate
                           ? 'bg-brand-500 text-white border-brand-500'
@@ -481,7 +481,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                 </div>
                 <div>
                   <label className={labelCls}>Animator Name</label>
-                  <input className={inputCls} value={animator} onChange={(e) => setAnimator(e.target.value)} placeholder="Kontya animator kadun list ali" />
+                  <input className={inputCls} value={animator} onChange={(e) => setAnimator(e.target.value)} placeholder="Animator who referred this child" />
                 </div>
 
                 <div className="md:col-span-2">
@@ -534,7 +534,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                     rows={2}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Dropout hoṇyacha reason…"
+                    placeholder="Reason for dropping out…"
                   />
                 </div>
 
@@ -553,7 +553,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
           {dropouts.length === 0 ? (
             <EmptyState
               title="No dropout students yet"
-              description='"Add Dropout Student" madhun pahila record add kara.'
+              description='Use "Add Dropout Student" to add the first record.'
             />
           ) : (
             <Card className="border-none shadow-sm" noPadding>
@@ -622,8 +622,8 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
               </h3>
               <p className="text-xs text-neutral-500 mb-4">
                 {reEditing
-                  ? 'Re-enrolled details update kara.'
-                  : 'Submit kelyavar ha child dropout list madhun re-enrolled list madhe migrate hoil.'}
+                  ? 'Update the re-enrollment details.'
+                  : 'On submit this child migrates from the dropout list to the re-enrolled list.'}
               </p>
               <form onSubmit={submitReenroll} className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -652,10 +652,10 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
             <Card className="border-none shadow-sm">
               <h3 className="font-semibold text-neutral-900 mb-1">Select dropout student to re-enroll</h3>
               <p className="text-xs text-neutral-500 mb-3">
-                Dropout list madhla child school/college madhe parat gela asel tar ithun re-enroll kara.
+                When a dropout child goes back to school/college, re-enroll them from here.
               </p>
               {dropouts.length === 0 ? (
-                <p className="text-sm text-neutral-400">Dropout list rikami ahe — sagli mule re-enrolled ahet 🎉</p>
+                <p className="text-sm text-neutral-400">Dropout list is empty — all children are re-enrolled ahet 🎉</p>
               ) : (
                 <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
                   {dropouts.map((s) => (
@@ -677,7 +677,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
           )}
 
           {reenrolled.length === 0 ? (
-            <EmptyState title="No re-enrolled students yet" description="Dropout student re-enroll kela ki ithe disel." />
+            <EmptyState title="No re-enrolled students yet" description="Re-enrolled children will appear here." />
           ) : (
             <Card className="border-none shadow-sm" noPadding>
               <div className="overflow-x-auto">

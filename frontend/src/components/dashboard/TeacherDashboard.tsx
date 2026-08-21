@@ -111,7 +111,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, right, hasData, 
       children
     ) : (
       <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
-        <p className="text-sm text-neutral-400">Ajun ithe data nahi</p>
+        <p className="text-sm text-neutral-400">No data here yet</p>
       </div>
     )}
   </Card>
@@ -139,7 +139,7 @@ export const TeacherDashboard: React.FC = () => {
       const d = await getTeacherDashboard(params);
       setData(d);
     } catch {
-      setError("Dashboard load nahi zala. Parat try kara.");
+      setError("Could not load the dashboard. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -336,7 +336,7 @@ export const TeacherDashboard: React.FC = () => {
           {/* Standard-wise students */}
           <ChartCard
             title="Standard-wise Students"
-            subtitle="Kontya std la kiti students (Male / Female split)"
+            subtitle="Students per standard (Male / Female split)"
             hasData={stdChartData.length > 0}
           >
             <ResponsiveContainer width="100%" height={CHART_H}>
@@ -455,7 +455,7 @@ export const TeacherDashboard: React.FC = () => {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
-                  <p className="text-sm text-neutral-400">Ajun exam data nahi</p>
+                  <p className="text-sm text-neutral-400">No exam data yet</p>
                 </div>
               )}
             </div>
@@ -499,7 +499,7 @@ export const TeacherDashboard: React.FC = () => {
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
-                  <p className="text-sm text-neutral-400">Ajun exam data nahi</p>
+                  <p className="text-sm text-neutral-400">No exam data yet</p>
                 </div>
               )}
             </div>
@@ -509,7 +509,7 @@ export const TeacherDashboard: React.FC = () => {
             {/* Student growth month-wise */}
             <ChartCard
               title="Student Growth (month-wise)"
-              subtitle="Dar mahinyala kiti students add zale + total"
+              subtitle="Students added per month + running total"
               hasData={(data.studentGrowthMonthly ?? []).length > 0}
             >
               <ResponsiveContainer width="100%" height={CHART_H}>
@@ -588,7 +588,7 @@ export const TeacherDashboard: React.FC = () => {
             {/* Exam average month-wise */}
             <ChartCard
               title="Exam Average % (month-wise)"
-              subtitle="Baseline/exam cha average score dar mahina"
+              subtitle="Average exam score per month"
               hasData={(data.examMonthly ?? []).length > 0}
               right={
                 data.examMonthly.length > 1 ? (
@@ -632,7 +632,7 @@ export const TeacherDashboard: React.FC = () => {
             {/* Activities month-wise */}
             <ChartCard
               title="Activities Conducted (month-wise)"
-              subtitle="Dar mahinyala kiti activities zale"
+              subtitle="Activities conducted per month"
               hasData={(data.activitiesMonthly ?? []).length > 0}
             >
               <ResponsiveContainer width="100%" height={CHART_H}>

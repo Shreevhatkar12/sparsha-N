@@ -139,7 +139,7 @@ export const StudentRegistration: React.FC = () => {
       return;
     }
     if (!formData.gender) {
-      setError('Gender select kara (Male / Female / Other) — required.');
+      setError('Please select gender (Male / Female / Other).');
       return;
     }
     console.log("SUBMITTING:", formData.standard, formData.aadharNumber);

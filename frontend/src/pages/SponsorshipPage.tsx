@@ -143,7 +143,7 @@ export const SponsorshipPage: React.FC = () => {
     const ageNum = Number(age);
     if (fullName.trim().length < 2) return setFormError('Full name is required.');
     if (!Number.isFinite(ageNum) || ageNum < 3 || ageNum > 60) return setFormError('Valid age is required (3–60).');
-    if (!gender) return setFormError('Gender select kara (Male / Female / Other) — required.');
+    if (!gender) return setFormError('Please select gender (Male / Female / Other).');
     if (!stdCourse.trim()) return setFormError('Std / course is required (e.g. 8th, 10th, B.Com).');
     if (phone.trim() && !/^\d{10}$/.test(phone.trim())) return setFormError('Phone number must be exactly 10 digits.');
 
@@ -179,7 +179,7 @@ export const SponsorshipPage: React.FC = () => {
   };
 
   const handleDone = async (r: SponsorshipStudent) => {
-    if (!window.confirm(`${r.fullName} la ${TYPE_LABEL[r.supportType]} milali? Record Done list madhe jail.`)) return;
+    if (!window.confirm(`${r.fullName} received the ${TYPE_LABEL[r.supportType]}? The record will move to the Done list.`)) return;
     try {
       await markSponsorshipDone(r.id);
       setFormSuccess(`${r.fullName} → Done list ✅`);
@@ -190,7 +190,7 @@ export const SponsorshipPage: React.FC = () => {
   };
 
   const handleRevert = async (r: SponsorshipStudent) => {
-    if (!window.confirm(`${r.fullName} la parat Pending list madhe pathvaych?`)) return;
+    if (!window.confirm(`Send ${r.fullName} back to the Pending list?`)) return;
     try {
       await revertSponsorship(r.id);
       setFormSuccess(`${r.fullName} → Pending list ↩`);
@@ -201,7 +201,7 @@ export const SponsorshipPage: React.FC = () => {
   };
 
   const handleDelete = async (r: SponsorshipStudent) => {
-    if (!window.confirm(`Delete ${r.fullName}? List ani reports madhun nighel.`)) return;
+    if (!window.confirm(`Delete ${r.fullName}? This will remove them from all lists and reports.`)) return;
     try {
       await deleteSwayamStudent(r.id);
       setFormSuccess('Student deleted ✅');
@@ -330,7 +330,7 @@ export const SponsorshipPage: React.FC = () => {
                 {editingId ? 'Edit Student' : 'Add Student — Need Sponsorship / Scholarship'}
               </h2>
               <p className="text-xs text-neutral-500 mb-4">
-                Navin student Pending list madhe add hoto. * fields required ahet.
+                New students are added to the Pending list. * fields are required.
               </p>
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">
@@ -372,7 +372,7 @@ export const SponsorshipPage: React.FC = () => {
                 </div>
                 <div>
                   <label className={labelCls}>Stream</label>
-                  <input className={inputCls} value={stream} onChange={(e) => setStream(e.target.value)} placeholder="e.g. Science, Commerce, Arts (asel tr)" />
+                  <input className={inputCls} value={stream} onChange={(e) => setStream(e.target.value)} placeholder="e.g. Science, Commerce, Arts (if any)" />
                 </div>
 
                 <div>
@@ -474,8 +474,8 @@ export const SponsorshipPage: React.FC = () => {
                 title={tab === 'pending' ? 'No pending students' : 'No done students yet'}
                 description={
                   tab === 'pending'
-                    ? 'Add Student madhun sponsorship / scholarship chi garaj aslela student add kara.'
-                    : 'Pending list madhlya student la "Done" kel ki to ikde disel.'
+                    ? 'Use Add Student to add a student who needs sponsorship / scholarship.'
+                    : 'Students marked "Done" from the Pending list will appear here.'
                 }
                 action={
                   tab === 'pending' ? (
@@ -533,7 +533,7 @@ export const SponsorshipPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => void handleDone(r)}
-                                  title="Sponsorship / scholarship milali — Done list madhe pathva"
+                                  title="Support received — move to the Done list"
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-green-600 text-white hover:bg-green-700 transition-colors"
                                 >
                                   <CheckCircle2 size={14} /> Done
@@ -552,7 +552,7 @@ export const SponsorshipPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => void handleRevert(r)}
-                                title="Parat Pending list madhe pathva"
+                                title="Send back to the Pending list"
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 transition-colors"
                               >
                                 <RotateCcw size={14} /> Revert

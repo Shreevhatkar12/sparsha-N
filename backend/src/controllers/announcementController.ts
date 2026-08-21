@@ -3,10 +3,10 @@ import * as announcementService from "../services/announcement.service.js";
 
 export async function listAnnouncements(req: Request, res: Response, next: NextFunction) {
   try {
-    const { role, centerIds } = req.user!;
-    const { programId, cursor } = req.query;
+    const { userId, role, centerIds } = req.user!;
+    const { cursor } = req.query;
     const announcements = await announcementService.listAnnouncements(
-      { role, allowedCenterIds: centerIds, programId: programId as string },
+      { userId, role, allowedCenterIds: centerIds },
       cursor as string
     );
     res.json(announcements);

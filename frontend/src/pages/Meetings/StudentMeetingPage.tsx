@@ -186,7 +186,7 @@ export function StudentMeetingPage() {
   };
 
   const deleteMeeting = async (id: string) => {
-    if (!window.confirm("Ha meeting delete karaycha? He undo hoणार nahi.")) return;
+    if (!window.confirm("Delete this meeting? This cannot be undone.")) return;
     try {
       await api.delete(`/meetings/student/${id}`);
       setSuccess("Meeting deleted ✅");

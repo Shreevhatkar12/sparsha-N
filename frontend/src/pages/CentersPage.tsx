@@ -269,7 +269,7 @@ export const CentersPage: React.FC = () => {
       {deleteConfirm && (
         <Card className="mb-6 border-2 border-red-200 bg-red-50/30">
           <h3 className="text-md font-semibold text-red-700 mb-2">Delete "{deleteConfirm.name}"?</h3>
-          <p className="text-sm text-neutral-600 mb-4">He center permanently delete hoil. Are you sure?</p>
+          <p className="text-sm text-neutral-600 mb-4">This center will be permanently deleted. Are you sure?</p>
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button variant="danger" type="button" isLoading={deleting} onClick={() => void handleDeleteConfirm()}>
@@ -332,4 +332,4 @@ export const CentersPage: React.FC = () => {
       )}
     </PageWrapper>
   );
-};
+};

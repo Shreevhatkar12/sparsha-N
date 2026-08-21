@@ -157,7 +157,7 @@ export async function createDigitalStudent(user: JwtPayload, body: DLBody) {
       where: { templateId: tpl.id, studentId },
     });
     if (existing) {
-      throw new ValidationError('Ha student already Digital Literacy madhe add ahe');
+      throw new ValidationError('This student is already added to Digital Literacy');
     }
 
     const sub = await prisma.formSubmission.create({

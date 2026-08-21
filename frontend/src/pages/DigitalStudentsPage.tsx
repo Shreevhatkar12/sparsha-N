@@ -186,14 +186,14 @@ export const DigitalStudentsPage: React.FC = () => {
       if (mode === 'in') {
         if (!editing && !pickId) {
           setSaving(false);
-          return setFormError('Student select kara (Program → Center → Std → Student).');
+          return setFormError('Please select a student (Program → Center → Std → Student).');
         }
         if (editing) {
           await updateDigitalStudent(editing.id, { mode: 'in', studentId: editing.studentId, batch: batch.trim() });
           setFormSuccess('Batch updated ✅');
         } else {
           await createDigitalStudent({ mode: 'in', studentId: pickId, batch: batch.trim() });
-          setFormSuccess('Existing student Digital Literacy madhe add zala ✅ (same id — no duplicate)');
+          setFormSuccess('Existing student added to Digital Literacy ✅ (same id — no duplicate)');
         }
       } else {
         const ageNum = Number(age);
@@ -207,7 +207,7 @@ export const DigitalStudentsPage: React.FC = () => {
         }
         if (!gender) {
           setSaving(false);
-          return setFormError('Gender select kara (Male / Female / Other) — required.');
+          return setFormError('Please select gender (Male / Female / Other).');
         }
         if (!stdCourse.trim()) {
           setSaving(false);
@@ -237,7 +237,7 @@ export const DigitalStudentsPage: React.FC = () => {
           setFormSuccess('Student updated ✅');
         } else {
           await createDigitalStudent(payload);
-          setFormSuccess('New out-center student added ✅ (admin total madhe count hoil)');
+          setFormSuccess('New out-center student added ✅ (counted in the admin total)');
         }
       }
       resetForm();
@@ -253,8 +253,8 @@ export const DigitalStudentsPage: React.FC = () => {
   const handleDelete = async (r: DigitalRow) => {
     const msg =
       r.kind === 'in'
-        ? `${r.fullName} la Digital Literacy list madhun kadhaych? (Original student record safe rahil.)`
-        : `Delete ${r.fullName}? List ani reports madhun nighel.`;
+        ? `Remove ${r.fullName} from the Digital Literacy list? (The original student record stays safe.)`
+        : `Delete ${r.fullName}? This will remove them from all lists and reports.`;
     if (!window.confirm(msg)) return;
     try {
       await deleteDigitalStudent(r.id, r.kind);
@@ -384,8 +384,8 @@ export const DigitalStudentsPage: React.FC = () => {
                 {editing ? `Edit — ${editing.fullName}` : 'Add Digital Literacy Student'}
               </h2>
               <p className="text-xs text-neutral-500 mb-4">
-                In Center = existing student select (same id, duplicate nahi). Out Center = complete new
-                student (admin total madhe count hoto).
+                In Center = pick an existing student (same id, no duplicate). Out Center = a completely new
+                student (counted in the admin total).
               </p>
               {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">
@@ -424,8 +424,8 @@ export const DigitalStudentsPage: React.FC = () => {
                     {editing ? (
                       <div className="md:col-span-2 p-3 bg-green-50 border border-green-100 rounded-lg text-sm text-green-900">
                         <b>{editing.fullName}</b> — {editing.stdCourse || '—'} · {editing.programName} ·{' '}
-                        {editing.centerName}. (In-center student — fakta batch change karta yeto; original
-                        record tyachya program madhe ahe.)
+                        {editing.centerName}. (In-center student — only the batch can be changed here; the original
+                        record lives in their own program.)
                       </div>
                     ) : (
                       <>
@@ -441,7 +441,7 @@ export const DigitalStudentsPage: React.FC = () => {
                         <div>
                           <label className={labelCls}>2. Center *</label>
                           <select className={inputCls} value={centerId} onChange={(e) => setCenterId(e.target.value)} disabled={!programId}>
-                            <option value="">{programId ? 'Select center…' : 'Adhi program select kara'}</option>
+                            <option value="">{programId ? 'Select center…' : 'Select a program first'}</option>
                             {(meta?.centers ?? []).map((c) => (
                               <option key={c.id} value={c.id}>{c.name}</option>
                             ))}
@@ -454,8 +454,8 @@ export const DigitalStudentsPage: React.FC = () => {
                               {centerId
                                 ? standards.length
                                   ? 'Select std…'
-                                  : 'Ya program + center madhe students nahit'
-                                : 'Adhi center select kara'}
+                                  : 'No students in this program + center'
+                                : 'Select a center first'}
                             </option>
                             {standards.map((s) => (
                               <option key={s} value={s}>{s}</option>
@@ -465,7 +465,7 @@ export const DigitalStudentsPage: React.FC = () => {
                         <div>
                           <label className={labelCls}>4. Student *</label>
                           <select className={inputCls} value={pickId} onChange={(e) => setPickId(e.target.value)} disabled={!standard}>
-                            <option value="">{standard ? 'Select student…' : 'Adhi std select kara'}</option>
+                            <option value="">{standard ? 'Select student…' : 'Select a std first'}</option>
                             {pickList.map((p) => (
                               <option key={p.id} value={p.id} disabled={p.alreadyAdded}>
                                 {p.fullName}
@@ -488,7 +488,7 @@ export const DigitalStudentsPage: React.FC = () => {
                               <span><b>Guardian:</b> {selectedPick.guardianName || '—'}</span>
                             </div>
                             <div className="text-[11px] text-green-700 mt-1.5">
-                              ✔ Same student id use hoil — duplicate record create honar nahi.
+                              ✔ The same student id is reused — no duplicate record is created.
                             </div>
                           </div>
                         )}
@@ -524,7 +524,7 @@ export const DigitalStudentsPage: React.FC = () => {
                     </div>
                     <div>
                       <label className={labelCls}>Aadhar Card No</label>
-                      <input className={inputCls} value={aadhar} onChange={(e) => setAadhar(e.target.value)} placeholder="12-digit Aadhar (asel tr)" />
+                      <input className={inputCls} value={aadhar} onChange={(e) => setAadhar(e.target.value)} placeholder="12-digit Aadhar (if available)" />
                     </div>
                     <div>
                       <label className={labelCls}>Area Name</label>
@@ -591,7 +591,7 @@ export const DigitalStudentsPage: React.FC = () => {
             {visibleRows.length === 0 ? (
               <EmptyState
                 title="No students found"
-                description="Add Student madhun in-center kimva out-center student add kara."
+                description="Use Add Student to add an in-center or out-center student."
                 action={
                   <Button variant="primary" onClick={openAddForm}>
                     <Plus size={16} className="mr-1" /> Add Student
