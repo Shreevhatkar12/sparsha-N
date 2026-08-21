@@ -9,6 +9,7 @@ import { ErrorMessage } from "../components/ui/ErrorMessage";
 import { EmptyState } from "../components/ui/EmptyState";
 import {
   createExam,
+  deleteExamSubject,
   getExamSheet,
   getExamComparison,
   listExams,
@@ -101,6 +102,7 @@ export const Exams: React.FC = () => {
   const [listLoading, setListLoading] = useState(true);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingColId, setDeletingColId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Boot
@@ -315,23 +317,46 @@ export const Exams: React.FC = () => {
     setError(null);
   };
 
-  // Remove a subject column (only new ones that haven't been saved)
+  // Remove a subject column from the local grid state.
   const removeSubjectColumn = (colId: string) => {
     setSubjects((prev) => prev.filter((s) => s.id !== colId));
     setGrid((prev) => {
       const next = { ...prev };
       for (const sid of Object.keys(next)) {
-        const row = next[sid];
-        const { [colId]: _, ...restMarks } = row.marks;
+        const { [colId]: _, ...restMarks } = next[sid].marks;
 
         next[sid] = {
-          ...row,
+          ...next[sid],
           marks: restMarks,
         };
-        next[sid] = row as GridRow;
       }
       return next;
     });
+  };
+
+  // ✕ on a subject column. New (unsaved) columns are removed locally; saved
+  // subjects are deleted on the server first (their marks in this exam too).
+  const deleteSubjectColumn = async (col: SubjectCol) => {
+    if (col.isNew) {
+      removeSubjectColumn(col.id);
+      return;
+    }
+    if (!examId || deletingColId) return;
+    const ok = window.confirm(
+      `Delete subject "${col.name}" from this exam?\nAll saved marks for this subject in this exam will be permanently deleted.`,
+    );
+    if (!ok) return;
+    setDeletingColId(col.id);
+    setError(null);
+    try {
+      await deleteExamSubject(examId, col.id);
+      removeSubjectColumn(col.id);
+      await loadComparison();
+    } catch {
+      setError(`Could not delete subject "${col.name}".`);
+    } finally {
+      setDeletingColId(null);
+    }
   };
 
   // Teacher edits a subject's name inline in the grid header (like "out of").
@@ -821,15 +846,19 @@ export const Exams: React.FC = () => {
                           title="Edit subject name"
                           placeholder="Subject"
                         />
-                        {col.isNew && (
-                          <button
-                            onClick={() => removeSubjectColumn(col.id)}
-                            className="ml-1 text-danger-500 hover:text-danger-700 text-xs"
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => void deleteSubjectColumn(col)}
+                          disabled={deletingColId === col.id}
+                          className="ml-1 text-danger-500 hover:text-danger-700 hover:bg-danger-50 rounded-full w-5 h-5 flex items-center justify-center text-xs flex-shrink-0 disabled:opacity-40"
+                          title={
+                            col.isNew
+                              ? "Remove column"
+                              : "Delete subject (removes its marks from this exam)"
+                          }
+                        >
+                          ✕
+                        </button>
                       </div>
                       <div className="flex items-center gap-1 mt-1 font-normal">
                         <span className="text-[10px] uppercase text-neutral-400">out of</span>
@@ -922,7 +951,8 @@ export const Exams: React.FC = () => {
           <p className="text-xs text-neutral-500 mt-3">
             Add subjects above, enter marks, then save. Subject names and "out
             of" marks are editable in the header — changes apply everywhere
-            after saving. Rows with empty subjects are highlighted.
+            after saving. Use ✕ to delete a subject column (its marks in this
+            exam are deleted too). Rows with empty subjects are highlighted.
           </p>
         </Card>
       )}

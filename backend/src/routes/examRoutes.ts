@@ -14,6 +14,7 @@ import {
   getExamSheetController, // ✅ Merged into the main import block
   getExamReportController,
   deleteExamController,
+  deleteExamSubjectController,
 } from '../controllers/examController.js';
 import { validate } from '../middleware/validate.js';
 import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.js';
@@ -54,6 +55,14 @@ examRoutes.post(
 
 examRoutes.get("/:examId/pending", getPendingExamScoresController);
 
+// Delete ONE subject column from an exam (the ✕ in the marks grid). Same
+// permission as score entry, so teachers can manage their own columns.
+examRoutes.delete(
+  "/:examId/subjects/:subjectId",
+  requirePermission(PERMISSIONS.ENTER_EXAM_SCORES),
+  deleteExamSubjectController,
+);
+
 // Delete an entire exam (+ its scores). Admin-only (MANAGE_EXAMS) — teachers
 // hold ENTER_EXAM_SCORES but not MANAGE_EXAMS, so they are blocked here.
 examRoutes.delete(
@@ -63,4 +72,4 @@ examRoutes.delete(
 );
 
 // ✅ FIX: Only one default export
-export default examRoutes;
+export default examRoutes;

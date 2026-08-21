@@ -9,6 +9,7 @@ import {
   getExamSheet,
   getExamReport,
   deleteExam,
+  deleteExamSubject,
   listExams,
   upsertExamScores,
 } from '../services/examService.js';
@@ -143,6 +144,23 @@ export async function getExamReportController(
       month: req.query.month as string | undefined,
       standard: req.query.standard as string | undefined,
     });
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function deleteExamSubjectController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await deleteExamSubject(
+      (req as AuthenticatedRequest).user!,
+      req.params.examId as string,
+      req.params.subjectId as string,
+    );
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

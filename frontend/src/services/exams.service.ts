@@ -42,6 +42,12 @@ export const upsertExamScores = (examId: string, body: Record<string, unknown>) 
 export const getPendingExamScores = (examId: string) =>
   api.get<Record<string, unknown>>(`/exams/${examId}/pending`).then((r) => r.data);
 
+/** Deletes one subject column (its scores in this exam) via the grid ✕. */
+export const deleteExamSubject = (examId: string, subjectId: string) =>
+  api
+    .delete<Record<string, unknown>>(`/exams/${examId}/subjects/${subjectId}`)
+    .then((r) => r.data);
+
 // ─────────────── Exam Report ───────────────
 
 export type ExamReportQuery = {

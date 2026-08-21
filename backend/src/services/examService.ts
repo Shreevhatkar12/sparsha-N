@@ -751,6 +751,43 @@ export async function getExamReport(user: JwtPayload, query: ExamReportQuery) {
   return { exams: report };
 }
 
+// ================= DELETE SUBJECT COLUMN =================
+// The small ✕ on a subject column in the marks grid. Removes that subject's
+// scores from THIS exam only. If no other exam still uses the subject, the
+// subject itself is also removed from the program so it doesn't reappear.
+
+export async function deleteExamSubject(
+  user: JwtPayload,
+  examId: string,
+  subjectId: string,
+) {
+  const exam = await prisma.exam.findUnique({ where: { id: examId } });
+  if (!exam) throw new NotFoundError("Exam not found");
+
+  enforceCenterAccess(user, exam.centerId);
+
+  const subject = await prisma.programSubject.findUnique({
+    where: { id: subjectId },
+  });
+  if (!subject) throw new NotFoundError("Subject not found");
+  if (subject.programId !== exam.programId) {
+    throw new ForbiddenError("Subject does not belong to this exam's program");
+  }
+
+  // Remove this subject's scores from this exam.
+  await prisma.examScore.deleteMany({ where: { examId, subjectId } });
+
+  // Clean up the subject itself if nothing references it any more.
+  const stillUsed = await prisma.examScore.count({ where: { subjectId } });
+  let subjectRemoved = false;
+  if (stillUsed === 0) {
+    await prisma.programSubject.delete({ where: { id: subjectId } });
+    subjectRemoved = true;
+  }
+
+  return { success: true, subjectRemoved };
+}
+
 // ================= DELETE EXAM (ADMIN ONLY) =================
 
 export async function deleteExam(user: JwtPayload, examId: string) {
