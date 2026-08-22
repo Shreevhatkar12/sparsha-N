@@ -414,6 +414,8 @@ model Exam {
   activityId     String?          @map("activity_id") @db.Uuid
   academicYearId String?          @map("academic_year_id") @db.Uuid
   examType       String           @map("exam_type")
+  // Standards this exam is for (e.g. ["5th","6th"]). Empty = all standards.
+  standards      String[]         @default([])
   name           String
   examDate       DateTime?        @map("exam_date") @db.Date
   status         SubmissionStatus @default(DRAFT)

@@ -11,6 +11,7 @@ import {
   deleteExam,
   deleteExamSubject,
   listExams,
+  updateExam,
   upsertExamScores,
 } from '../services/examService.js';
 
@@ -144,6 +145,23 @@ export async function getExamReportController(
       month: req.query.month as string | undefined,
       standard: req.query.standard as string | undefined,
     });
+    return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function updateExamController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const result = await updateExam(
+      (req as AuthenticatedRequest).user!,
+      req.params.examId as string,
+      req.body,
+    );
     return res.status(200).json(result);
   } catch (error) {
     return next(error);

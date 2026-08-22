@@ -14,7 +14,10 @@ type ExamListItem = {
   name: string;
   examType: string;
   createdAt: string;
+  examDate?: string | null;
+  standards?: string[];
   center?: { name: string };
+  program?: { name: string };
 };
 
 export const createExam = (body: Record<string, unknown>) =>
@@ -41,6 +44,10 @@ export const upsertExamScores = (examId: string, body: Record<string, unknown>) 
 
 export const getPendingExamScores = (examId: string) =>
   api.get<Record<string, unknown>>(`/exams/${examId}/pending`).then((r) => r.data);
+
+/** Admin-only: update an existing exam's setup (type/date/year/standards/center/program). */
+export const updateExam = (examId: string, body: Record<string, unknown>) =>
+  api.put<Record<string, unknown>>(`/exams/${examId}`, body).then((r) => r.data);
 
 /** Deletes one subject column (its scores in this exam) via the grid ✕. */
 export const deleteExamSubject = (examId: string, subjectId: string) =>

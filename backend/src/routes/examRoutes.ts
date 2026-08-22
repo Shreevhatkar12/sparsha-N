@@ -15,9 +15,14 @@ import {
   getExamReportController,
   deleteExamController,
   deleteExamSubjectController,
+  updateExamController,
 } from '../controllers/examController.js';
 import { validate } from '../middleware/validate.js';
-import { createExamSchema, upsertExamScoresSchema } from '../validators/schemas.js';
+import {
+  createExamSchema,
+  updateExamSchema,
+  upsertExamScoresSchema,
+} from '../validators/schemas.js';
 
 const examRoutes = Router();
 
@@ -61,6 +66,15 @@ examRoutes.delete(
   "/:examId/subjects/:subjectId",
   requirePermission(PERMISSIONS.ENTER_EXAM_SCORES),
   deleteExamSubjectController,
+);
+
+// Update an exam's setup (type, date, year, standards, center, program).
+// Admin-only (MANAGE_EXAMS) — used to correct previously created exams.
+examRoutes.put(
+  "/:examId",
+  requirePermission(PERMISSIONS.MANAGE_EXAMS),
+  validate(updateExamSchema),
+  updateExamController,
 );
 
 // Delete an entire exam (+ its scores). Admin-only (MANAGE_EXAMS) — teachers

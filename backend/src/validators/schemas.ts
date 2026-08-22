@@ -64,6 +64,18 @@ export const createExamSchema = z.object({
   academicYearId: z.string().min(1),
   examDate: optionalDateString,
   name: z.string().optional(),
+  // Standards this exam is for (empty / omitted = all standards)
+  standards: z.array(z.string().min(1)).optional(),
+});
+
+// Admin-only edit of an existing exam's setup — every field optional.
+export const updateExamSchema = z.object({
+  examType: z.string().min(1).optional(),
+  examDate: optionalDateString,
+  academicYearId: z.string().min(1).optional(),
+  standards: z.array(z.string().min(1)).optional(),
+  centerId: uuid.optional(),
+  programId: uuid.optional(),
 });
 
 const formFieldSchema = z.object({

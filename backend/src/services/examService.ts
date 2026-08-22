@@ -14,7 +14,21 @@ type CreateExamInput = {
   examDate?: string;
   name?: string;
   subjectId?: string;
+  standards?: string[]; // exam is for these standards only (empty = all)
 };
+
+// Normalize a standard label for comparisons ("5th " / "5TH" → "5th").
+const normStd = (v: string) => (v || "").trim().toLowerCase();
+
+// Case-insensitive "student belongs to this exam's standards" check.
+function studentInExamStandards(
+  examStandards: string[] | null | undefined,
+  studentStandard: string | null | undefined,
+) {
+  if (!examStandards || examStandards.length === 0) return true; // all stds
+  const set = new Set(examStandards.map(normStd));
+  return set.has(normStd(studentStandard || ""));
+}
 
 type ListExamQuery = {
   centerId?: string;
@@ -79,10 +93,16 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
     throw new Error("Invalid academic year");
   }
 
+  // Clean the standards list (dedup, drop blanks). Empty = all standards.
+  const standards = Array.from(
+    new Set((data.standards || []).map((s) => (s || "").trim()).filter(Boolean)),
+  );
+
   for (const centerId of data.centerIds) {
     enforceCenterAccess(user, centerId);
 
-    // ✅ Prevent duplicate exam for same date
+    // ✅ Prevent duplicate exam for same date + SAME standards set
+    // (the same type/date for a different standards group is a separate exam).
     const existing = await prisma.exam.findFirst({
       where: {
         centerId,
@@ -90,6 +110,7 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
         examType: data.examType,
         academicYearId,
         examDate,
+        standards: { equals: standards },
       },
     });
 
@@ -107,6 +128,7 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
         programId: data.programId,
         academicYearId,
         examDate,
+        standards,
         createdBy: user.userId,
         status: "DRAFT",
       },
@@ -118,6 +140,127 @@ export const createExam = async (user: JwtPayload, data: CreateExamInput) => {
 
   return createdExams;
 };
+
+// ================= UPDATE EXAM SETUP (ADMIN ONLY) =================
+// Lets an admin fix an existing exam's setup — type, date, academic year,
+// standards, center, program — so old exams can be corrected and dashboards
+// show the right data. Changes apply to THIS exam only.
+
+type UpdateExamInput = {
+  examType?: string;
+  examDate?: string;
+  academicYearId?: string;
+  standards?: string[];
+  centerId?: string;
+  programId?: string;
+};
+
+export async function updateExam(
+  user: JwtPayload,
+  examId: string,
+  data: UpdateExamInput,
+) {
+  const exam = await prisma.exam.findUnique({ where: { id: examId } });
+  if (!exam) throw new NotFoundError("Exam not found");
+
+  enforceCenterAccess(user, exam.centerId);
+
+  const isAdminRole =
+    user.role === UserRole.super_admin ||
+    user.role === UserRole.tech_admin ||
+    user.role === UserRole.center_admin;
+  if (!isAdminRole) {
+    throw new ForbiddenError("Only admins can update exam setup");
+  }
+
+  const patch: any = {};
+
+  if (data.examType && data.examType.trim()) {
+    patch.examType = data.examType.trim();
+  }
+
+  if (data.examDate) {
+    const d = new Date(data.examDate);
+    if (Number.isNaN(d.getTime())) throw new Error("Invalid exam date");
+    patch.examDate = d;
+  }
+
+  // Relations must be updated via connect (Prisma 7 update input).
+  if (data.academicYearId) {
+    const yearId = await resolveAcademicYearId(data.academicYearId);
+    if (!yearId) throw new Error("Invalid academic year");
+    patch.academicYear = { connect: { id: yearId } };
+  }
+
+  if (data.standards) {
+    patch.standards = Array.from(
+      new Set(data.standards.map((s) => (s || "").trim()).filter(Boolean)),
+    );
+  }
+
+  let newCenterId: string | null = null;
+  if (data.centerId && data.centerId !== exam.centerId) {
+    enforceCenterAccess(user, data.centerId);
+    newCenterId = data.centerId;
+    patch.center = { connect: { id: data.centerId } };
+  }
+
+  const newProgramId =
+    data.programId && data.programId !== exam.programId ? data.programId : null;
+  if (newProgramId) patch.program = { connect: { id: newProgramId } };
+
+  // Keep the display name in sync with type + date.
+  const finalType = patch.examType ?? exam.examType;
+  const finalDate: Date = patch.examDate ?? exam.examDate ?? exam.createdAt;
+  patch.name = `${finalType} - ${finalDate.toLocaleDateString()}`;
+
+  // Program move: this exam's subjects must follow it into the new program.
+  if (newProgramId) {
+    // 1) Exam-owned subjects simply move.
+    await prisma.programSubject.updateMany({
+      where: { examId: exam.id },
+      data: { programId: newProgramId },
+    });
+    // 2) Legacy shared subjects this exam scores on: copy them for this exam
+    // under the new program and repoint this exam's scores (other exams that
+    // share them stay untouched, as always).
+    const shared = await prisma.programSubject.findMany({
+      where: {
+        programId: exam.programId,
+        examId: null,
+        examScores: { some: { examId: exam.id } },
+      },
+    });
+    for (const s of shared) {
+      const clone = await prisma.programSubject.create({
+        data: {
+          programId: newProgramId,
+          examId: exam.id,
+          name: s.name,
+          maxMarks: s.maxMarks,
+        },
+      });
+      await prisma.examScore.updateMany({
+        where: { examId: exam.id, subjectId: s.id },
+        data: { subjectId: clone.id },
+      });
+    }
+  }
+
+  // Center move: keep this exam's score rows consistent with the new center.
+  if (newCenterId) {
+    await prisma.examScore.updateMany({
+      where: { examId: exam.id },
+      data: { centerId: newCenterId },
+    });
+  }
+
+  return prisma.exam.update({
+    where: { id: examId },
+    data: patch,
+    include: { center: true, program: true, academicYear: true },
+  });
+}
 
 // ================= GET EXAM SHEET (WITH SYNC) =================
 
@@ -132,7 +275,7 @@ export async function getExamSheet(user: JwtPayload, examId: string) {
   enforceCenterAccess(user, exam.centerId);
 
   // 1. Get all active students for this center+program (teacher → own students only)
-  const students = await prisma.student.findMany({
+  const allStudents = await prisma.student.findMany({
     where: {
       centerId: exam.centerId,
       programId: exam.programId,
@@ -141,6 +284,10 @@ export async function getExamSheet(user: JwtPayload, examId: string) {
     },
     select: { id: true, fullName: true, rollNumber: true, standard: true },
   });
+  // Standard-wise exams: only students of the exam's standards appear.
+  const students = allStudents.filter((s) =>
+    studentInExamStandards(exam.standards, s.standard),
+  );
   // Roll-number order by default (numeric aware), then name.
   students.sort(byRollNumber);
 
@@ -202,15 +349,35 @@ export async function listExams(user: JwtPayload, query: ListExamQuery) {
     };
   }
 
-  return prisma.exam.findMany({
+  const exams = await prisma.exam.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { examDate: "desc" },
     include: {
       academicYear: true,
       program: true,
       center: true,
     },
   });
+
+  // Teachers see only the exams "assigned" to them: exams whose program AND
+  // standards match at least one of their own registered students.
+  // (An exam with no standards set applies to all standards of its program.)
+  if (user.role === UserRole.teacher || user.role === UserRole.staff) {
+    const myStudents = await prisma.student.findMany({
+      where: { createdById: user.userId, isActive: true },
+      select: { standard: true, programId: true },
+    });
+    const myPrograms = new Set(myStudents.map((s) => s.programId));
+    const myStds = new Set(myStudents.map((s) => normStd(s.standard || "")));
+
+    return exams.filter((ex) => {
+      if (!myPrograms.has(ex.programId)) return false;
+      if (!ex.standards || ex.standards.length === 0) return true;
+      return ex.standards.some((st) => myStds.has(normStd(st)));
+    });
+  }
+
+  return exams;
 }
 
 // ================= GET EXAM BY ID =================
@@ -490,7 +657,7 @@ export async function getPendingExamScores(user: JwtPayload, examId: string) {
 
   enforceCenterAccess(user, exam.centerId);
 
-  const students = await prisma.student.findMany({
+  const allPendingStudents = await prisma.student.findMany({
     where: {
       centerId: exam.centerId,
       programId: exam.programId,
@@ -498,6 +665,10 @@ export async function getPendingExamScores(user: JwtPayload, examId: string) {
       ...teacherOwnStudents(user),
     },
   });
+  // Standard-wise exams: only students of the exam's standards count.
+  const students = allPendingStudents.filter((s) =>
+    studentInExamStandards(exam.standards, s.standard),
+  );
 
   // Only subjects that belong to THIS exam (its own + legacy shared ones it
   // already scores on) — never other exams' subjects.
@@ -595,10 +766,13 @@ export async function getExamComparison(
       }
 
       const val = score.marks ? Number(score.marks) : 0;
-      if (exam.examType.toLowerCase() === "baseline") {
+      // "Sem Baseline 1", "AIP Baseline", legacy "baseline" → all baseline;
+      // same for endline — match by keyword, not exact string.
+      const typeLower = exam.examType.toLowerCase();
+      if (typeLower.includes("baseline")) {
         subjectMap[subjectName].baselineTotal += val;
         subjectMap[subjectName].baselineCount++;
-      } else if (exam.examType.toLowerCase() === "endline") {
+      } else if (typeLower.includes("endline")) {
         subjectMap[subjectName].endlineTotal += val;
         subjectMap[subjectName].endlineCount++;
       }

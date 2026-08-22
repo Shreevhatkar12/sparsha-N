@@ -13,6 +13,7 @@ import {
   getExamSheet,
   getExamComparison,
   listExams,
+  updateExam,
   upsertExamScores,
 } from "../services/exams.service";
 import { listCenters, listPrograms } from "../services/centers.service";
@@ -54,10 +55,21 @@ const stdRank = (v: string) => {
   return i === -1 ? STD_ORDER.length + 1 : i;
 };
 
+// Fixed exam types: yearly (Sem) + monthly (AIP). "Other" lets an admin type
+// a custom name for anything outside these.
+const EXAM_TYPES = [
+  "Sem Baseline 1",
+  "Sem Endline 1",
+  "Sem Baseline 2",
+  "Sem Endline 2",
+  "AIP Baseline",
+  "AIP Endline",
+];
+
 export const Exams: React.FC = () => {
-  const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const userRole = useAuthStore((s) => s.currentUser?.role || "");
-  const isAdmin = ["super_admin", "center_admin", "tech_admin", "teacher"].includes(
+  // Only admins can create exams — teachers only load & fill existing ones.
+  const isAdmin = ["super_admin", "center_admin", "tech_admin"].includes(
     userRole,
   );
   // Only real admins can delete exams (teachers get edit + view only).
@@ -66,16 +78,21 @@ export const Exams: React.FC = () => {
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
-  const [centerId, setCenterId] = useState("");
   const [createCenterIds, setCreateCenterIds] = useState<string[]>([]);
+  const [createStandards, setCreateStandards] = useState<string[]>([]);
   const [programId, setProgramId] = useState("");
-  const [examType, setExamType] = useState("baseline");
+  const [examType, setExamType] = useState("");
+  const [customExamType, setCustomExamType] = useState("");
   const [academicYear, setAcademicYear] = useState(
     `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`,
   );
   const [examDate, setExamDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
+
+  // The exam type actually used ("Other" → the custom typed name).
+  const resolvedExamType =
+    examType === "__other__" ? customExamType.trim() : examType;
 
   const [examId, setExamId] = useState<string | null>(null);
   const [examLabel, setExamLabel] = useState("");
@@ -92,9 +109,13 @@ export const Exams: React.FC = () => {
       name: string;
       examType: string;
       center?: { name: string };
+      program?: { name: string };
       createdAt: string;
+      examDate?: string | null;
+      standards?: string[];
     }>
   >([]);
+  const [searched, setSearched] = useState(false);
 
   const [comparison, setComparison] = useState<Record<string, unknown> | null>(
     null,
@@ -104,6 +125,17 @@ export const Exams: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [deletingColId, setDeletingColId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin-only "Edit Exam Setup" panel for the loaded exam (fix old exams).
+  const [editOpen, setEditOpen] = useState(false);
+  const [editCenterId, setEditCenterId] = useState("");
+  const [editProgramId, setEditProgramId] = useState("");
+  const [editExamType, setEditExamType] = useState("");
+  const [editCustomType, setEditCustomType] = useState("");
+  const [editYear, setEditYear] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editStandards, setEditStandards] = useState<string[]>([]);
+  const [updatingExam, setUpdatingExam] = useState(false);
 
   // Boot
   useEffect(() => {
@@ -115,10 +147,7 @@ export const Exams: React.FC = () => {
         if (!alive) return;
         setCenters(c);
         setPrograms(Array.isArray(p) ? p : []);
-        const first =
-          (!isAdmin && selectedCenterId ? selectedCenterId : c[0]?.id) ?? "";
-        setCenterId(first);
-        setCreateCenterIds(first ? [first] : []);
+        // No center is pre-selected — the admin picks explicitly.
         setProgramId(p[0]?.id ?? "");
       } catch {
         if (alive) setError("Failed to load centers or programs.");
@@ -129,7 +158,7 @@ export const Exams: React.FC = () => {
     return () => {
       alive = false;
     };
-  }, [isAdmin, selectedCenterId]);
+  }, []);
 
   useEffect(() => {
     if (programs.length > 0 && !programs.some((p) => p.id === programId))
@@ -142,13 +171,12 @@ export const Exams: React.FC = () => {
       const q: Record<string, string | undefined> = {
         academicYearId: academicYear,
       };
-      if (!isAdmin && centerId) q.centerId = centerId;
       if (programId) q.programId = programId;
       setComparison((await getExamComparison(q)) as any);
     } catch {
       /* silent */
     }
-  }, [academicYear, centerId, programId, isAdmin]);
+  }, [academicYear, programId]);
 
   useEffect(() => {
     void loadComparison();
@@ -162,6 +190,22 @@ export const Exams: React.FC = () => {
         res.examDate ? new Date(res.examDate).toLocaleDateString() : ""
       }`,
     );
+
+    // Pre-fill the admin "Edit Exam Setup" panel with this exam's values.
+    setEditCenterId(res.centerId ?? "");
+    setEditProgramId(res.programId ?? "");
+    const t: string = res.examType ?? "";
+    if (EXAM_TYPES.includes(t)) {
+      setEditExamType(t);
+      setEditCustomType("");
+    } else {
+      setEditExamType(t ? "__other__" : "");
+      setEditCustomType(t);
+    }
+    setEditYear(res.academicYear?.label ?? "");
+    setEditDate(res.examDate ? String(res.examDate).slice(0, 10) : "");
+    setEditStandards(Array.isArray(res.standards) ? res.standards : []);
+    setEditOpen(false);
 
     // Discover subjects from existing scores
     const subMap = new Map<string, SubjectCol>();
@@ -221,7 +265,7 @@ export const Exams: React.FC = () => {
 
   // Prepare exam (admin only)
   const prepareExam = async () => {
-    if (createCenterIds.length === 0 || !programId || !examType) {
+    if (createCenterIds.length === 0 || !programId || !resolvedExamType) {
       setError("Select center(s), program, and exam type.");
       return;
     }
@@ -231,9 +275,10 @@ export const Exams: React.FC = () => {
       const res = (await createExam({
         centerIds: createCenterIds,
         programId,
-        examType,
+        examType: resolvedExamType,
         academicYearId: academicYear,
         examDate,
+        standards: createStandards,
       })) as any;
       const list = Array.isArray(res) ? res : res.exams || [];
       if (list[0]?.id) await loadWorkspace(list[0].id);
@@ -249,36 +294,35 @@ export const Exams: React.FC = () => {
     }
   };
 
-  // Load from list (teachers + admins)
+  // Load existing exams: shows the full list of exams the viewer can access
+  // (teachers see only exams assigned to their students' program + standards).
+  // The filters above are optional — fill them to narrow the list down.
   const pickFromList = async () => {
-    if (!centerId || !programId) return;
-
     setWorkspaceLoading(true);
     setError(null);
+    setSearched(true);
 
     try {
-      const list = await listExams({
-        centerId,
-        programId,
-        examType,
-        academicYearId: academicYear,
-        examDate,
-      });
+      const q: {
+        programId?: string;
+        examType?: string;
+        academicYearId?: string;
+      } = {};
+      if (programId) q.programId = programId;
+      if (resolvedExamType) q.examType = resolvedExamType;
+      if (academicYear.trim()) q.academicYearId = academicYear.trim();
 
+      const list = await listExams(q);
+      setAvailableExams(list || []);
       if (!list?.length) {
-        setError('No exam found. Ask an admin to create one first.');
-      } else if (list.length === 1) {
-        await loadWorkspace(list[0].id);
-      } else {
-        // Show picker for multiple exams
-        setAvailableExams(list);
-        setWorkspaceLoading(false);
-        return;
+        setError(
+          isAdmin
+            ? "No exam found for these filters. Create one below or change the filters."
+            : "No exam found for you. Ask an admin to create one for your standards.",
+        );
       }
-
-      await loadWorkspace(list[0].id);
     } catch {
-      setError("Failed to load exam.");
+      setError("Failed to load exams.");
     } finally {
       setWorkspaceLoading(false);
     }
@@ -286,7 +330,46 @@ export const Exams: React.FC = () => {
 
   const selectExam = async (id: string) => {
     setAvailableExams([]);
+    setSearched(false);
     await loadWorkspace(id);
+  };
+
+  // Admin: save the edited exam setup for the loaded exam.
+  const submitExamUpdate = async () => {
+    if (!examId) return;
+    const type =
+      editExamType === "__other__" ? editCustomType.trim() : editExamType;
+    if (!type) {
+      setError("Select or type an exam type before updating.");
+      return;
+    }
+    if (!editCenterId || !editProgramId) {
+      setError("Select a center and a program before updating.");
+      return;
+    }
+    setUpdatingExam(true);
+    setError(null);
+    try {
+      await updateExam(examId, {
+        examType: type,
+        ...(editDate ? { examDate: editDate } : {}),
+        ...(editYear.trim() ? { academicYearId: editYear.trim() } : {}),
+        standards: editStandards,
+        centerId: editCenterId,
+        programId: editProgramId,
+      });
+      await loadWorkspace(examId);
+      await loadComparison();
+    } catch (err: unknown) {
+      let msg = "Could not update the exam.";
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as any;
+        msg = data?.error || data?.message || msg;
+      }
+      setError(msg);
+    } finally {
+      setUpdatingExam(false);
+    }
   };
 
   // Add subject column (teacher types a name)
@@ -598,22 +681,6 @@ export const Exams: React.FC = () => {
           )}
           <div>
             <label className="text-xs font-medium text-neutral-600">
-              Center (For Viewing)
-            </label>
-            <select
-              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
-              value={centerId}
-              onChange={(e) => setCenterId(e.target.value)}
-            >
-              {centers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-neutral-600">
               Program
             </label>
             <select
@@ -632,29 +699,89 @@ export const Exams: React.FC = () => {
             <label className="text-xs font-medium text-neutral-600">
               Exam type
             </label>
-            <input
-              list="exam-types"
+            <select
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
               value={examType}
               onChange={(e) => setExamType(e.target.value)}
-              placeholder="e.g. baseline, endline"
-            />
-            <datalist id="exam-types">
-              <option value="baseline" />
-              <option value="endline" />
-            </datalist>
+            >
+              <option value="">All types (select for creation)</option>
+              <optgroup label="Yearly (Sem)">
+                {EXAM_TYPES.slice(0, 4).map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Monthly (AIP)">
+                {EXAM_TYPES.slice(4).map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </optgroup>
+              <option value="__other__">Other (type a name)</option>
+            </select>
+            {examType === "__other__" && (
+              <input
+                className="mt-2 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                value={customExamType}
+                onChange={(e) => setCustomExamType(e.target.value)}
+                placeholder="Type the exam name (e.g. Unit Test 1)"
+              />
+            )}
           </div>
           <Input
             label="Academic year"
             value={academicYear}
             onChange={(e) => setAcademicYear(e.target.value)}
           />
-          <Input
-            label="Exam date"
-            type="date"
-            value={examDate}
-            onChange={(e) => setExamDate(e.target.value)}
-          />
+          {isAdmin && (
+            <Input
+              label="Exam date (for creation)"
+              type="date"
+              value={examDate}
+              onChange={(e) => setExamDate(e.target.value)}
+            />
+          )}
+          {isAdmin && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <label className="text-xs font-medium text-neutral-600">
+                Standards (For Creation) — select which standards this exam is
+                for; leave empty for ALL standards
+              </label>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {STD_ORDER.map((std) => (
+                  <button
+                    key={std}
+                    type="button"
+                    onClick={() =>
+                      setCreateStandards((prev) =>
+                        prev.includes(std)
+                          ? prev.filter((x) => x !== std)
+                          : [...prev, std],
+                      )
+                    }
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize ${
+                      createStandards.includes(std)
+                        ? "bg-brand-600 text-white border-brand-600"
+                        : "bg-white text-neutral-600 border-neutral-300 hover:border-brand-400"
+                    }`}
+                  >
+                    {std}
+                  </button>
+                ))}
+                {createStandards.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCreateStandards([])}
+                    className="px-3 py-1 rounded-full text-xs font-medium border border-danger-300 text-danger-600 hover:bg-danger-50"
+                  >
+                    Clear ({createStandards.length} selected)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
@@ -692,33 +819,55 @@ export const Exams: React.FC = () => {
           </p>
         )}
 
-        {/* Exam picker when multiple exams found */}
-        {availableExams.length > 1 && (
+        {/* Existing exams list — everything the viewer can access */}
+        {searched && availableExams.length > 0 && (
           <div className="mt-4 p-3 bg-brand-50/40 border border-brand-200 rounded-lg">
             <p className="text-sm font-medium text-neutral-700 mb-2">
-              Multiple exams found — select one:
+              Existing exams ({availableExams.length}) — click "Open & Fill" to
+              enter marks:
             </p>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto">
               {availableExams.map((ex) => (
-                <button
+                <div
                   key={ex.id}
-                  onClick={() => void selectExam(ex.id)}
-                  className="w-full text-left p-3 bg-white rounded-lg border border-neutral-200 hover:border-brand-400 hover:shadow-sm transition-all flex justify-between items-center"
+                  className="p-3 bg-white rounded-lg border border-neutral-200 hover:border-brand-400 hover:shadow-sm transition-all flex flex-wrap justify-between items-center gap-2"
                 >
-                  <div>
-                    <span className="font-medium text-neutral-900">
-                      {ex.name || ex.examType}
-                    </span>
-                    {ex.center?.name && (
-                      <span className="text-xs text-neutral-500 ml-2">
-                        ({ex.center.name})
+                  <div className="min-w-0">
+                    <p className="font-medium text-neutral-900">
+                      {ex.examType || ex.name}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1 mt-1">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 capitalize">
+                        {ex.standards && ex.standards.length > 0
+                          ? `Std: ${ex.standards.join(", ")}`
+                          : "All standards"}
                       </span>
-                    )}
+                      {ex.center?.name && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+                          {ex.center.name}
+                        </span>
+                      )}
+                      {ex.program?.name && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
+                          {ex.program.name}
+                        </span>
+                      )}
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 font-medium">
+                        {new Date(
+                          ex.examDate || ex.createdAt,
+                        ).toLocaleDateString("en-GB")}
+                      </span>
+                    </div>
                   </div>
-                  <span className="text-xs text-neutral-400">
-                    {new Date(ex.createdAt).toLocaleDateString()}
-                  </span>
-                </button>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void selectExam(ex.id)}
+                  >
+                    Open &amp; Fill
+                  </Button>
+                </div>
               ))}
             </div>
           </div>
@@ -761,6 +910,167 @@ export const Exams: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Admin only: edit the loaded exam's setup — used to fix old exams */}
+      {examId && isAdmin && (
+        <Card className="mb-6">
+          <div className="flex flex-wrap justify-between items-center gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900">
+                Exam Setup — Edit (Admin)
+              </h2>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Fix this exam's type, date, year, standards, center or program.
+                Changes apply to THIS exam only.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setEditOpen((v) => !v)}
+            >
+              {editOpen ? "Close" : "Edit Exam Setup"}
+            </Button>
+          </div>
+
+          {editOpen && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">
+                    Center
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                    value={editCenterId}
+                    onChange={(e) => setEditCenterId(e.target.value)}
+                  >
+                    <option value="">Select center</option>
+                    {centers.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">
+                    Program
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                    value={editProgramId}
+                    onChange={(e) => setEditProgramId(e.target.value)}
+                  >
+                    <option value="">Select program</option>
+                    {programs.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-neutral-600">
+                    Exam type
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                    value={editExamType}
+                    onChange={(e) => setEditExamType(e.target.value)}
+                  >
+                    <option value="">Select type</option>
+                    <optgroup label="Yearly (Sem)">
+                      {EXAM_TYPES.slice(0, 4).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Monthly (AIP)">
+                      {EXAM_TYPES.slice(4).map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <option value="__other__">Other (type a name)</option>
+                  </select>
+                  {editExamType === "__other__" && (
+                    <input
+                      className="mt-2 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                      value={editCustomType}
+                      onChange={(e) => setEditCustomType(e.target.value)}
+                      placeholder="Type the exam name"
+                    />
+                  )}
+                </div>
+                <Input
+                  label="Academic year"
+                  value={editYear}
+                  onChange={(e) => setEditYear(e.target.value)}
+                />
+                <Input
+                  label="Exam date"
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="text-xs font-medium text-neutral-600">
+                    Standards — which standards this exam is for (empty = ALL)
+                  </label>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {STD_ORDER.map((std) => (
+                      <button
+                        key={std}
+                        type="button"
+                        onClick={() =>
+                          setEditStandards((prev) =>
+                            prev.includes(std)
+                              ? prev.filter((x) => x !== std)
+                              : [...prev, std],
+                          )
+                        }
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors capitalize ${
+                          editStandards.includes(std)
+                            ? "bg-brand-600 text-white border-brand-600"
+                            : "bg-white text-neutral-600 border-neutral-300 hover:border-brand-400"
+                        }`}
+                      >
+                        {std}
+                      </button>
+                    ))}
+                    {editStandards.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setEditStandards([])}
+                        className="px-3 py-1 rounded-full text-xs font-medium border border-danger-300 text-danger-600 hover:bg-danger-50"
+                      >
+                        Clear ({editStandards.length} selected)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="primary"
+                  isLoading={updatingExam}
+                  onClick={() => void submitExamUpdate()}
+                >
+                  Update Exam
+                </Button>
+                <span className="text-xs text-neutral-500">
+                  Marks and subjects stay as they are — only the setup changes.
+                </span>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
 
       {/* Marks Workspace */}
       {workspaceLoading ? (
