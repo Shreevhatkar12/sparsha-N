@@ -12,6 +12,7 @@ import { TeacherDashboard } from '../components/dashboard/TeacherDashboard';
 import { AdminAnalytics } from '../components/dashboard/AdminAnalytics';
 import { SwayamPanel } from './SwayamPanel';
 import { DigitalDashboard } from './DigitalDashboard';
+import { SehatDashboard } from './SehatDashboard';
 
 const AdminDashboard: React.FC = () => {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -283,6 +284,8 @@ export const Dashboard: React.FC = () => {
     if (r === 'supervisor') return <SwayamPanel mode="dashboard" />;
     // Digital Literacy teacher's dashboard.
     if (r === 'volunteer') return <DigitalDashboard />;
+    // Sehat (health) coordinator's dashboard.
+    if (r === 'sehat') return <SehatDashboard />;
     if (r && ['super_admin', 'center_admin', 'tech_admin'].includes(r)) {
       return <AdminDashboard />;
     }

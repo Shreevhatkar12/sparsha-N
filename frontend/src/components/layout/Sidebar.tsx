@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   Award,
+  HeartPulse,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -34,14 +35,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, isDesktopOpen = true, 
   const [meetingsOpen, setMeetingsOpen] = useState(false);
 
   const navItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','supervisor','volunteer'] },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','supervisor','volunteer','sehat'] },
+    // Sehat (health) program — health camps for students & parents
+    { name: 'Health Camps', path: '/sehat/camps', icon: <HeartPulse size={20} />, roles: ['sehat'] },
     { name: 'Swayam Panel', path: '/swayam', icon: <GraduationCap size={20} />, roles: ['supervisor'] },
     { name: 'Dropout Info', path: '/swayam/dropout', icon: <Users size={20} />, roles: ['supervisor'] },
     { name: 'Sponsorship', path: '/swayam/sponsorship', icon: <Award size={20} />, roles: ['supervisor'] },
     // Digital Literacy ('volunteer' role) — own section, own order
     { name: 'Digital Students', path: '/digital/students', icon: <Users size={20} />, roles: ['volunteer'] },
     { name: 'Digital Exams', path: '/digital/exams', icon: <GraduationCap size={20} />, roles: ['volunteer'] },
-    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, roles: ['volunteer'] },
+    { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, roles: ['volunteer','sehat'] },
     { name: 'Skills', path: '/skills', icon: <Star size={20} />, roles: ['volunteer'] },
     { name: 'Students', path: '/students', icon: <Users size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardCheck size={20} />, roles: ['super_admin','center_admin','tech_admin','teacher','staff'] },

@@ -6,7 +6,7 @@ import { TopBar } from './TopBar';
 import { AnnouncementPopup } from './AnnouncementPopup';
 
 // Define the roles based on your Prisma Schema
-type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
+type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'sehat' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[];

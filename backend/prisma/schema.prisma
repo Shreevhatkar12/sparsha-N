@@ -738,6 +738,7 @@ enum UserRole {
   parent
   shareholder
   tech_admin
+  sehat
 }
 
 enum Gender {

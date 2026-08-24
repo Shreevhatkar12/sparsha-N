@@ -21,6 +21,7 @@ import announcementRoutes from './routes/announcementRoutes.js';
 import koboRoutes from './routes/kobo.routes.js';
 import swayamRoutes from './routes/swayamRoutes.js';
 import digitalRoutes from './routes/digitalRoutes.js';
+import sehatRoutes from './routes/sehatRoutes.js';
 
 import path from "path";
 import { fileURLToPath } from "url";
@@ -76,6 +77,7 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/kobo", koboRoutes);
 app.use("/api/swayam", swayamRoutes);
 app.use("/api/digital", digitalRoutes);
+app.use("/api/sehat", sehatRoutes);
 
 // Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);

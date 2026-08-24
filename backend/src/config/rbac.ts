@@ -6,6 +6,7 @@ export const ROLES = {
   TEACHER: 'teacher',
   STAFF: 'staff',
   VOLUNTEER: 'volunteer',
+  SEHAT: 'sehat',
   PARENT: 'parent',
   SHAREHOLDER: 'shareholder',
 } as const;
@@ -80,6 +81,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.VIEW_REPORTS,
   ],
   [ROLES.VOLUNTEER]: [
+    PERMISSIONS.VIEW_DASHBOARD,
+  ],
+  [ROLES.SEHAT]: [
     PERMISSIONS.VIEW_DASHBOARD,
   ],
   [ROLES.PARENT]: [],

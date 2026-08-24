@@ -159,7 +159,7 @@ export const loginUser = async ({ email, password }: LoginInput) => {
            const maxAgeMs = assignment.validUntil.getTime() - Date.now();
            if (maxAgeMs > 0) expiresInOverride = `${Math.floor(maxAgeMs / 1000)}s`;
        }
-    } else if (['teacher', 'center_admin', 'staff', 'supervisor'].includes(user.role)) {
+    } else if (['teacher', 'center_admin', 'staff', 'supervisor', 'sehat'].includes(user.role)) {
        expiresInOverride = '24h';
     } else if (user.role === 'super_admin') {
        expiresInOverride = '8h';

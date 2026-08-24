@@ -70,7 +70,7 @@ export async function createUserController(req: Request, res: Response, next: Ne
     const requesterRole = requester.role as string;
 
     if (requesterRole === "super_admin" || requesterRole === "tech_admin") {
-      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "supervisor"];
+      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "supervisor", "sehat"];
       const bad = requested.find((r) => !allowedForSuper.includes(r));
       if (bad) {
         return res.status(403).json({ success: false, error: `Invalid role assignment: ${bad}` });

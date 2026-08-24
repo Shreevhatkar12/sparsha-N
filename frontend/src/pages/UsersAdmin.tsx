@@ -43,9 +43,9 @@ export const UsersAdmin: React.FC = () => {
   const canDelete = ['super_admin', 'tech_admin'].includes(currentUser?.role || '');
 
   const roleOptions: UserRole[] = currentUser?.role === 'super_admin'
-    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'supervisor', 'volunteer']
+    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'supervisor', 'volunteer', 'sehat']
     : currentUser?.role === 'tech_admin'
-    ? ['teacher', 'staff', 'volunteer']
+    ? ['teacher', 'staff', 'volunteer', 'sehat']
     : ['teacher', 'staff', 'volunteer'];
 
   // The 'supervisor' role is the Swayam 2 coordinator; 'volunteer' is the
@@ -55,7 +55,9 @@ export const UsersAdmin: React.FC = () => {
       ? 'SWAYAM COORDINATOR'
       : r === 'volunteer'
         ? 'DIGITAL LITERACY'
-        : r.toUpperCase().replace(/_/g, ' ');
+        : r === 'sehat'
+          ? 'SEHAT (HEALTH)'
+          : r.toUpperCase().replace(/_/g, ' ');
 
   const [rows, setRows] = useState<UserWithCenters[]>([]);
   const [centers, setCenters] = useState<{id: string, name: string}[]>([]);

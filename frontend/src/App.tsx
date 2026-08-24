@@ -27,6 +27,7 @@ import { DropoutPage } from './pages/DropoutPage';
 import { SponsorshipPage } from './pages/SponsorshipPage';
 import { DigitalStudentsPage } from './pages/DigitalStudentsPage';
 import { DigitalExamsPage } from './pages/DigitalExamsPage';
+import { SehatCampsPage } from './pages/SehatCampsPage';
 
 import { useEffect, useState } from "react";
 import { useAuthStore } from "./store/useAuthStore";
@@ -88,6 +89,7 @@ function App() {
   const isAdmin = myRoles.some((r) => ['super_admin', 'center_admin', 'tech_admin'].includes(r));
   const isSwayamCoordinator = myRoles.includes('supervisor');
   const isDigitalTeacher = myRoles.includes('volunteer');
+  const isSehat = myRoles.includes('sehat');
 
   return (
     <BrowserRouter>
@@ -96,7 +98,7 @@ function App() {
 
         {/* --- LEVEL 1: SHARED ACCESS (Teachers & Admins) --- */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Navigate to={isAdmin || isSwayamCoordinator || isDigitalTeacher ? "/dashboard" : "/students"} replace />} />
+          <Route path="/" element={<Navigate to={isAdmin || isSwayamCoordinator || isDigitalTeacher || isSehat ? "/dashboard" : "/students"} replace />} />
 
           <Route path="/students" element={<StudentList />} />
           <Route path="/students/:id" element={<StudentDetails />} />
@@ -122,7 +124,7 @@ function App() {
         </Route>
 
         {/* --- DASHBOARD: Teachers see their self-dashboard, Admins see the admin dashboard --- */}
-        <Route element={<ProtectedRoute allowedRoles={['teacher', 'supervisor', 'volunteer', 'super_admin', 'center_admin', 'tech_admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['teacher', 'supervisor', 'volunteer', 'sehat', 'super_admin', 'center_admin', 'tech_admin']} />}>
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
@@ -137,6 +139,11 @@ function App() {
         <Route element={<ProtectedRoute allowedRoles={['volunteer', 'super_admin', 'tech_admin']} />}>
           <Route path="/digital/students" element={<DigitalStudentsPage />} />
           <Route path="/digital/exams" element={<DigitalExamsPage />} />
+        </Route>
+
+        {/* --- SEHAT (HEALTH) PANEL (sehat = health-camp coordinator) --- */}
+        <Route element={<ProtectedRoute allowedRoles={['sehat', 'super_admin', 'tech_admin']} />}>
+          <Route path="/sehat/camps" element={<SehatCampsPage />} />
         </Route>
 
         {/* --- LEVEL 3: ADMIN & SUPER ADMIN & TECH ADMIN ONLY (Management) --- */}

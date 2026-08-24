@@ -10,6 +10,7 @@ interface TopBarProps {
 const roleLabel = (r: string) => {
   if (r === 'volunteer') return 'Staff';
   if (r === 'supervisor') return 'Swayam Coordinator';
+  if (r === 'sehat') return 'Sehat Coordinator';
   return r.replace(/_/g, ' ');
 };
 
