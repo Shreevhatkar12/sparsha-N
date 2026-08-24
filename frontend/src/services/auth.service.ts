@@ -5,6 +5,8 @@ export type AuthUser = {
   email: string;
   fullName: string;
   role: string;
+  /** Full set of roles (multi-role users). Missing/empty = [role]. */
+  roles?: string[];
   centerIds: string[];
 };
 
