@@ -1,5 +1,6 @@
 import { AttendanceStatus } from "@prisma/client";
 import type { JwtPayload } from '../lib/auth.js';
+import { hasRole } from '../lib/auth.js';
 import { ForbiddenError, NotFoundError, ValidationError, AppError } from '../lib/errors.js';
 import prisma from '../lib/prisma.js';
 
@@ -27,7 +28,7 @@ function ensureCenterAccess(user: JwtPayload, centerId: string): void {
  * (createdById). Everyone else sees the whole session roster.
  */
 function teacherStudentScope(user: JwtPayload): Record<string, unknown> {
-  return user.role === "teacher"
+  return hasRole(user, "teacher")
     ? { student: { is: { createdById: user.userId, isActive: true } } }
     : { student: { is: { isActive: true } } };
 }
@@ -432,7 +433,7 @@ export async function getStudentAttendanceHistory(
       id: studentId,
       isActive: true,
       ...(user.role === "super_admin" || user.role === "tech_admin" ? {} : { centerId: { in: user.centerIds } }),
-      ...(user.role === "teacher" ? { createdById: user.userId } : {}),
+      ...(hasRole(user, "teacher") ? { createdById: user.userId } : {}),
     } as never),
     select: {
       id: true,

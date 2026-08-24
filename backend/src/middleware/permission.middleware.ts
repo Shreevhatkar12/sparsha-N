@@ -7,10 +7,16 @@ export const requirePermission = (permission: Permission) => {
       return res.status(401).json({ success: false, message: "Authentication is required" });
     }
 
-    const userRole = req.user.role as Role;
-    const allowedPermissions = ROLE_PERMISSIONS[userRole] || [];
+    // Multi-role: a user is allowed if ANY of their roles grants the permission.
+    const roles = [
+      req.user.role,
+      ...((req.user as { roles?: string[] }).roles || []),
+    ] as Role[];
+    const allowedPermissions = new Set(
+      roles.flatMap((r) => ROLE_PERMISSIONS[r] || []),
+    );
 
-    if (!allowedPermissions.includes(permission)) {
+    if (!allowedPermissions.has(permission)) {
       return res.status(403).json({
         success: false,
         message: `Forbidden: requires ${permission} permission`,

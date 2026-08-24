@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from '../lib/prisma.js';
 import type { JwtPayload } from '../lib/auth.js';
+import { hasAnyRole } from '../lib/auth.js';
 import { ForbiddenError } from '../lib/errors.js';
 
 // Helper to apply center scope safely
@@ -1590,7 +1591,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
 // ----------------------------------------------------------------------
 export async function getExamCompletion(user: JwtPayload, query: any) {
   const isSuper = user.role === "super_admin" || user.role === "tech_admin";
-  const isTeacher = user.role === "teacher" || user.role === "staff";
+  const isTeacher = hasAnyRole(user, ["teacher", "staff"]);
   const myCenterIds = user.centerIds ?? [];
 
   const pickUuid = (v: unknown): string | undefined =>

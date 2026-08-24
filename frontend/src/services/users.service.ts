@@ -7,6 +7,7 @@ export type UserAdminItem = {
   fullName: string;
   phone?: string | null;
   role: UserRole;
+  roles?: UserRole[];
   isActive: boolean;
   createdAt: string;
 };
@@ -25,12 +26,14 @@ export type CreateUserPayload = {
   phone?: string;
   centerIds: string[];
   role: UserRole;
+  roles?: UserRole[];
 };
 
 export type UpdateUserPayload = {
   fullName?: string;
   phone?: string;
   role?: UserRole;
+  roles?: UserRole[];
   isActive?: boolean;
 };
 
@@ -63,4 +66,4 @@ export const updateUserCenters = (userId: string, assignments: CenterProgramAssi
   api.put(`/users/${userId}/centers`, { assignments }).then((r) => r.data);
 
 export const deleteUser = (userId: string) =>
-  api.delete(`/users/${userId}/permanent`).then((r) => r.data);
+  api.delete(`/users/${userId}/permanent`).then((r) => r.data);

@@ -106,11 +106,17 @@ export async function createUser(input: {
   fullName: string;
   phone?: string;
   role: UserRole;
+  roles?: UserRole[];
   createdBy?: string;
   centerIds?: string[];
 }) {
   try {
     const hashedPassword = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+    // Multi-role: full set (first = primary). Falls back to the single role.
+    const roleSet = input.roles?.length
+      ? Array.from(new Set(input.roles))
+      : [input.role];
 
     const user = await prisma.user.create({
       data: {
@@ -118,7 +124,8 @@ export async function createUser(input: {
         passwordHash: hashedPassword,
         fullName: input.fullName,
         phone: input.phone ?? null,
-        role: input.role,
+        role: roleSet[0],
+        roles: roleSet,
         createdBy: input.createdBy ?? null,
         centerAssignments: input.centerIds?.length && input.createdBy
           ? {
@@ -152,15 +159,33 @@ export async function createUser(input: {
 
 export async function updateUser(
   userId: string,
-  input: { fullName?: string; phone?: string; role?: UserRole; isActive?: boolean },
+  input: {
+    fullName?: string;
+    phone?: string;
+    role?: UserRole;
+    roles?: UserRole[];
+    isActive?: boolean;
+  },
 ) {
   await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+  // Multi-role update: `roles` wins (first = primary); a bare `role` keeps
+  // the legacy single-role behavior but stays consistent with `roles`.
+  const roleData = input.roles?.length
+    ? {
+        role: Array.from(new Set(input.roles))[0],
+        roles: Array.from(new Set(input.roles)),
+      }
+    : input.role !== undefined
+      ? { role: input.role, roles: [input.role] }
+      : {};
+
   const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       ...(input.fullName !== undefined ? { fullName: input.fullName } : {}),
       ...(input.phone !== undefined ? { phone: input.phone } : {}),
-      ...(input.role !== undefined ? { role: input.role } : {}),
+      ...roleData,
       ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
     },
     include: {
@@ -264,4 +289,4 @@ export async function updateUserCenters(
   }
 
   return getUserById(targetUserId);
-}
+}

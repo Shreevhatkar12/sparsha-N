@@ -3,10 +3,10 @@ import * as announcementService from "../services/announcement.service.js";
 
 export async function listAnnouncements(req: Request, res: Response, next: NextFunction) {
   try {
-    const { userId, role, centerIds } = req.user!;
+    const { userId, role, roles, centerIds } = req.user!;
     const { cursor } = req.query;
     const announcements = await announcementService.listAnnouncements(
-      { userId, role, allowedCenterIds: centerIds },
+      { userId, role, roles, allowedCenterIds: centerIds },
       cursor as string
     );
     res.json(announcements);
@@ -17,10 +17,11 @@ export async function listAnnouncements(req: Request, res: Response, next: NextF
 
 export async function createAnnouncement(req: Request, res: Response, next: NextFunction) {
   try {
-    const { userId, role, centerIds } = req.user!;
+    const { userId, role, roles, centerIds } = req.user!;
     const announcement = await announcementService.createAnnouncement(req.body, {
       userId,
       role,
+      roles,
       allowedCenterIds: centerIds,
     });
     res.status(201).json(announcement);
@@ -31,10 +32,11 @@ export async function createAnnouncement(req: Request, res: Response, next: Next
 
 export async function updateAnnouncement(req: Request, res: Response, next: NextFunction) {
   try {
-    const { userId, role, centerIds } = req.user!;
+    const { userId, role, roles, centerIds } = req.user!;
     const announcement = await announcementService.updateAnnouncement(req.params.id as string, req.body, {
       userId,
       role,
+      roles,
       allowedCenterIds: centerIds,
     });
     res.json(announcement);
@@ -45,9 +47,10 @@ export async function updateAnnouncement(req: Request, res: Response, next: Next
 
 export async function deleteAnnouncement(req: Request, res: Response, next: NextFunction) {
   try {
-    const { role, centerIds } = req.user!;
+    const { role, roles, centerIds } = req.user!;
     await announcementService.deleteAnnouncement(req.params.id as string, {
       role,
+      roles,
       allowedCenterIds: centerIds,
     });
     res.json({ success: true });

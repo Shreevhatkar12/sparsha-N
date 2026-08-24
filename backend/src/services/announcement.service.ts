@@ -20,7 +20,14 @@ interface AnnouncementInput {
   expiresAt?: string | Date | null;
 }
 
-type Ctx = { userId: string; role: string; allowedCenterIds: string[] };
+type Ctx = { userId: string; role: string; roles?: string[]; allowedCenterIds: string[] };
+
+// Every role the ctx user holds (multi-role support).
+const ctxRoles = (ctx: { role: string; roles?: string[] }): string[] =>
+  Array.from(new Set([ctx.role, ...(ctx.roles || [])])).filter(Boolean);
+
+const hasCtxAdmin = (ctx: { role: string; roles?: string[] }): boolean =>
+  ctxRoles(ctx).some((r) => r === 'super_admin' || r === 'tech_admin');
 
 const MANAGER_ROLES = ['super_admin', 'tech_admin', 'center_admin'];
 
@@ -40,18 +47,20 @@ function parseTargets(tokens: string[] | null | undefined) {
 // Which programs does this user "belong to"? Used to match program-targeted
 // announcements.
 async function programIdsForUser(
-  role: string,
+  roles: string[],
   userId: string,
   centerIds: string[],
 ): Promise<Set<string>> {
-  if (role === 'volunteer') {
+  // Multi-role: union of the programs every held role belongs to.
+  const out = new Set<string>();
+  if (roles.includes('volunteer')) {
     const ps = await prisma.program.findMany({
       where: { name: { equals: 'Digital Literacy', mode: 'insensitive' } },
       select: { id: true },
     });
-    return new Set(ps.map((p) => p.id));
+    ps.forEach((p) => out.add(p.id));
   }
-  if (role === 'supervisor') {
+  if (roles.includes('supervisor')) {
     const ps = await prisma.program.findMany({
       where: {
         OR: [
@@ -65,27 +74,30 @@ async function programIdsForUser(
       },
       select: { id: true },
     });
-    return new Set(ps.map((p) => p.id));
+    ps.forEach((p) => out.add(p.id));
   }
-  if (role === 'teacher') {
+  if (roles.includes('teacher')) {
     const rows = await prisma.student.findMany({
       where: { createdById: userId, isActive: true },
       select: { programId: true },
       distinct: ['programId'],
     });
-    return new Set(rows.map((r) => r.programId).filter((x): x is string => !!x));
+    rows.forEach((r) => { if (r.programId) out.add(r.programId); });
   }
-  // center_admin / staff — every program running in their centers
-  const rows = await prisma.student.findMany({
-    where: { centerId: { in: centerIds }, isActive: true },
-    select: { programId: true },
-    distinct: ['programId'],
-  });
-  return new Set(rows.map((r) => r.programId).filter((x): x is string => !!x));
+  if (roles.some((r) => ['center_admin', 'staff'].includes(r)) || out.size === 0) {
+    // center_admin / staff (or nothing matched) — programs running in their centers
+    const rows = await prisma.student.findMany({
+      where: { centerId: { in: centerIds }, isActive: true },
+      select: { programId: true },
+      distinct: ['programId'],
+    });
+    rows.forEach((r) => { if (r.programId) out.add(r.programId); });
+  }
+  return out;
 }
 
 export const createAnnouncement = async (data: AnnouncementInput, ctx: Ctx) => {
-  if (!MANAGER_ROLES.includes(ctx.role)) {
+  if (!ctxRoles(ctx).some((r) => MANAGER_ROLES.includes(r))) {
     throw new AppError('Not authorized to post announcements', 403);
   }
   const title = String(data.title ?? '').trim();
@@ -98,7 +110,7 @@ export const createAnnouncement = async (data: AnnouncementInput, ctx: Ctx) => {
   const { centers } = parseTargets(tokens);
 
   // center_admin can never broadcast outside their own centers.
-  if (ctx.role === 'center_admin') {
+  if (!hasCtxAdmin(ctx) && ctxRoles(ctx).includes('center_admin')) {
     if (centers.length === 0) {
       tokens = [...tokens, ...ctx.allowedCenterIds.map((c) => `center:${c}`)];
     } else if (centers.some((c) => !ctx.allowedCenterIds.includes(c))) {
@@ -126,16 +138,17 @@ export const listAnnouncements = async (ctx: Ctx, _cursor?: string) => {
   });
 
   // Super/tech admin manage everything — they see all announcements.
-  if (ctx.role === 'super_admin' || ctx.role === 'tech_admin') return anns;
+  if (hasCtxAdmin(ctx)) return anns;
 
-  const myPrograms = await programIdsForUser(ctx.role, ctx.userId, ctx.allowedCenterIds);
+  const myRoles = ctxRoles(ctx);
+  const myPrograms = await programIdsForUser(myRoles, ctx.userId, ctx.allowedCenterIds);
 
   return anns.filter((a) => {
     const { centers, programs, roles } = parseTargets(a.targetRoles);
     // Legacy single-column targeting folds in as an extra restriction.
     const effCenters = centers.length ? centers : a.centerId ? [a.centerId] : [];
     const effPrograms = programs.length ? programs : a.programId ? [a.programId] : [];
-    if (roles.length && !roles.includes(ctx.role)) return false;
+    if (roles.length && !roles.some((r) => myRoles.includes(r))) return false;
     if (effCenters.length && !effCenters.some((c) => ctx.allowedCenterIds.includes(c))) return false;
     if (effPrograms.length && !effPrograms.some((p) => myPrograms.has(p))) return false;
     return true;
@@ -143,13 +156,14 @@ export const listAnnouncements = async (ctx: Ctx, _cursor?: string) => {
 };
 
 function ensureManageAccess(
-  role: string,
+  user: { role: string; roles?: string[] },
   allowedCenterIds: string[],
   existingTokens: string[] | null,
   existingCenterId: string | null,
 ) {
-  if (role === 'super_admin' || role === 'tech_admin') return;
-  if (role !== 'center_admin') throw new AppError('Not authorized', 403);
+  const roles = ctxRoles(user);
+  if (roles.includes('super_admin') || roles.includes('tech_admin')) return;
+  if (!roles.includes('center_admin')) throw new AppError('Not authorized', 403);
   const { centers } = parseTargets(existingTokens ?? []);
   const eff = centers.length ? centers : existingCenterId ? [existingCenterId] : [];
   if (eff.length === 0 || eff.some((c) => !allowedCenterIds.includes(c))) {
@@ -160,12 +174,12 @@ function ensureManageAccess(
 export const updateAnnouncement = async (id: string, data: AnnouncementInput, ctx: Ctx) => {
   const existing = await prisma.announcement.findUnique({ where: { id } });
   if (!existing) throw new AppError('Announcement not found', 404);
-  ensureManageAccess(ctx.role, ctx.allowedCenterIds, existing.targetRoles, existing.centerId);
+  ensureManageAccess(ctx, ctx.allowedCenterIds, existing.targetRoles, existing.centerId);
 
   let tokens = Array.isArray(data.targetRoles)
     ? data.targetRoles.filter((t) => typeof t === 'string')
     : undefined;
-  if (tokens && ctx.role === 'center_admin') {
+  if (tokens && !hasCtxAdmin(ctx) && ctxRoles(ctx).includes('center_admin')) {
     const { centers } = parseTargets(tokens);
     if (centers.length === 0) {
       tokens = [...tokens, ...ctx.allowedCenterIds.map((c) => `center:${c}`)];
@@ -190,11 +204,11 @@ export const updateAnnouncement = async (id: string, data: AnnouncementInput, ct
 
 export const deleteAnnouncement = async (
   id: string,
-  { role, allowedCenterIds }: { role: string; allowedCenterIds: string[] },
+  { role, roles, allowedCenterIds }: { role: string; roles?: string[]; allowedCenterIds: string[] },
 ) => {
   const existing = await prisma.announcement.findUnique({ where: { id } });
   if (!existing) throw new AppError('Announcement not found', 404);
-  ensureManageAccess(role, allowedCenterIds, existing.targetRoles, existing.centerId);
+  ensureManageAccess({ role, roles }, allowedCenterIds, existing.targetRoles, existing.centerId);
 
   return prisma.announcement.delete({ where: { id } });
 };

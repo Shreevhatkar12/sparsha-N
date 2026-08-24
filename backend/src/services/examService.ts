@@ -1,5 +1,6 @@
 import { Prisma, UserRole } from "@prisma/client";
 import { NotFoundError, ForbiddenError } from "../lib/errors.js";
+import { hasAnyRole, hasRole } from "../lib/auth.js";
 import prisma from "../lib/prisma.js";
 import type { JwtPayload } from "../lib/auth.js";
 import { resolveAcademicYearId } from "../utils/academicYear.js";
@@ -59,7 +60,7 @@ function applyCenterFilter(user: JwtPayload, where: any) {
  * exams (sheet, scores, reports). Other roles see the full roster.
  */
 function teacherOwnStudents(user: JwtPayload): Record<string, unknown> {
-  return user.role === UserRole.teacher ? { createdById: user.userId } : {};
+  return hasRole(user, UserRole.teacher) ? { createdById: user.userId } : {};
 }
 
 // Roll numbers are free text ("1", "10", "2A") — sort them numerically first,
@@ -362,7 +363,7 @@ export async function listExams(user: JwtPayload, query: ListExamQuery) {
   // Teachers see only the exams "assigned" to them: exams whose program AND
   // standards match at least one of their own registered students.
   // (An exam with no standards set applies to all standards of its program.)
-  if (user.role === UserRole.teacher || user.role === UserRole.staff) {
+  if (hasAnyRole(user, [UserRole.teacher, UserRole.staff])) {
     const myStudents = await prisma.student.findMany({
       where: { createdById: user.userId, isActive: true },
       select: { standard: true, programId: true },
@@ -866,7 +867,7 @@ export async function getExamReport(user: JwtPayload, query: ExamReportQuery) {
     };
   }
 
-  const isTeacher = user.role === UserRole.teacher || user.role === UserRole.staff;
+  const isTeacher = hasAnyRole(user, [UserRole.teacher, UserRole.staff]);
 
   const exams = await prisma.exam.findMany({
     where,

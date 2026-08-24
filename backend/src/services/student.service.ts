@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js';
 import { z } from "zod";
 import type { JwtPayload as TokenPayload } from '../lib/auth.js';
+import { hasAnyRole, hasRole } from '../lib/auth.js';
 import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 
 const phone10Digit = z
@@ -51,17 +52,17 @@ const studentUpdateSchema = z.object({
  */
 const scopedWhere = (user: TokenPayload, otherConditions: Record<string, unknown> = {}) => {
   const baseFilter: any = { isActive: true };
-  const userRole = user.role;
   const effectiveUserId = user.userId;
 
   // super_admin & tech_admin → NO restrictions, see everything globally
   // center_admin → see everything in their centers
   // teachers → ONLY the students they registered themselves (createdById)
   // supervisor = Swayam 2 coordinator: a program-level role, not center-limited.
-  if (userRole !== 'super_admin' && userRole !== 'tech_admin' && userRole !== 'supervisor') {
+  // Multi-role users get the union of their roles' access.
+  if (!hasAnyRole(user, ['super_admin', 'tech_admin', 'supervisor'])) {
      baseFilter.centerId = { in: user.centerIds || [] };
   }
-  if (userRole === 'teacher') {
+  if (hasRole(user, 'teacher')) {
      baseFilter.createdById = effectiveUserId;
   }
 
@@ -83,10 +84,8 @@ export const createStudent = async (user: TokenPayload, data: any) => {
 
   const payload = data;
   console.log("CREATE PAYLOAD:", JSON.stringify(payload));
-  const userRole = user.role;
-
   // Authorization check for center assignment
-  if (userRole !== 'super_admin' && userRole !== 'tech_admin') {
+  if (!hasAnyRole(user, ['super_admin', 'tech_admin'])) {
     const isAssigned = user.centerIds?.includes(payload.centerId);
     if (!isAssigned) {
       throw new ForbiddenError("You are not authorized to register students for this center.");
@@ -146,8 +145,13 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
   }
 
   // Swayam coordinator: always scoped to the Swayam 2 program (all centers).
+  // (Multi-role: a supervisor who is ALSO a teacher/admin uses the normal
+  // directory view, not the coordinator-only program lock.)
   let coordinatorProgramId: string | undefined;
-  if (user.role === 'supervisor') {
+  if (
+    hasRole(user, 'supervisor') &&
+    !hasAnyRole(user, ['teacher', 'super_admin', 'tech_admin', 'center_admin'])
+  ) {
     const swayamProgram = await prisma.program.findFirst({
       where: { name: { equals: 'Swayam 2', mode: 'insensitive' } },
       select: { id: true },
@@ -159,7 +163,7 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
   const where = scopedWhere(user, {
     isActive: isActive !== undefined ? isActive : true,
     // Teachers see only the students they registered ("my students").
-    ...(user.role === 'teacher' ? { createdById: user.userId } : {}),
+    ...(hasRole(user, 'teacher') ? { createdById: user.userId } : {}),
     ...(centerId ? { centerId } : {}),
     ...(programFilter ? { programId: programFilter } : {}),
     ...(coordinatorProgramId ? { programId: coordinatorProgramId } : {}),
@@ -168,7 +172,7 @@ export const getAllStudents = async (user: TokenPayload, {   page = 1, limit = 5
   });
 
   // Handle center filter overrides (supervisor is program-scoped, any center ok)
-  if (centerId && user.role !== 'super_admin' && user.role !== 'tech_admin' && user.role !== 'supervisor') {
+  if (centerId && !hasAnyRole(user, ['super_admin', 'tech_admin', 'supervisor'])) {
      if (!user.centerIds.includes(centerId)) {
         throw new ForbiddenError("You do not have access to this center");
      }
@@ -263,11 +267,14 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
     throw new NotFoundError("Student");
   }
 
-  if (user.role !== 'super_admin' && user.role !== 'tech_admin' && !user.centerIds.includes(student.centerId)) {
+  if (
+    !hasAnyRole(user, ['super_admin', 'tech_admin', 'supervisor']) &&
+    !user.centerIds.includes(student.centerId)
+  ) {
     throw new ForbiddenError("Cannot access student from another center");
   }
   // Teachers may only open the students they registered themselves.
-  if (user.role === 'teacher' && student.createdById !== user.userId) {
+  if (hasRole(user, 'teacher') && student.createdById !== user.userId) {
     throw new ForbiddenError("You can only view students you registered");
   }
 
@@ -726,7 +733,7 @@ export const requestTransfer = async (user: TokenPayload, studentIds: string[]) 
       isActive: true,
       transferStatus: 'active',
       // Teachers can only request for their own students if we enforce ownership
-      ...(user.role === 'teacher' ? { createdById: effectiveUserId } : {}),
+      ...(hasRole(user, 'teacher') ? { createdById: effectiveUserId } : {}),
     },
     data: {
       transferStatus: 'pending_transfer',

@@ -9,10 +9,27 @@ export type JwtPayload = {
   userId: string;
   email: string;
   role: UserRole;
+  /** Full set of roles (multi-role users). Missing/empty = [role]. */
+  roles?: UserRole[];
   centerIds: string[];
   programIds: string[];
   isActive: boolean;
 };
+
+/** Every role this user holds — primary + extra (multi-role support). */
+export function userRoles(user: { role: UserRole | string; roles?: (UserRole | string)[] | null }): string[] {
+  const extra = Array.isArray(user.roles) ? user.roles : [];
+  return Array.from(new Set([String(user.role), ...extra.map(String)])).filter(Boolean);
+}
+
+export function hasRole(user: { role: UserRole | string; roles?: (UserRole | string)[] | null }, role: string): boolean {
+  return userRoles(user).includes(role);
+}
+
+export function hasAnyRole(user: { role: UserRole | string; roles?: (UserRole | string)[] | null }, roles: string[]): boolean {
+  const mine = userRoles(user);
+  return roles.some((r) => mine.includes(r));
+}
 
 type AuthenticatedRequest = Request & {
   user?: JwtPayload;
@@ -36,6 +53,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
       id: true,
       email: true,
       role: true,
+      roles: true,
       isActive: true,
       centerAssignments: {
         where: {
@@ -54,6 +72,7 @@ export async function buildJwtPayload(userId: string): Promise<JwtPayload> {
     userId: user.id,
     email: user.email,
     role: user.role,
+    roles: user.roles?.length ? user.roles : [user.role],
     isActive: user.isActive,
     centerIds: user.centerAssignments.map((a) => a.centerId),
     programIds: user.centerAssignments
@@ -95,4 +114,4 @@ export const requireAuth: RequestHandler = (
   } catch (error) {
     return next(error);
   }
-}
+}

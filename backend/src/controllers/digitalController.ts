@@ -21,7 +21,11 @@ const ALLOWED_ROLES = ['volunteer', 'super_admin', 'tech_admin'];
 
 function ensureAccess(req: Request): JwtPayload {
   const user = (req as AuthenticatedRequest).user;
-  if (!user || !ALLOWED_ROLES.includes(String(user.role))) {
+  // Multi-role: access is granted if ANY of the user's roles is allowed.
+  const roles = user
+    ? [String(user.role), ...(((user as { roles?: string[] }).roles) || []).map(String)]
+    : [];
+  if (!user || !roles.some((r) => ALLOWED_ROLES.includes(r))) {
     throw new ForbiddenError('Digital Literacy panel access is restricted');
   }
   return user;

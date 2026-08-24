@@ -10,6 +10,7 @@ export interface TokenPayload {
   userId: string;
   email: string;
   role: string;
+  roles?: string[];
   centerIds: string[];
   isActive?: boolean;
 }
@@ -36,4 +37,4 @@ export const generateRefreshToken = (payload: TokenPayload) => {
 
 export const verifyRefreshToken = (token: string) => {
   return jwt.verify(token, REFRESH_SECRET) as TokenPayload;
-};
+};

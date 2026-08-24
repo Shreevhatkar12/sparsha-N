@@ -50,22 +50,35 @@ export async function getUserController(req: Request, res: Response, next: NextF
 export async function createUserController(req: Request, res: Response, next: NextFunction) {
   try {
     const requester = (req as AuthenticatedRequest).user;
-    const { role: targetRole, centerIds } = req.body as { role: UserRole, centerIds?: string[] };
+    const { role: targetRole, roles: targetRoles, centerIds } = req.body as {
+      role?: UserRole;
+      roles?: UserRole[];
+      centerIds?: string[];
+    };
 
     if (!requester || !requester.role) {
       return res.status(401).json({ success: false, error: "Unauthorized" });
     }
 
+    // Multi-role: validate EVERY requested role against what the requester
+    // is allowed to hand out. First requested role becomes the primary.
+    const requested = (targetRoles?.length ? targetRoles : targetRole ? [targetRole] : []) as string[];
+    if (requested.length === 0) {
+      return res.status(400).json({ success: false, error: "Select at least one role." });
+    }
+
     const requesterRole = requester.role as string;
 
-    if (requesterRole === "super_admin") {
+    if (requesterRole === "super_admin" || requesterRole === "tech_admin") {
       const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "supervisor"];
-      if (!allowedForSuper.includes(targetRole)) {
-        return res.status(403).json({ success: false, error: "Invalid role assignment for Super Admin." });
+      const bad = requested.find((r) => !allowedForSuper.includes(r));
+      if (bad) {
+        return res.status(403).json({ success: false, error: `Invalid role assignment: ${bad}` });
       }
     } else if (requesterRole === "center_admin") {
       const allowedForAdmin = ["teacher", "staff", "volunteer"];
-      if (!allowedForAdmin.includes(targetRole)) {
+      const bad = requested.find((r) => !allowedForAdmin.includes(r));
+      if (bad) {
         return res.status(403).json({ success: false, error: "Center Admins can only create Teachers, Staff, or Volunteers." });
       }
     } else {
@@ -74,6 +87,8 @@ export async function createUserController(req: Request, res: Response, next: Ne
 
     const userData = {
       ...req.body,
+      role: requested[0] as UserRole,
+      roles: requested as UserRole[],
       centerIds: centerIds || [],
       createdBy: requester?.userId
     };

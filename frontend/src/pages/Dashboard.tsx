@@ -267,17 +267,30 @@ const AdminDashboard: React.FC = () => {
 };
 
 export const Dashboard: React.FC = () => {
-  const role = useAuthStore((s) => s.currentUser?.role);
-  if (role === 'teacher') {
-    return <TeacherDashboard />;
-  }
-  // Swayam coordinator's dashboard = the Swayam overview (tiles + charts only).
-  if (role === 'supervisor') {
-    return <SwayamPanel mode="dashboard" />;
-  }
-  // Digital Literacy teacher's dashboard.
-  if (role === 'volunteer') {
-    return <DigitalDashboard />;
-  }
-  return <AdminDashboard />;
+  const currentUser = useAuthStore((s) => s.currentUser);
+  // Multi-role: the PRIMARY role (first assigned) decides the dashboard; the
+  // sidebar still shows every section the user's other roles unlock.
+  const primary = currentUser?.role;
+  const myRoles: string[] = currentUser?.roles?.length
+    ? currentUser.roles
+    : primary
+      ? [primary]
+      : [];
+
+  const dashFor = (r?: string | null) => {
+    if (r === 'teacher') return <TeacherDashboard />;
+    // Swayam coordinator's dashboard = the Swayam overview (tiles + charts).
+    if (r === 'supervisor') return <SwayamPanel mode="dashboard" />;
+    // Digital Literacy teacher's dashboard.
+    if (r === 'volunteer') return <DigitalDashboard />;
+    if (r && ['super_admin', 'center_admin', 'tech_admin'].includes(r)) {
+      return <AdminDashboard />;
+    }
+    return null;
+  };
+
+  return (
+    dashFor(primary) ??
+    dashFor(myRoles.find((r) => dashFor(r) !== null)) ?? <AdminDashboard />
+  );
 };

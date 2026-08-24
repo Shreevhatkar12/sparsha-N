@@ -5,6 +5,8 @@ export interface User {
   id: string;
   email: string;
   role: string;
+  /** Full set of roles (multi-role users). Missing/empty = [role]. */
+  roles?: string[];
   centerIds: string[];
   name?: string;
 }
@@ -67,4 +69,4 @@ export const useAuthStore = create<AuthState>()(
       name: "auth-storage",
     }
   )
-);
+);

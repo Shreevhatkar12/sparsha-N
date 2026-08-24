@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import axios from 'axios';
 import { Navigate } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
@@ -14,6 +15,7 @@ import {
   deleteUser,
   listUsers,
   resetUserPassword,
+  updateUser,
   updateUserCenters,
   type UserAdminItem,
   type CenterProgramAssignment,
@@ -66,9 +68,27 @@ export const UsersAdmin: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState<UserRole>('teacher');
+  // Multi-role: click order matters — the FIRST selected role is the primary
+  // one (it decides which dashboard the user lands on).
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['teacher']);
   const [selectedCenterIds, setSelectedCenterIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+
+  // Edit roles modal
+  const [editRolesUser, setEditRolesUser] = useState<UserWithCenters | null>(null);
+  const [editRoles, setEditRoles] = useState<UserRole[]>([]);
+  const [savingRoles, setSavingRoles] = useState(false);
+
+  const toggleRole = (
+    r: UserRole,
+    list: UserRole[],
+    setList: React.Dispatch<React.SetStateAction<UserRole[]>>,
+  ) => {
+    setList(list.includes(r) ? list.filter((x) => x !== r) : [...list, r]);
+  };
+
+  const rolesOf = (u: UserWithCenters): UserRole[] =>
+    u.roles && u.roles.length ? u.roles : [u.role];
 
   // Edit centers+programs modal
   const [editCentersUserId, setEditCentersUserId] = useState<string | null>(null);
@@ -115,6 +135,10 @@ export const UsersAdmin: React.FC = () => {
       setError('Please assign at least one center to the user.');
       return;
     }
+    if (selectedRoles.length === 0) {
+      setError('Select at least one role for the user.');
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -122,7 +146,8 @@ export const UsersAdmin: React.FC = () => {
         email: email.trim(),
         fullName: fullName.trim(),
         password,
-        role,
+        role: selectedRoles[0],
+        roles: selectedRoles,
         phone: phone.trim() || undefined,
         centerIds: selectedCenterIds,
       });
@@ -130,7 +155,7 @@ export const UsersAdmin: React.FC = () => {
       setFullName('');
       setPassword('');
       setPhone('');
-      setRole('teacher');
+      setSelectedRoles(['teacher']);
       setSelectedCenterIds([]);
       await loadData();
     } catch {
@@ -215,6 +240,35 @@ export const UsersAdmin: React.FC = () => {
     }
   };
 
+  const openEditRoles = (user: UserWithCenters) => {
+    setEditRolesUser(user);
+    setEditRoles(rolesOf(user));
+  };
+
+  const handleSaveRoles = async () => {
+    if (!editRolesUser) return;
+    if (editRoles.length === 0) {
+      setError('A user must have at least one role.');
+      return;
+    }
+    setSavingRoles(true);
+    setError(null);
+    try {
+      await updateUser(editRolesUser.id, { roles: editRoles });
+      setEditRolesUser(null);
+      await loadData();
+    } catch (err: unknown) {
+      let msg = 'Failed to update roles.';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { error?: string; message?: string } | undefined;
+        msg = data?.error || data?.message || `${msg} (${err.response?.status ?? 'network'})`;
+      }
+      setError(msg);
+    } finally {
+      setSavingRoles(false);
+    }
+  };
+
   if (!canAccess) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -231,7 +285,28 @@ export const UsersAdmin: React.FC = () => {
         </div>
       ),
     },
-    { id: 'role', header: 'Role', sortable: true, accessor: (u) => roleLabel(u.role) },
+    {
+      id: 'role',
+      header: 'Roles',
+      sortable: true,
+      cell: (u) => (
+        <div className="flex flex-wrap gap-1 max-w-[220px]">
+          {rolesOf(u).map((r, i) => (
+            <span
+              key={r}
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                i === 0
+                  ? 'bg-brand-50 text-brand-700 border-brand-200'
+                  : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+              }`}
+              title={i === 0 ? 'Primary role (decides the dashboard)' : undefined}
+            >
+              {roleLabel(r)}
+            </span>
+          ))}
+        </div>
+      ),
+    },
     { id: 'phone', header: 'Phone', accessor: (u) => u.phone || '-' },
     {
       id: 'centers',
@@ -265,6 +340,14 @@ export const UsersAdmin: React.FC = () => {
       className: 'text-right',
       cell: (u) => (
         <div className="flex justify-end gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => openEditRoles(u)}
+            title="Add / remove roles"
+          >
+            Roles
+          </Button>
           <Button 
             variant="secondary" 
             size="sm" 
@@ -329,6 +412,63 @@ export const UsersAdmin: React.FC = () => {
         </div>
       )}
 
+      {/* Edit Roles Modal */}
+      {editRolesUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setEditRolesUser(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-md p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">Edit Roles</h3>
+                <p className="text-sm text-neutral-500 mt-0.5">{editRolesUser.fullName}</p>
+              </div>
+              <button onClick={() => setEditRolesUser(null)} className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-6 py-4">
+              <p className="text-xs text-neutral-500 mb-3">
+                Add or remove roles. The first role (★) is the primary one — it
+                decides which dashboard this user lands on. The sidebar shows
+                every section their roles unlock.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {roleOptions.map((r) => {
+                  const idx = editRoles.indexOf(r);
+                  const active = idx !== -1;
+                  return (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => toggleRole(r, editRoles, setEditRoles)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        active
+                          ? 'bg-brand-600 text-white border-brand-600'
+                          : 'bg-white text-neutral-600 border-neutral-300 hover:border-brand-400'
+                      }`}
+                    >
+                      {roleLabel(r)}
+                      {idx === 0 && ' ★'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
+              <Button variant="secondary" size="sm" onClick={() => setEditRolesUser(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" isLoading={savingRoles} onClick={() => void handleSaveRoles()}>
+                <Check size={14} className="mr-1" />
+                Save Roles
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Centers + Programs Modal */}
       {editCentersUserId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -346,7 +486,7 @@ export const UsersAdmin: React.FC = () => {
 
             <div className="px-6 py-4 max-h-[50vh] overflow-y-auto">
               <p className="text-xs text-neutral-500 mb-3">
-                Each row = one Center + Program combination. Teacher fakt tyacha assigned center + program che students baghel.
+                Each row = one Center + Program combination. A teacher only sees students of their assigned center + program.
               </p>
 
               <div className="space-y-3">
@@ -420,17 +560,36 @@ export const UsersAdmin: React.FC = () => {
           <Input label="User ID / Email" type="text" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} helperText="Minimum 8 characters" required />
           <Input label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          <div className="w-full flex flex-col gap-1.5">
-            <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">Role</label>
-            <select
-              className="h-11 rounded-lg border border-neutral-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-            >
-              {roleOptions.map((r) => (
-                <option key={r} value={r}>{roleLabel(r)}</option>
-              ))}
-            </select>
+          <div className="w-full flex flex-col gap-1.5 md:col-span-2">
+            <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">
+              Roles (select one or more)
+            </label>
+            <div className="flex flex-wrap gap-2 border border-neutral-200 p-3 rounded-lg">
+              {roleOptions.map((r) => {
+                const idx = selectedRoles.indexOf(r);
+                const active = idx !== -1;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => toggleRole(r, selectedRoles, setSelectedRoles)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      active
+                        ? 'bg-brand-600 text-white border-brand-600'
+                        : 'bg-white text-neutral-600 border-neutral-300 hover:border-brand-400'
+                    }`}
+                  >
+                    {roleLabel(r)}
+                    {idx === 0 && ' ★'}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-neutral-500 italic">
+              A user can hold multiple roles — they see every section their
+              roles unlock. The first selected role (★) is the primary one and
+              decides their dashboard.
+            </p>
           </div>
           <div className="md:col-span-2 mt-2">
             <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-2 block">

@@ -31,8 +31,10 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
       });
     }
 
-    // Ensure user has at least one center assigned (unless admin)
-    if (!ADMIN_ROLES.includes(decoded.role as Role) && (!decoded.centerIds || decoded.centerIds.length === 0)) {
+    // Ensure user has at least one center assigned (unless ANY role is admin)
+    const allRoles = [decoded.role, ...((decoded as { roles?: string[] }).roles || [])];
+    const isAnyAdmin = allRoles.some((r) => ADMIN_ROLES.includes(r as Role));
+    if (!isAnyAdmin && (!decoded.centerIds || decoded.centerIds.length === 0)) {
       return res.status(403).json({
         success: false,
         message: "No centers assigned to user.",
@@ -49,4 +51,4 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
-export const protect = authenticate;
+export const protect = authenticate;

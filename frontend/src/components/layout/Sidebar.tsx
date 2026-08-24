@@ -39,7 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, isDesktopOpen = true, 
     { name: 'Dropout Info', path: '/swayam/dropout', icon: <Users size={20} />, roles: ['supervisor'] },
     { name: 'Sponsorship', path: '/swayam/sponsorship', icon: <Award size={20} />, roles: ['supervisor'] },
     // Digital Literacy ('volunteer' role) — own section, own order
-    { name: 'Students', path: '/digital/students', icon: <Users size={20} />, roles: ['volunteer'] },
+    { name: 'Digital Students', path: '/digital/students', icon: <Users size={20} />, roles: ['volunteer'] },
     { name: 'Digital Exams', path: '/digital/exams', icon: <GraduationCap size={20} />, roles: ['volunteer'] },
     { name: 'Announcements', path: '/announcements', icon: <LayoutDashboard size={20} />, roles: ['volunteer'] },
     { name: 'Skills', path: '/skills', icon: <Star size={20} />, roles: ['volunteer'] },
@@ -58,12 +58,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, isDesktopOpen = true, 
     { name: 'Settings', path: '/settings', icon: <Settings size={20} />, roles: ['super_admin','tech_admin'] },
   ];
 
-  const meetingRoles = ['super_admin','center_admin','tech_admin','teacher','staff'];
-  const showMeetings = currentUser?.role && meetingRoles.includes(currentUser.role);
+  // Multi-role: the sidebar shows the UNION of every held role's sections.
+  const myRoles: string[] = currentUser?.roles?.length
+    ? currentUser.roles
+    : currentUser?.role
+      ? [currentUser.role]
+      : [];
 
-  const visibleItems = navItems.filter(item =>
-    currentUser?.role && item.roles.includes(currentUser.role)
-  );
+  const meetingRoles = ['super_admin','center_admin','tech_admin','teacher','staff'];
+  const showMeetings = myRoles.some((r) => meetingRoles.includes(r));
+
+  // Keep the first matching entry per path so duplicate links never render
+  // twice (e.g. Announcements / Skills exist for several roles).
+  const seenPaths = new Set<string>();
+  const visibleItems = navItems.filter((item) => {
+    if (!item.roles.some((r) => myRoles.includes(r))) return false;
+    if (seenPaths.has(item.path)) return false;
+    seenPaths.add(item.path);
+    return true;
+  });
 
   return (
     <>

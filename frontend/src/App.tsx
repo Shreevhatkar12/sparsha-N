@@ -53,6 +53,7 @@ function App() {
               email: u.email,
               name: u.fullName ?? u.name ?? '',
               role: u.role,
+              roles: u.roles?.length ? u.roles : u.role ? [u.role] : [],
               centerIds: u.centerIds ?? [],
             },
             data.accessToken,
@@ -78,9 +79,15 @@ function App() {
     );
   }
 
-  const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
-  const isSwayamCoordinator = currentUser?.role === 'supervisor';
-  const isDigitalTeacher = currentUser?.role === 'volunteer';
+  // Multi-role: every role the logged-in user holds.
+  const myRoles: string[] = currentUser?.roles?.length
+    ? currentUser.roles
+    : currentUser?.role
+      ? [currentUser.role]
+      : [];
+  const isAdmin = myRoles.some((r) => ['super_admin', 'center_admin', 'tech_admin'].includes(r));
+  const isSwayamCoordinator = myRoles.includes('supervisor');
+  const isDigitalTeacher = myRoles.includes('volunteer');
 
   return (
     <BrowserRouter>

@@ -134,6 +134,9 @@ model User {
   fullName                     String                   @map("full_name")
   phone                        String?
   role                         UserRole
+  // Multi-role support: the FULL set of roles this user holds (primary role
+  // included). Empty = single-role user (legacy) - effective roles = [role].
+  roles                        UserRole[]               @default([])
   isActive                     Boolean                  @default(true) @map("is_active")
   lastLoginAt                  DateTime?                @map("last_login_at") @db.Timestamptz(6)
   createdAt                    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)

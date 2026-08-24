@@ -33,9 +33,14 @@ type TokenPayload = {
   userId: string;
   email: string;
   role: string;
+  roles?: string[];
   centerIds: string[];
   isActive?: boolean;
 };
+
+// Effective roles: full set when multi-role, else just the primary role.
+const effectiveRoles = (u: { role: string; roles?: string[] | null }): string[] =>
+  u.roles && u.roles.length ? u.roles.map(String) : [String(u.role)];
 
 // ----------------------
 // Helpers
@@ -98,6 +103,7 @@ export const registerUser = async ({
       userId: user.id,
       email: user.email,
       role: user.role,
+      roles: effectiveRoles(user),
       centerIds,
     };
 
@@ -138,6 +144,7 @@ export const loginUser = async ({ email, password }: LoginInput) => {
       userId: user.id,
       email: user.email,
       role: user.role,
+      roles: effectiveRoles(user),
       centerIds,
       isActive: user.isActive,
     };
@@ -167,6 +174,7 @@ export const loginUser = async ({ email, password }: LoginInput) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        roles: effectiveRoles(user),
         centerIds,
       },
     };
@@ -200,6 +208,7 @@ export const refreshAccessToken = async (token: string) => {
       userId: user.id,
       email: user.email,
       role: user.role,
+      roles: effectiveRoles(user),
       centerIds,
     };
 
@@ -210,6 +219,7 @@ export const refreshAccessToken = async (token: string) => {
         email: user.email,
         fullName: user.fullName,
         role: user.role,
+        roles: effectiveRoles(user),
         centerIds,
       },
     };

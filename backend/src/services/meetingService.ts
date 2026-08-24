@@ -1,5 +1,9 @@
 import prisma from '../lib/prisma.js';
 
+// Multi-role: every role the user holds.
+const rolesOf = (u: { role?: string; roles?: string[] }): string[] =>
+  Array.from(new Set([u.role, ...(u.roles || [])])).filter(Boolean) as string[];
+
 export async function testMeetingService() {
   return {
     success: true,
@@ -90,11 +94,12 @@ export async function deleteStudentMeeting(id: string) {
 export async function listStudentMeetings(user: any, filters?: any) {
   const where: any = {};
 
-  if (user.role === 'teacher' || user.role === 'center_admin') {
+  const myRoles = rolesOf(user);
+  if (myRoles.includes('teacher') || myRoles.includes('center_admin')) {
     where.centerId = { in: user.centerIds };
   }
   // Teachers see ONLY the meetings they created themselves.
-  if (user.role === 'teacher') {
+  if (myRoles.includes('teacher')) {
     where.createdBy = user.userId;
   }
   if (filters?.centerId) where.centerId = filters.centerId;
@@ -210,11 +215,12 @@ export async function deleteParentMeeting(id: string) {
 export async function listParentMeetings(user: any, filters?: any) {
   const where: any = {};
 
-  if (user.role === 'teacher' || user.role === 'center_admin') {
+  const myRoles = rolesOf(user);
+  if (myRoles.includes('teacher') || myRoles.includes('center_admin')) {
     where.centerId = { in: user.centerIds };
   }
   // Teachers see ONLY the parent meetings they created themselves.
-  if (user.role === 'teacher') {
+  if (myRoles.includes('teacher')) {
     where.createdBy = user.userId;
   }
   if (filters?.centerId) where.centerId = filters.centerId;
