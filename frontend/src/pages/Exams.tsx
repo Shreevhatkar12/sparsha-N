@@ -81,6 +81,8 @@ export const Exams: React.FC = () => {
   const [programs, setPrograms] = useState<ProgramSummary[]>([]);
   const [createCenterIds, setCreateCenterIds] = useState<string[]>([]);
   const [createStandards, setCreateStandards] = useState<string[]>([]);
+  // Optional center filter for "Load existing exam" (All Centers by default).
+  const [filterCenterId, setFilterCenterId] = useState("");
   const [programId, setProgramId] = useState("");
   const [examType, setExamType] = useState("");
   const [customExamType, setCustomExamType] = useState("");
@@ -305,10 +307,12 @@ export const Exams: React.FC = () => {
 
     try {
       const q: {
+        centerId?: string;
         programId?: string;
         examType?: string;
         academicYearId?: string;
       } = {};
+      if (filterCenterId) q.centerId = filterCenterId;
       if (programId) q.programId = programId;
       if (resolvedExamType) q.examType = resolvedExamType;
       if (academicYear.trim()) q.academicYearId = academicYear.trim();
@@ -702,6 +706,23 @@ export const Exams: React.FC = () => {
               </div>
             </div>
           )}
+          <div>
+            <label className="text-xs font-medium text-neutral-600">
+              Center (filter)
+            </label>
+            <select
+              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+              value={filterCenterId}
+              onChange={(e) => setFilterCenterId(e.target.value)}
+            >
+              <option value="">All Centers</option>
+              {centers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="text-xs font-medium text-neutral-600">
               Program
