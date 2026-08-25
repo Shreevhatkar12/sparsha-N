@@ -77,11 +77,11 @@ examRoutes.put(
   updateExamController,
 );
 
-// Delete an entire exam (+ its scores). Admin-only (MANAGE_EXAMS) — teachers
-// hold ENTER_EXAM_SCORES but not MANAGE_EXAMS, so they are blocked here.
+// Delete an entire exam (+ its scores). Teachers can delete too (they hold
+// ENTER_EXAM_SCORES); the service still enforces center access.
 examRoutes.delete(
   "/:examId",
-  requirePermission(PERMISSIONS.MANAGE_EXAMS),
+  requirePermission(PERMISSIONS.ENTER_EXAM_SCORES),
   deleteExamController,
 );
 

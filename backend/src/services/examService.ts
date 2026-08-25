@@ -1042,13 +1042,18 @@ export async function deleteExam(user: JwtPayload, examId: string) {
 
   enforceCenterAccess(user, exam.centerId);
 
-  // Only admins may delete an entire exam and its scores.
-  const isAdmin =
-    user.role === UserRole.super_admin ||
-    user.role === UserRole.tech_admin ||
-    user.role === UserRole.center_admin;
-  if (!isAdmin) {
-    throw new ForbiddenError("Only admins can delete exams");
+  // Admins AND teachers/staff may delete an exam (with its scores) — center
+  // access is already enforced above, so a teacher can only delete exams of
+  // their own centers.
+  const canDelete = hasAnyRole(user, [
+    UserRole.super_admin,
+    UserRole.tech_admin,
+    UserRole.center_admin,
+    UserRole.teacher,
+    UserRole.staff,
+  ]);
+  if (!canDelete) {
+    throw new ForbiddenError("You are not allowed to delete exams");
   }
 
   await prisma.$transaction([

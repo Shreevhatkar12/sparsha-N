@@ -9,6 +9,7 @@ import { ErrorMessage } from "../components/ui/ErrorMessage";
 import { EmptyState } from "../components/ui/EmptyState";
 import {
   createExam,
+  deleteExam,
   deleteExamSubject,
   getExamSheet,
   getExamComparison,
@@ -332,6 +333,28 @@ export const Exams: React.FC = () => {
     setAvailableExams([]);
     setSearched(false);
     await loadWorkspace(id);
+  };
+
+  // Delete an exam straight from the "Existing exams" list (teachers too).
+  const deleteFromList = async (ex: { id: string; examType: string; name: string }) => {
+    const ok = window.confirm(
+      'Delete "' + (ex.examType || ex.name) + '" exam?\nAll marks entered for this exam will be permanently deleted.',
+    );
+    if (!ok) return;
+    setError(null);
+    try {
+      await deleteExam(ex.id);
+      setAvailableExams((prev) => prev.filter((x) => x.id !== ex.id));
+      if (examId === ex.id) {
+        setExamId(null);
+        setSubjects([]);
+        setGrid({});
+        setStudentOrder([]);
+      }
+      await loadComparison();
+    } catch {
+      setError("Failed to delete the exam.");
+    }
   };
 
   // Admin: save the edited exam setup for the loaded exam.
@@ -859,14 +882,25 @@ export const Exams: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => void selectExam(ex.id)}
-                  >
-                    Open &amp; Fill
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void selectExam(ex.id)}
+                    >
+                      Open &amp; Fill
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      onClick={() => void deleteFromList(ex)}
+                      title="Delete this exam (its marks too)"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
