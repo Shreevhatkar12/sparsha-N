@@ -7,6 +7,7 @@ import {
   getMyCenters,
   getUserById,
   listUsers,
+  reassignUser,
   resetUserPassword,
   softDeleteUser,
   updateUser,
@@ -70,13 +71,13 @@ export async function createUserController(req: Request, res: Response, next: Ne
     const requesterRole = requester.role as string;
 
     if (requesterRole === "super_admin" || requesterRole === "tech_admin") {
-      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "supervisor", "sehat"];
+      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "general_volunteer", "supervisor", "sehat"];
       const bad = requested.find((r) => !allowedForSuper.includes(r));
       if (bad) {
         return res.status(403).json({ success: false, error: `Invalid role assignment: ${bad}` });
       }
     } else if (requesterRole === "center_admin") {
-      const allowedForAdmin = ["teacher", "staff", "volunteer"];
+      const allowedForAdmin = ["teacher", "staff", "volunteer", "general_volunteer"];
       const bad = requested.find((r) => !allowedForAdmin.includes(r));
       if (bad) {
         return res.status(403).json({ success: false, error: "Center Admins can only create Teachers, Staff, or Volunteers." });
@@ -170,6 +171,70 @@ export async function permanentDeleteUserController(req: Request, res: Response,
     await prisma.user.delete({ where: { id: userId } });
 
     return res.status(200).json({ success: true, message: "User permanently deleted." });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function reassignUserController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const requester = (req as AuthenticatedRequest).user!;
+    const { fullName, phone, password, role: targetRole, roles: targetRoles, centerIds } = req.body as {
+      fullName?: string;
+      phone?: string;
+      password?: string;
+      role?: UserRole;
+      roles?: UserRole[];
+      centerIds?: string[];
+    };
+
+    if (!fullName || !fullName.trim()) {
+      return res.status(400).json({ success: false, error: "Full name is required." });
+    }
+    if (!password) {
+      return res.status(400).json({ success: false, error: "A new password is required." });
+    }
+
+    const requested = (targetRoles?.length ? targetRoles : targetRole ? [targetRole] : []) as string[];
+    if (requested.length === 0) {
+      return res.status(400).json({ success: false, error: "Select at least one role." });
+    }
+
+    const requesterRole = requester.role as string;
+    if (requesterRole === "super_admin" || requesterRole === "tech_admin") {
+      const allowedForSuper = ["super_admin", "center_admin", "tech_admin", "teacher", "staff", "volunteer", "general_volunteer", "supervisor", "sehat"];
+      const bad = requested.find((r) => !allowedForSuper.includes(r));
+      if (bad) {
+        return res.status(403).json({ success: false, error: `Invalid role assignment: ${bad}` });
+      }
+    } else if (requesterRole === "center_admin") {
+      const allowedForAdmin = ["teacher", "staff", "volunteer", "general_volunteer"];
+      const bad = requested.find((r) => !allowedForAdmin.includes(r));
+      if (bad) {
+        return res.status(403).json({ success: false, error: "Center Admins can only assign Teacher, Staff, or Volunteer roles." });
+      }
+    } else {
+      return res.status(403).json({ success: false, error: "Access Denied." });
+    }
+
+    if (!centerIds || centerIds.length === 0) {
+      return res.status(400).json({ success: false, error: "Assign at least one center to the user." });
+    }
+
+    const user = await reassignUser(
+      req.params.userId as string,
+      {
+        fullName: fullName.trim(),
+        phone: phone?.trim() || undefined,
+        password,
+        role: requested[0] as UserRole,
+        roles: requested as UserRole[],
+        centerIds,
+      },
+      requester.userId,
+    );
+
+    return res.status(200).json(user);
   } catch (error) {
     return next(error);
   }

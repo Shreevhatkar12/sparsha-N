@@ -6,6 +6,7 @@ export const ROLES = {
   TEACHER: 'teacher',
   STAFF: 'staff',
   VOLUNTEER: 'volunteer',
+  GENERAL_VOLUNTEER: 'general_volunteer',
   SEHAT: 'sehat',
   PARENT: 'parent',
   SHAREHOLDER: 'shareholder',
@@ -82,6 +83,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
   [ROLES.VOLUNTEER]: [
     PERMISSIONS.VIEW_DASHBOARD,
+  ],
+  // General-purpose, rotating volunteers (e.g. college students on a
+  // temporary basis). Kept deliberately minimal — they can help with
+  // day-to-day attendance under a teacher/staff member's supervision, but
+  // cannot manage students, exams, users, or anything center-level.
+  // Widen this list later if a wider mandate is needed.
+  [ROLES.GENERAL_VOLUNTEER]: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.MANAGE_ATTENDANCE,
   ],
   [ROLES.SEHAT]: [
     PERMISSIONS.VIEW_DASHBOARD,

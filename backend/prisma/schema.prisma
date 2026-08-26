@@ -734,6 +734,7 @@ enum UserRole {
   teacher
   staff
   volunteer
+  general_volunteer
   student
   parent
   shareholder

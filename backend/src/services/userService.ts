@@ -217,6 +217,75 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   return { success: true };
 }
 
+// Re-purpose an existing (typically deactivated) login for a new person —
+// used for volunteer IDs that rotate between college students. The user
+// row's `id` never changes, so every record already linked to this userId
+// (attendance, activity logs, etc.) stays exactly as it was. Only the
+// "who is currently holding this ID" fields are overwritten.
+export async function reassignUser(
+  targetUserId: string,
+  input: {
+    fullName: string;
+    phone?: string;
+    password: string;
+    role: UserRole;
+    roles?: UserRole[];
+    centerIds?: string[];
+  },
+  adminId: string,
+) {
+  const existing = await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!existing) {
+    throw new NotFoundError("User");
+  }
+
+  if (existing.isActive) {
+    throw new ValidationError(
+      "This user is still active. Deactivate it first before reassigning the ID to someone else.",
+    );
+  }
+
+  if (input.password.length < 8) {
+    throw new ValidationError("password must be at least 8 characters");
+  }
+
+  const roleSet = input.roles?.length ? Array.from(new Set(input.roles)) : [input.role];
+  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: targetUserId },
+      data: {
+        fullName: input.fullName,
+        phone: input.phone ?? null,
+        passwordHash,
+        role: roleSet[0],
+        roles: roleSet,
+        isActive: true,
+      },
+    });
+
+    // Wipe the previous holder's center assignments and set the new ones —
+    // this only affects *future* attendance/activity lookups, it does not
+    // touch any historical rows already recorded against this userId.
+    await tx.userCenterAssignment.deleteMany({ where: { userId: targetUserId } });
+    if (input.centerIds?.length) {
+      await tx.userCenterAssignment.createMany({
+        data: input.centerIds.map((centerId) => ({
+          userId: targetUserId,
+          centerId,
+          createdBy: adminId,
+          validFrom: new Date(),
+        })),
+      });
+    }
+
+    return user;
+  });
+
+  return getUserById(updated.id);
+}
+
 export async function softDeleteUser(targetUserId: string, currentUser: JwtPayload) {
   if (targetUserId === currentUser.userId) {
     throw new AppError("You cannot deactivate your own account", 400);

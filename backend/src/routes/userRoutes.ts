@@ -10,6 +10,7 @@ import {
   getUserController,
   listUsersController,
   myCentersController,
+  reassignUserController,
   resetPasswordController,
   updateUserController,
   updateUserCentersController,
@@ -36,7 +37,15 @@ userRoutes.post("/:userId/reset-password", resetPasswordController);
 // NEW FROM VANSH: Update which centers a user is assigned to
 userRoutes.put("/:userId/centers", updateUserCentersController);
 
-// 4. Deletion
+// Reuse an inactive (e.g. volunteer) login for a new person: updates name,
+// phone, password, roles and centers, then reactivates the same account so
+// all historical data tied to this userId stays intact.
+userRoutes.post("/:userId/reassign", reassignUserController);
+
+// 4. Deactivation (soft delete — sets isActive: false, keeps all data)
+userRoutes.delete("/:userId", deleteUserController);
+
+// 5. Permanent deletion
 userRoutes.delete("/:userId/permanent", permanentDeleteUserController);
 
 export default userRoutes;

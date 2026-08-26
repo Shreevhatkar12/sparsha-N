@@ -14,6 +14,7 @@ import {
   deactivateUser,
   deleteUser,
   listUsers,
+  reassignUser,
   resetUserPassword,
   updateUser,
   updateUserCenters,
@@ -43,21 +44,25 @@ export const UsersAdmin: React.FC = () => {
   const canDelete = ['super_admin', 'tech_admin'].includes(currentUser?.role || '');
 
   const roleOptions: UserRole[] = currentUser?.role === 'super_admin'
-    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'supervisor', 'volunteer', 'sehat']
+    ? ['super_admin', 'center_admin', 'tech_admin', 'teacher', 'staff', 'supervisor', 'volunteer', 'general_volunteer', 'sehat']
     : currentUser?.role === 'tech_admin'
-    ? ['teacher', 'staff', 'volunteer', 'sehat']
-    : ['teacher', 'staff', 'volunteer'];
+    ? ['teacher', 'staff', 'volunteer', 'general_volunteer', 'sehat']
+    : ['teacher', 'staff', 'volunteer', 'general_volunteer'];
 
-  // The 'supervisor' role is the Swayam 2 coordinator; 'volunteer' is the
-  // Digital Literacy (computer class) teacher.
+  // The 'supervisor' role is the Swayam 2 coordinator; the 'volunteer' enum
+  // value is actually the Digital Literacy (computer class) teacher.
+  // 'general_volunteer' is the real, rotating "temp helper" role — separate
+  // from Digital Literacy — used for short-term college volunteers.
   const roleLabel = (r: string) =>
     r === 'supervisor'
       ? 'SWAYAM COORDINATOR'
       : r === 'volunteer'
         ? 'DIGITAL LITERACY'
-        : r === 'sehat'
-          ? 'SEHAT (HEALTH)'
-          : r.toUpperCase().replace(/_/g, ' ');
+        : r === 'general_volunteer'
+          ? 'VOLUNTEER'
+          : r === 'sehat'
+            ? 'SEHAT (HEALTH)'
+            : r.toUpperCase().replace(/_/g, ' ');
 
   const [rows, setRows] = useState<UserWithCenters[]>([]);
   const [centers, setCenters] = useState<{id: string, name: string}[]>([]);
@@ -101,6 +106,15 @@ export const UsersAdmin: React.FC = () => {
   // Delete confirm
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserWithCenters | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Reassign (reuse an inactive volunteer ID for a new person)
+  const [reassignTarget, setReassignTarget] = useState<UserWithCenters | null>(null);
+  const [reassignFullName, setReassignFullName] = useState('');
+  const [reassignPhone, setReassignPhone] = useState('');
+  const [reassignPassword, setReassignPassword] = useState('');
+  const [reassignRoles, setReassignRoles] = useState<UserRole[]>(['general_volunteer']);
+  const [reassignCenterIds, setReassignCenterIds] = useState<string[]>([]);
+  const [reassigning, setReassigning] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -271,6 +285,58 @@ export const UsersAdmin: React.FC = () => {
     }
   };
 
+  const openReassign = (user: UserWithCenters) => {
+    setReassignTarget(user);
+    setReassignFullName('');
+    setReassignPhone('');
+    setReassignPassword('');
+    setReassignRoles(rolesOf(user).length ? rolesOf(user) : ['general_volunteer']);
+    setReassignCenterIds(user.centerAssignments?.map((a) => a.center?.id || a.centerId) || []);
+  };
+
+  const handleReassign = async () => {
+    if (!reassignTarget) return;
+    if (!reassignFullName.trim()) {
+      setError('Enter the new volunteer\'s full name.');
+      return;
+    }
+    if (reassignPassword.length < 8) {
+      setError('New password must be at least 8 characters.');
+      return;
+    }
+    if (reassignRoles.length === 0) {
+      setError('Select at least one role.');
+      return;
+    }
+    if (reassignCenterIds.length === 0) {
+      setError('Assign at least one center.');
+      return;
+    }
+    setReassigning(true);
+    setError(null);
+    try {
+      await reassignUser(reassignTarget.id, {
+        fullName: reassignFullName.trim(),
+        phone: reassignPhone.trim() || undefined,
+        password: reassignPassword,
+        role: reassignRoles[0],
+        roles: reassignRoles,
+        centerIds: reassignCenterIds,
+      });
+      setReassignTarget(null);
+      await loadData();
+    } catch (err: unknown) {
+      let msg = 'Failed to reassign this ID.';
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as { error?: string; message?: string } | undefined;
+        msg = data?.error || data?.message || msg;
+      }
+      setError(msg);
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   if (!canAccess) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -370,6 +436,16 @@ export const UsersAdmin: React.FC = () => {
           >
             Deactivate
           </Button>
+          {!u.isActive && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => openReassign(u)}
+              title="Give this ID to a new volunteer — keeps all past data"
+            >
+              Reassign
+            </Button>
+          )}
           {canDelete && currentUser?.id !== u.id && (
             <Button
               variant="danger"
@@ -549,6 +625,98 @@ export const UsersAdmin: React.FC = () => {
               >
                 <Check size={14} className="mr-1" />
                 Save Assignments
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Modal — reuse an inactive volunteer ID for a new person */}
+      {reassignTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-neutral-900/60 backdrop-blur-sm" onClick={() => setReassignTarget(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-lg p-0 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">Reassign ID</h3>
+                <p className="text-sm text-neutral-500 mt-0.5">{reassignTarget.email}</p>
+              </div>
+              <button onClick={() => setReassignTarget(null)} className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 max-h-[65vh] overflow-y-auto space-y-3">
+              <p className="text-xs text-neutral-500">
+                This login was previously used by <span className="font-medium">{reassignTarget.fullName}</span>.
+                Give it to a new volunteer below — the email/ID stays the same,
+                but the name, password, roles and centers update to the new
+                person. Everything already recorded under this ID (attendance,
+                activities, etc.) stays exactly as it was.
+              </p>
+
+              <Input label="New Volunteer's Full Name" value={reassignFullName} onChange={(e) => setReassignFullName(e.target.value)} required />
+              <Input label="Phone" value={reassignPhone} onChange={(e) => setReassignPhone(e.target.value)} />
+              <Input label="New Password" type="password" value={reassignPassword} onChange={(e) => setReassignPassword(e.target.value)} helperText="Minimum 8 characters" required />
+
+              <div>
+                <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-1.5 block">
+                  Roles
+                </label>
+                <div className="flex flex-wrap gap-2 border border-neutral-200 p-3 rounded-lg">
+                  {roleOptions.map((r) => {
+                    const idx = reassignRoles.indexOf(r);
+                    const active = idx !== -1;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => toggleRole(r, reassignRoles, setReassignRoles)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          active
+                            ? 'bg-brand-600 text-white border-brand-600'
+                            : 'bg-white text-neutral-600 border-neutral-300 hover:border-brand-400'
+                        }`}
+                      >
+                        {roleLabel(r)}
+                        {idx === 0 && ' ★'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-1.5 block">
+                  Assigned Centers
+                </label>
+                <div className="grid grid-cols-2 gap-2 border border-neutral-200 p-3 rounded-lg max-h-32 overflow-y-auto">
+                  {centers.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-neutral-50 p-1 rounded transition-colors">
+                      <input
+                        type="checkbox"
+                        className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                        checked={reassignCenterIds.includes(c.id)}
+                        onChange={() =>
+                          setReassignCenterIds((prev) =>
+                            prev.includes(c.id) ? prev.filter((id) => id !== c.id) : [...prev, c.id],
+                          )
+                        }
+                      />
+                      <span className="truncate">{c.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-6 py-3 border-t border-neutral-100 bg-neutral-50">
+              <Button variant="secondary" size="sm" onClick={() => setReassignTarget(null)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" isLoading={reassigning} onClick={() => void handleReassign()}>
+                <Check size={14} className="mr-1" />
+                Reassign & Activate
               </Button>
             </div>
           </div>

@@ -42,6 +42,15 @@ export type CenterProgramAssignment = {
   programId?: string | null;
 };
 
+export type ReassignUserPayload = {
+  fullName: string;
+  phone?: string;
+  password: string;
+  role: UserRole;
+  roles?: UserRole[];
+  centerIds: string[];
+};
+
 export const listUsers = (params?: {
   page?: number;
   limit?: number;
@@ -66,4 +75,11 @@ export const updateUserCenters = (userId: string, assignments: CenterProgramAssi
   api.put(`/users/${userId}/centers`, { assignments }).then((r) => r.data);
 
 export const deleteUser = (userId: string) =>
-  api.delete(`/users/${userId}/permanent`).then((r) => r.data);
+  api.delete(`/users/${userId}/permanent`).then((r) => r.data);
+
+// Reuses an inactive login (e.g. a volunteer ID) for a new person. Same
+// email/ID stays, name/phone/password/roles/centers get overwritten, and all
+// history already tied to this userId (attendance, activities, etc.) is
+// left untouched.
+export const reassignUser = (userId: string, payload: ReassignUserPayload) =>
+  api.post<UserAdminItem>(`/users/${userId}/reassign`, payload).then((r) => r.data);

@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'sehat' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
+export type UserRole = 'super_admin' | 'center_admin' | 'supervisor' | 'teacher' | 'staff' | 'volunteer' | 'general_volunteer' | 'sehat' | 'student' | 'parent' | 'shareholder' | 'tech_admin';
 export type Gender = 'male' | 'female' | 'other';
 export type AttendanceStatus = 'present' | 'absent' | 'late';
 export type ExamType = string;
