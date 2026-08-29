@@ -12,6 +12,37 @@ type ListActivitiesParams = {
   search?: string;
 };
 
+// The activity's real-world status is derived from today's date vs its
+// start/end date, not from a value someone has to remember to update by
+// hand. "cancelled" is the one exception — once an activity is cancelled it
+// stays cancelled regardless of dates.
+function computeActivityStatus<T extends { startDate: Date | null; endDate: Date | null; status: string }>(
+  activity: T,
+): T {
+  if (activity.status === "cancelled") {
+    return activity;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const start = activity.startDate ? new Date(activity.startDate) : null;
+  const end = activity.endDate ? new Date(activity.endDate) : start;
+  if (start) start.setHours(0, 0, 0, 0);
+  if (end) end.setHours(0, 0, 0, 0);
+
+  let status = activity.status;
+  if (start && today < start) {
+    status = "planned";
+  } else if (end && today > end) {
+    status = "completed";
+  } else if (start && today >= start) {
+    status = "ongoing";
+  }
+
+  return { ...activity, status };
+}
+
 export async function listActivities(user: JwtPayload, params: ListActivitiesParams) {
   const { centerId, programId, from, to, search } = params;
   const where: Prisma.ActivityWhereInput = {};
@@ -56,7 +87,7 @@ export async function listActivities(user: JwtPayload, params: ListActivitiesPar
     };
   }
 
-  return prisma.activity.findMany({
+  const activities = await prisma.activity.findMany({
     where,
     include: {
       program: { select: { name: true } },
@@ -64,6 +95,8 @@ export async function listActivities(user: JwtPayload, params: ListActivitiesPar
     },
     orderBy: { startDate: "desc" },
   });
+
+  return activities.map(computeActivityStatus);
 }
 
 export async function getActivity(user: JwtPayload, activityId: string) {
@@ -100,11 +133,11 @@ export async function getActivity(user: JwtPayload, activityId: string) {
     }
   }
 
-  return activity;
+  return computeActivityStatus(activity);
 }
 
-export async function createActivity(user: JwtPayload, data: { centerIds: string[]; programId?: string; name: string; description?: string; volunteers?: string[]; startDate?: string | Date; endDate?: string | Date }) {
-  const { centerIds, programId, name, description, volunteers, startDate, endDate } = data;
+export async function createActivity(user: JwtPayload, data: { centerIds: string[]; programId?: string; name: string; description?: string; volunteers?: string[]; startDate?: string | Date; endDate?: string | Date; startTime?: string; endTime?: string }) {
+  const { centerIds, programId, name, description, volunteers, startDate, endDate, startTime, endTime } = data;
 
   if (!centerIds || !centerIds.length || !name) {
     throw new ValidationError("centerIds and name are required");
@@ -127,6 +160,8 @@ export async function createActivity(user: JwtPayload, data: { centerIds: string
         volunteers: volunteers || [],
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        startTime: startTime || null,
+        endTime: endTime || null,
         createdBy: user.userId,
       },
     });
@@ -136,7 +171,7 @@ export async function createActivity(user: JwtPayload, data: { centerIds: string
   return createdActivities;
 }
 
-export async function updateActivity(user: JwtPayload, activityId: string, data: { name?: string; description?: string; startDate?: string | Date; endDate?: string | Date }) {
+export async function updateActivity(user: JwtPayload, activityId: string, data: { name?: string; description?: string; startDate?: string | Date; endDate?: string | Date; startTime?: string; endTime?: string; volunteers?: string[] }) {
   const activity = await prisma.activity.findUnique({ where: { id: activityId } });
   
   if (!activity) {
@@ -147,17 +182,22 @@ export async function updateActivity(user: JwtPayload, activityId: string, data:
     throw new ForbiddenError("No access to update this activity");
   }
 
-  const { name, description, startDate, endDate } = data;
+  const { name, description, startDate, endDate, startTime, endTime, volunteers } = data;
 
-  return prisma.activity.update({
+  const updated = await prisma.activity.update({
     where: { id: activityId },
     data: {
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description }),
       ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
       ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+      ...(startTime !== undefined && { startTime: startTime || null }),
+      ...(endTime !== undefined && { endTime: endTime || null }),
+      ...(volunteers !== undefined && { volunteers }),
     },
   });
+
+  return computeActivityStatus(updated);
 }
 
 export async function deleteActivity(user: JwtPayload, activityId: string) {
