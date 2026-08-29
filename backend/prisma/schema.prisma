@@ -143,6 +143,7 @@ model User {
   updatedAt                    DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(6)
   createdBy                    String?                  @map("created_by") @db.Uuid
   createdActivities            Activity[]               @relation("UserCreatedActivities")
+  updatedActivities            Activity[]               @relation("UserUpdatedActivities")
   activityEnrollmentsRequested ActivityEnrollment[]     @relation("ActivityRequestedBy")
   changedActivityStatus        ActivityStatusLog[]      @relation("StatusChangedBy")
   createdAlertRules            AlertRule[]              @relation("RuleCreatedBy")
@@ -206,6 +207,7 @@ model Activity {
   startTime           String?                  @map("start_time")
   endTime             String?                  @map("end_time")
   createdBy           String                   @map("created_by") @db.Uuid
+  updatedBy           String?                  @map("updated_by") @db.Uuid
   isActive            Boolean                  @default(true) @map("is_active")
   createdAt           DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -214,6 +216,7 @@ model Activity {
   attendanceCount     Int?                     @map("attendance_count")
   center              Center                   @relation(fields: [centerId], references: [id])
   createdByUser       User                     @relation("UserCreatedActivities", fields: [createdBy], references: [id])
+  updatedByUser       User?                    @relation("UserUpdatedActivities", fields: [updatedBy], references: [id])
   program             Program?                 @relation(fields: [programId], references: [id])
   activityEnrollments ActivityEnrollment[]
   activityStatusLogs  ActivityStatusLog[]

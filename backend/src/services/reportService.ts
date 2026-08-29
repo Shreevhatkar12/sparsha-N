@@ -1255,6 +1255,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     select: { startDate: true, createdAt: true, centerId: true, createdBy: true },
   });
   const actMonth = new Map<string, number>();
+  const actMonthCenter = new Map<string, Map<string, number>>();
   const actCenter = new Map<string, number>();
   const actTeacher = new Map<string, number>();
   let actTotal = 0;
@@ -1266,10 +1267,10 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     actMonth.set(k, (actMonth.get(k) ?? 0) + 1);
     actCenter.set(a.centerId, (actCenter.get(a.centerId) ?? 0) + 1);
     actTeacher.set(a.createdBy, (actTeacher.get(a.createdBy) ?? 0) + 1);
+    const monthCenters = actMonthCenter.get(k) ?? new Map<string, number>();
+    monthCenters.set(a.centerId, (monthCenters.get(a.centerId) ?? 0) + 1);
+    actMonthCenter.set(k, monthCenters);
   }
-  const activitiesMonthly = Array.from(actMonth.keys())
-    .sort()
-    .map((k) => ({ monthKey: k, label: tdMonthLabel(k), count: actMonth.get(k) ?? 0 }));
 
   // ---- meetings (student + parent) ---------------------------------
   const [stuMeet, parMeet] = await Promise.all([
@@ -1332,6 +1333,21 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     select: { id: true, name: true },
   });
   const centerName = new Map(centersList.map((c) => [c.id, c.name] as const));
+
+  // Now that we know center names, attach a per-center breakdown to each
+  // month's activity count (so the dashboard can show "which center" and
+  // not just a bare monthly total).
+  const activitiesMonthly = Array.from(actMonth.keys())
+    .sort()
+    .map((k) => ({
+      monthKey: k,
+      label: tdMonthLabel(k),
+      count: actMonth.get(k) ?? 0,
+      byCenter: Array.from((actMonthCenter.get(k) ?? new Map<string, number>()).entries())
+        .map(([centerId, count]) => ({ centerId, centerName: centerName.get(centerId) || "Unknown center", count }))
+        .sort((a, b) => b.count - a.count),
+    }));
+
   const programsList = await prisma.program.findMany({
     where: { isActive: true },
     select: { id: true, name: true },

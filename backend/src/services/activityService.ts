@@ -92,6 +92,8 @@ export async function listActivities(user: JwtPayload, params: ListActivitiesPar
     include: {
       program: { select: { name: true } },
       center: { select: { name: true } },
+      createdByUser: { select: { fullName: true } },
+      updatedByUser: { select: { fullName: true } },
     },
     orderBy: { startDate: "desc" },
   });
@@ -194,10 +196,101 @@ export async function updateActivity(user: JwtPayload, activityId: string, data:
       ...(startTime !== undefined && { startTime: startTime || null }),
       ...(endTime !== undefined && { endTime: endTime || null }),
       ...(volunteers !== undefined && { volunteers }),
+      updatedBy: user.userId,
+    },
+    include: {
+      createdByUser: { select: { fullName: true } },
+      updatedByUser: { select: { fullName: true } },
     },
   });
 
   return computeActivityStatus(updated);
+}
+
+export async function getActivityReport(user: JwtPayload, activityId: string) {
+  const activity = await prisma.activity.findUnique({
+    where: { id: activityId },
+    include: {
+      center: { select: { name: true } },
+      program: { select: { name: true } },
+      createdByUser: { select: { fullName: true } },
+      updatedByUser: { select: { fullName: true } },
+    },
+  });
+
+  if (!activity) {
+    throw new NotFoundError("Activity not found");
+  }
+
+  if (user.role !== "super_admin" && !user.centerIds.includes(activity.centerId)) {
+    throw new ForbiddenError("No access to this activity");
+  }
+
+  const sessions = await prisma.attendanceSession.findMany({
+    where: { activityId },
+    include: {
+      records: {
+        include: {
+          student: { select: { gender: true, standard: true, fullName: true } },
+        },
+      },
+    },
+    orderBy: { sessionDate: "asc" },
+  });
+
+  let presentCount = 0;
+  let absentCount = 0;
+  const genderBreakdown: Record<string, { present: number; total: number }> = {
+    male: { present: 0, total: 0 },
+    female: { present: 0, total: 0 },
+  };
+  const stdMap = new Map<string, { present: number; total: number }>();
+
+  for (const session of sessions) {
+    for (const record of session.records) {
+      const isPresent = record.status === "present" || record.status === "late";
+      if (isPresent) presentCount++;
+      else if (record.status === "absent") absentCount++;
+
+      const gender = record.student?.gender;
+      if (gender === "male" || gender === "female") {
+        genderBreakdown[gender].total++;
+        if (isPresent) genderBreakdown[gender].present++;
+      }
+
+      const std = record.student?.standard || "Unspecified";
+      const s = stdMap.get(std) ?? { present: 0, total: 0 };
+      s.total++;
+      if (isPresent) s.present++;
+      stdMap.set(std, s);
+    }
+  }
+
+  const stdBreakdown = Array.from(stdMap.entries())
+    .map(([standard, v]) => ({ standard, ...v }))
+    .sort((a, b) => a.standard.localeCompare(b.standard, undefined, { numeric: true }));
+
+  return {
+    activity: {
+      id: activity.id,
+      name: activity.name,
+      description: activity.description,
+      startDate: activity.startDate,
+      endDate: activity.endDate,
+      startTime: activity.startTime,
+      endTime: activity.endTime,
+      center: activity.center?.name,
+      program: activity.program?.name,
+      createdByName: activity.createdByUser?.fullName || null,
+      updatedByName: activity.updatedByUser?.fullName || null,
+      volunteers: activity.volunteers,
+    },
+    presentCount,
+    absentCount,
+    genderBreakdown,
+    stdBreakdown,
+    sessionDates: sessions.map((s) => s.sessionDate),
+  };
 }
 
 export async function deleteActivity(user: JwtPayload, activityId: string) {

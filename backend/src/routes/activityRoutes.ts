@@ -6,6 +6,7 @@ import { PERMISSIONS } from '../config/rbac.js';
 import {
   listActivitiesController,
   getActivityController,
+  getActivityReportController,
   createActivityController,
   updateActivityController,
   deleteActivityController,
@@ -19,6 +20,7 @@ activityRoutes.use(authenticate);
 activityRoutes.use(requireCenterAccess());
 
 activityRoutes.get("/", listActivitiesController);
+activityRoutes.get("/:activityId/report", getActivityReportController);
 activityRoutes.get("/:activityId", getActivityController);
 activityRoutes.post("/", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), createActivityController);
 activityRoutes.put("/:activityId", requirePermission(PERMISSIONS.MANAGE_ACTIVITIES), updateActivityController);

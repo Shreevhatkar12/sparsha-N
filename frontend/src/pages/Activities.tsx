@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle, Trash2, X, Users } from 'lucide-react';
+import { Calendar, Plus, Clock, MapPin, CheckCircle2, Circle, Trash2, X, Users, Eye, UserCircle2 } from 'lucide-react';
 import api from '../services/api';
 import { useAuthStore } from '../store/useAuthStore';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
@@ -26,7 +26,28 @@ interface Activity {
   volunteers: string[];
   center: { id: string; name: string };
   program: { id: string; name: string };
+  createdByUser?: { fullName: string } | null;
+  updatedByUser?: { fullName: string } | null;
 }
+
+type ActivityReport = {
+  activity: {
+    name: string;
+    center?: string;
+    program?: string;
+    startDate: string;
+    endDate: string;
+    startTime?: string | null;
+    endTime?: string | null;
+    createdByName?: string | null;
+    updatedByName?: string | null;
+    volunteers: string[];
+  };
+  presentCount: number;
+  absentCount: number;
+  genderBreakdown: Record<string, { present: number; total: number }>;
+  stdBreakdown: Array<{ standard: string; present: number; total: number }>;
+};
 
 type RosterStudent = { id: string; fullName: string; rollNumber?: string | null };
 
@@ -69,6 +90,25 @@ export const Activities: React.FC = () => {
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
   const [rosterLoading, setRosterLoading] = useState(false);
+
+  // "View report" modal — present/absent + gender + standard breakdown
+  const [reportActivity, setReportActivity] = useState<Activity | null>(null);
+  const [report, setReport] = useState<ActivityReport | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  const openReport = async (activity: Activity) => {
+    setReportActivity(activity);
+    setReport(null);
+    setReportLoading(true);
+    try {
+      const res = await api.get(`/activities/${activity.id}/report`);
+      setReport(res.data);
+    } catch (err) {
+      console.error('Failed to load activity report:', err);
+    } finally {
+      setReportLoading(false);
+    }
+  };
 
   const canManage = can('create', 'activity');
 
@@ -368,10 +408,23 @@ export const Activities: React.FC = () => {
                         {activity.volunteers.join(', ')}
                       </div>
                     )}
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                      <UserCircle2 size={14} className="text-neutral-400" />
+                      {activity.updatedByUser?.fullName
+                        ? `Last updated by ${activity.updatedByUser.fullName}`
+                        : `Created by ${activity.createdByUser?.fullName || 'Unknown'}`}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex md:flex-col justify-center gap-2 min-w-[160px]">
+                  <Button
+                    variant="ghost"
+                    className="text-xs w-full border border-neutral-100"
+                    onClick={() => void openReport(activity)}
+                  >
+                    <Eye size={14} className="mr-2" /> View Report
+                  </Button>
                   {canManage && (
                     <div className="flex flex-col gap-2">
                       <Button
@@ -540,6 +593,75 @@ export const Activities: React.FC = () => {
              </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* View Report modal */}
+      <Modal
+        isOpen={!!reportActivity}
+        onClose={() => { setReportActivity(null); setReport(null); }}
+        title={reportActivity ? `Report — ${reportActivity.name}` : 'Report'}
+      >
+        {reportLoading ? (
+          <LoadingSpinner />
+        ) : !report ? (
+          <p className="text-sm text-neutral-500">Could not load this report.</p>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <div className="text-neutral-600">
+              <p><span className="font-medium text-neutral-800">Date:</span> {formatDate(new Date(report.activity.startDate), 'MMM d, yyyy')}
+                {report.activity.startTime && ` · ${formatTime12h(report.activity.startTime)}${report.activity.endTime ? ` - ${formatTime12h(report.activity.endTime)}` : ''}`}
+              </p>
+              <p><span className="font-medium text-neutral-800">Center:</span> {report.activity.center || '—'}{report.activity.program ? ` · ${report.activity.program}` : ''}</p>
+              <p><span className="font-medium text-neutral-800">Conducted by:</span> {report.activity.updatedByName || report.activity.createdByName || 'Unknown'}</p>
+              {report.activity.volunteers?.length > 0 && (
+                <p><span className="font-medium text-neutral-800">Volunteers:</span> {report.activity.volunteers.join(', ')}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-green-700 font-medium">Present</p>
+                <p className="text-2xl font-bold text-green-800">{report.presentCount}</p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                <p className="text-xs text-red-700 font-medium">Absent</p>
+                <p className="text-2xl font-bold text-red-800">{report.absentCount}</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="font-medium text-neutral-800 mb-1">By Gender</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border border-neutral-200 rounded-lg p-2 text-center">
+                  <p className="text-xs text-neutral-500">Male</p>
+                  <p className="text-sm font-semibold text-neutral-800">{report.genderBreakdown.male?.present ?? 0} / {report.genderBreakdown.male?.total ?? 0} present</p>
+                </div>
+                <div className="border border-neutral-200 rounded-lg p-2 text-center">
+                  <p className="text-xs text-neutral-500">Female</p>
+                  <p className="text-sm font-semibold text-neutral-800">{report.genderBreakdown.female?.present ?? 0} / {report.genderBreakdown.female?.total ?? 0} present</p>
+                </div>
+              </div>
+            </div>
+
+            {report.stdBreakdown.length > 0 && (
+              <div>
+                <p className="font-medium text-neutral-800 mb-1">By Standard</p>
+                <div className="border border-neutral-200 rounded-lg divide-y divide-neutral-100">
+                  {report.stdBreakdown.map((s) => (
+                    <div key={s.standard} className="flex justify-between px-3 py-1.5 text-xs">
+                      <span>{s.standard}</span>
+                      <span className="font-medium">{s.present} / {s.total} present</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {report.presentCount === 0 && report.absentCount === 0 && (
+              <p className="text-xs text-neutral-400">No attendance was recorded for this activity.</p>
+            )}
+          </div>
+        )}
       </Modal>
     </PageWrapper>
   );

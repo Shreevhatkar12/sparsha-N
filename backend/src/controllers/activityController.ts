@@ -3,6 +3,7 @@ import type { JwtPayload } from '../lib/auth.js';
 import {
   listActivities,
   getActivity,
+  getActivityReport,
   createActivity,
   updateActivity,
   deleteActivity,
@@ -33,6 +34,16 @@ export async function getActivityController(req: Request, res: Response, next: N
     const user = (req as AuthenticatedRequest).user!;
     const activity = await getActivity(user, req.params.activityId as string);
     return res.status(200).json(activity);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function getActivityReportController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const report = await getActivityReport(user, req.params.activityId as string);
+    return res.status(200).json(report);
   } catch (error) {
     return next(error);
   }

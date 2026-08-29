@@ -63,7 +63,7 @@ export interface TeacherDashboardData {
     E: number;
     total: number;
   }>;
-  activitiesMonthly: Array<{ monthKey: string; label: string; count: number }>;
+  activitiesMonthly: Array<{ monthKey: string; label: string; count: number; byCenter?: Array<{ centerId: string; centerName: string; count: number }> }>;
   totalActivities: number;
   filterOptions: {
     centers: Array<{ id: string; name: string }>;

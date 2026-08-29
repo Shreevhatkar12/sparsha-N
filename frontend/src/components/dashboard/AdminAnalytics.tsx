@@ -72,6 +72,30 @@ const Kpi: React.FC<KpiProps> = ({ icon, tint, label, value, sub }) => (
   </Card>
 );
 
+// Tooltip for the "Activities Conducted" chart — shows the month plus a
+// per-center breakdown so it's clear whose/which center's activities these
+// were, not just a bare total.
+const ActivityTooltip: React.FC<any> = ({ active, payload, label }) => {
+  if (!active || !payload || !payload.length) return null;
+  const point = payload[0].payload as { label: string; count: number; byCenter?: Array<{ centerId: string; centerName: string; count: number }> };
+  return (
+    <div className="bg-white border border-neutral-200 rounded-lg shadow-md px-3 py-2 text-xs">
+      <div className="font-semibold text-neutral-800 mb-1">{label}</div>
+      <div className="text-amber-600 font-medium mb-1">Activities: {point.count}</div>
+      {(point.byCenter ?? []).length > 0 && (
+        <div className="border-t border-neutral-100 pt-1 space-y-0.5">
+          {point.byCenter!.map((c) => (
+            <div key={c.centerId} className="flex justify-between gap-4 text-neutral-600">
+              <span>{c.centerName}</span>
+              <span className="font-medium">{c.count}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EmptyBox: React.FC<{ msg?: string }> = ({ msg }) => (
   <div className="flex items-center justify-center h-[220px] rounded-xl border border-dashed border-neutral-200 bg-neutral-50/70">
     <p className="text-sm text-neutral-400">{msg || "No data here yet"}</p>
@@ -428,7 +452,7 @@ export const AdminAnalytics: React.FC = () => {
         </SectionCard>
 
         {/* Activities */}
-        <SectionCard title="Activities Conducted" subtitle="Activities conducted per month" toggleKey="act">
+        <SectionCard title="Activities Conducted" subtitle="Activities conducted per month — hover a bar to see which center" toggleKey="act">
           {data.activitiesMonthly.length === 0 ? (
             <EmptyBox />
           ) : viewOf("act") === "graph" ? (
@@ -437,14 +461,21 @@ export const AdminAnalytics: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: AXIS_INK }} tickLine={false} label={{ value: "Month", position: "insideBottom", offset: -12, fill: AXIS_INK, fontSize: 12 }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: AXIS_INK }} tickLine={false} axisLine={false} label={{ value: "Activities", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }} />
-                <Tooltip cursor={{ fill: "#f6f8fa" }} />
+                <Tooltip cursor={{ fill: "#f6f8fa" }} content={<ActivityTooltip />} />
                 <Bar dataKey="count" name="Activities" fill={C_ACT} radius={[4, 4, 0, 0]} barSize={28}>
                   <LabelList dataKey="count" position="top" fontSize={11} fill={AXIS_INK} formatter={hideZero} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <SimpleTable head={["Month", "Activities"]} rows={data.activitiesMonthly.map((m) => [m.label, m.count])} />
+            <SimpleTable
+              head={["Month", "Activities", "By Center"]}
+              rows={data.activitiesMonthly.map((m) => [
+                m.label,
+                m.count,
+                (m.byCenter ?? []).map((c) => `${c.centerName} (${c.count})`).join(", ") || "—",
+              ])}
+            />
           )}
         </SectionCard>
       </div>
