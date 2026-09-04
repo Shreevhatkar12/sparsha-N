@@ -83,6 +83,7 @@ export const getTeacherDashboard = (params?: Record<string, string | undefined>)
 // ── Admin analytics (super/tech = all, center_admin = own centers) ────
 type Grade5 = { A: number; B: number; C: number; D: number; E: number };
 type MonthPoint = { monthKey: string; label: string; count: number };
+type ActivityMonthPoint = MonthPoint & { byCenter?: Array<{ centerId: string; centerName: string; count: number }> };
 
 export interface StdGenderRow {
   standard: string;
@@ -123,7 +124,7 @@ export interface AdminAnalyticsData {
     male: number;
     female: number;
   }>;
-  activitiesMonthly: MonthPoint[];
+  activitiesMonthly: ActivityMonthPoint[];
   centerComparison: Array<{
     centerId: string;
     name: string;
