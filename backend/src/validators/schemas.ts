@@ -36,6 +36,17 @@ export const updateStudentSchema = z.object({
   standard: z.string().optional().nullable(),
   aadharNumber: z.string().optional().nullable(),
   rollNumber: z.string().optional().nullable(),
+  // Career-tracking fields (already editable in the UI, were silently
+  // dropped here because they weren't listed in this schema).
+  stream: z.string().optional().nullable(),
+  post12thChoice: z.string().optional().nullable(),
+  collegeName: z.string().optional().nullable(),
+  educationDiscontinued: z.boolean().optional(),
+  // Program/Center reassignment — only Super Admin / Tech Admin are allowed
+  // to send these (enforced in the service layer), but the validator must
+  // let them through first or they never reach that check.
+  centerId: uuid.optional(),
+  programId: uuid.optional(),
 });
 
 export const createAttendanceSessionSchema = z.object({

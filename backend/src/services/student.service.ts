@@ -282,14 +282,32 @@ export const getStudentById = async (user: TokenPayload, id: string) => {
 };
 
 export const updateStudent = async (user: TokenPayload, id: string, data: Record<string, any>) => {
-  // Logic from Vansh: Prevent changing center/program after creation
-  if (typeof data === "object" && data !== null && ("centerId" in data || "programId" in data)) {
-    throw new ValidationError("centerId and programId cannot be changed after creation");
+  // Only Super Admin / Tech Admin may move a student to a different
+  // Program or Center from the edit screen. Everyone else keeps the old
+  // "locked after creation" behaviour. When it *is* changed, we never touch
+  // or delete any existing attendance/exam/skill/fee history — those rows
+  // already carry their own centerId at the time they were recorded, so
+  // moving the student forward doesn't erase anything in the past. We also
+  // log the center change to student_transfers for an audit trail, same as
+  // the formal transfer workflow does.
+  const isChangingCenterOrProgram = typeof data === "object" && data !== null && ("centerId" in data || "programId" in data);
+  const canReassign = user.role === "super_admin" || user.role === "tech_admin";
+
+  if (isChangingCenterOrProgram && !canReassign) {
+    throw new ValidationError("Only Super Admin or Tech Admin can change a student's Program/Center");
   }
 
-  
   const payload = data;
   console.log("UPDATE PAYLOAD:", JSON.stringify(payload));
+
+  let previousCenterId: string | null = null;
+  if (isChangingCenterOrProgram && payload.centerId) {
+    const existing = await prisma.student.findFirst({ where: scopedWhere(user, { id }), select: { centerId: true } });
+    if (!existing) {
+      throw new NotFoundError("Student not found or access denied");
+    }
+    previousCenterId = existing.centerId;
+  }
 
   const result = await prisma.student.updateMany({
     where: scopedWhere(user, { id }),
@@ -301,6 +319,19 @@ export const updateStudent = async (user: TokenPayload, id: string, data: Record
 
   if (result.count === 0) {
     throw new NotFoundError("Student not found or access denied");
+  }
+
+  if (previousCenterId && payload.centerId && previousCenterId !== payload.centerId) {
+    await prisma.studentTransfer.create({
+      data: {
+        studentId: id,
+        fromCenterId: previousCenterId,
+        toCenterId: payload.centerId,
+        transferDate: new Date(),
+        reason: "Program/Center changed from student edit screen",
+        approvedBy: user.userId,
+      },
+    });
   }
 
   return prisma.student.findFirst({

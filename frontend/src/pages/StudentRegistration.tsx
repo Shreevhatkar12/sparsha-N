@@ -19,6 +19,12 @@ export const StudentRegistration: React.FC = () => {
   const selectedCenterId = useAuthStore((s) => s.selectedCenterId);
   const isEditMode = Boolean(id);
   const isAdmin = ['super_admin', 'center_admin', 'tech_admin'].includes(currentUser?.role || '');
+  // Only Super Admin / Tech Admin may reassign a student's Program/Center
+  // from this screen once the student already exists. Checks both the
+  // single `role` and the multi-role `roles[]` array, since some sessions
+  // only populate one of the two.
+  const myRoleSet = [currentUser?.role, ...(currentUser?.roles || [])].filter(Boolean) as string[];
+  const canReassignCenter = myRoleSet.includes('super_admin') || myRoleSet.includes('tech_admin');
   const defaultCenter = !isAdmin && selectedCenterId ? selectedCenterId : '';
 
   const [loading, setLoading] = useState(isEditMode);
@@ -160,6 +166,7 @@ export const StudentRegistration: React.FC = () => {
           post12thChoice: formData.post12thChoice || undefined,
           collegeName: formData.collegeName || undefined,
           educationDiscontinued: formData.educationDiscontinued,
+          ...(canReassignCenter ? { centerId: formData.centerId, programId: formData.programId } : {}),
         } as any);
         navigate(`/students/${id}`);
       } else {
@@ -400,7 +407,7 @@ export const StudentRegistration: React.FC = () => {
               <select
                 name="programId"
                 required
-                disabled={isEditMode}
+                disabled={isEditMode && !canReassignCenter}
                 value={formData.programId}
                 onChange={handleChange}
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm disabled:opacity-75 disabled:bg-neutral-100"
@@ -410,6 +417,9 @@ export const StudentRegistration: React.FC = () => {
                   <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
                 ))}
               </select>
+              {isEditMode && canReassignCenter && (
+                <p className="text-[11px] text-amber-600">Changing this moves the student going forward — their past attendance/exam history stays exactly as recorded.</p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium">
@@ -418,7 +428,7 @@ export const StudentRegistration: React.FC = () => {
               <select
                 name="centerId"
                 required
-                disabled={isEditMode}
+                disabled={isEditMode && !canReassignCenter}
                 value={formData.centerId}
                 onChange={handleChange}
                 className="flex h-12 md:h-11 w-full rounded-lg border border-neutral-300 bg-white px-4 text-sm disabled:opacity-75 disabled:bg-neutral-100"
@@ -428,6 +438,9 @@ export const StudentRegistration: React.FC = () => {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
+              {isEditMode && !canReassignCenter && (
+                <p className="text-[11px] text-neutral-400">Only Super Admin / Tech Admin can change this once a student is registered.</p>
+              )}
             </div>
           </div>
         </Card>
