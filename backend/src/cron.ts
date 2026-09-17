@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import axios from 'axios';
 import prisma from './lib/prisma.js';
+import { runFullSync } from './services/backupService.js';
 
 export function startCronJobs() {
   console.log("Starting cron jobs...");
@@ -48,6 +49,21 @@ export function startCronJobs() {
       console.log(`Auto-submitted attendance. Marked ${result.count} pending records as absent.`);
     } catch (error) {
       console.error("Error running auto-submit attendance cron job:", error);
+    }
+  });
+
+  // Google Sheets live backup: pushes the full dataset (students,
+  // attendance, activities, exams, role-wise users, deleted-records log)
+  // to the configured Google Sheet every 15 minutes. No-ops silently if
+  // GOOGLE_SERVICE_ACCOUNT_EMAIL / _PRIVATE_KEY / GOOGLE_SHEET_ID aren't set.
+  cron.schedule('*/15 * * * *', async () => {
+    const result = await runFullSync();
+    if (!result.skipped) {
+      console.log(
+        result.success
+          ? `Google Sheets backup sync completed at ${new Date().toISOString()}`
+          : `Google Sheets backup sync FAILED: ${result.error}`,
+      );
     }
   });
 }
