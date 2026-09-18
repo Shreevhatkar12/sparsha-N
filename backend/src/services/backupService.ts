@@ -333,7 +333,7 @@ async function syncDeletedLog() {
 
   const inactiveStudents = await prisma.student.findMany({
     where: { isActive: false },
-    include: { center: { select: { name: true } } },
+    include: { center: { select: { name: true } }, program: { select: { name: true } } },
   });
   const inactiveUsers = await prisma.user.findMany({ where: { isActive: false } });
 
@@ -341,14 +341,17 @@ async function syncDeletedLog() {
 
   for (const s of inactiveStudents) {
     if (alreadyLogged.has(s.id)) continue;
-    newRows.push([s.id, "Student", s.fullName, s.center?.name || "", s.updatedAt.toISOString(), "Deactivated / dropped out"]);
+    newRows.push([
+      s.id, "Student", s.fullName, s.center?.name || "", s.program?.name || "",
+      "No", s.updatedAt.toISOString(), "Deactivated / dropped out",
+    ]);
   }
   for (const u of inactiveUsers) {
     if (alreadyLogged.has(u.id)) continue;
-    newRows.push([u.id, "User", u.fullName, u.role, u.updatedAt.toISOString(), "Deactivated"]);
+    newRows.push([u.id, "User", u.fullName, u.role, "", "No", u.updatedAt.toISOString(), "Deactivated"]);
   }
 
-  await appendToSheet(tab, ["ID", "Type", "Name", "Center / Role", "Detected At", "Note"], newRows);
+  await appendToSheet(tab, ["ID", "Type", "Name", "Center / Role", "Program", "Active", "Detected At", "Note"], newRows);
 }
 
 export async function runFullSync() {
