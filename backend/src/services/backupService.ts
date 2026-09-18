@@ -28,25 +28,53 @@ async function academicYearMap() {
 // ─────────────────────────── 1. Students ───────────────────────────
 // Per-student roster with who added them + their Baseline/Endline/AIP exam
 // averages, so it reads as a full academic snapshot per child.
-async function syncStudents() {
-  const yearLabel = await academicYearMap();
+// Indian school-year convention: June (month index 5, 0-based) through May
+// is one academic year. This is computed live from each student's
+// enrollment date, so it never needs manual upkeep — next year's new
+// admissions automatically get labelled "2027-28" and so on.
+function academicYearLabel(date: Date | null | undefined): string {
+  if (!date) return "";
+  const y = date.getFullYear();
+  const m = date.getMonth(); // 0 = Jan
+  const startYear = m >= 5 ? y : y - 1; // June (5) onward starts the new academic year
+  return `${startYear}-${String(startYear + 1).slice(-2)}`;
+}
 
+// ─────────────────────────── 1. Students ───────────────────────────
+// Active students only (matches the Dashboard's "Total Students" count),
+// with a subject-wise breakdown for Baseline/Endline/AIP Baseline/AIP
+// Endline exams — not just a single blended average.
+async function syncStudents() {
   const students = await prisma.student.findMany({
+    where: { isActive: true },
     include: {
       center: { select: { name: true } },
       program: { select: { name: true } },
       createdByUser: { select: { fullName: true } },
       examScores: {
-        include: { exam: { select: { examType: true } } },
+        include: {
+          exam: { select: { examType: true } },
+          subject: { select: { name: true, maxMarks: true } },
+        },
       },
     },
     orderBy: { fullName: "asc" },
   });
 
-  const avgFor = (scores: typeof students[number]["examScores"], matcher: (t: string) => boolean) => {
-    const marks = scores.filter((s) => matcher(s.exam?.examType || "") && s.marks !== null).map((s) => Number(s.marks));
-    if (marks.length === 0) return "";
-    return (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1);
+  type ScoreRow = typeof students[number]["examScores"][number];
+
+  const breakdownFor = (scores: ScoreRow[], matcher: (t: string) => boolean) => {
+    const matched = scores.filter((s) => matcher(s.exam?.examType || "") && s.marks !== null);
+    if (matched.length === 0) return { detail: "", avg: "" };
+    const detail = matched
+      .map((s) => `${s.subject?.name || "Subject"}: ${Number(s.marks)}/${s.subject?.maxMarks !== undefined ? Number(s.subject.maxMarks) : "?"}`)
+      .join(", ");
+    // Average expressed as a percentage across subjects (so different max-marks scales combine fairly).
+    const pcts = matched
+      .filter((s) => s.subject?.maxMarks)
+      .map((s) => (Number(s.marks) / Number(s.subject!.maxMarks)) * 100);
+    const avg = pcts.length ? `${(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1)}%` : "";
+    return { detail, avg };
   };
 
   await writeSheet(
@@ -54,25 +82,34 @@ async function syncStudents() {
     [
       "Student ID", "Full Name", "Standard", "Center", "Program", "Academic Year",
       "Added By", "Guardian Name", "Guardian Phone", "Enrollment Date", "Active",
-      "Baseline Avg", "Endline Avg", "AIP Baseline Avg", "AIP Endline Avg",
+      "Baseline (subject-wise)", "Baseline Avg",
+      "Endline (subject-wise)", "Endline Avg",
+      "AIP Baseline (subject-wise)", "AIP Baseline Avg",
+      "AIP Endline (subject-wise)", "AIP Endline Avg",
     ],
-    students.map((s) => [
-      s.id,
-      s.fullName,
-      s.standard || "",
-      s.center?.name || "",
-      s.program?.name || "",
-      s.academicYearId ? yearLabel.get(s.academicYearId) || "" : "",
-      s.createdByUser?.fullName || "",
-      s.guardianName || "",
-      s.guardianPhone || "",
-      d(s.enrollmentDate),
-      s.isActive ? "Yes" : "No",
-      avgFor(s.examScores, (t) => /baseline/i.test(t) && !/aip/i.test(t)),
-      avgFor(s.examScores, (t) => /endline/i.test(t) && !/aip/i.test(t)),
-      avgFor(s.examScores, (t) => /aip/i.test(t) && /baseline/i.test(t)),
-      avgFor(s.examScores, (t) => /aip/i.test(t) && /endline/i.test(t)),
-    ]),
+    students.map((s) => {
+      const baseline = breakdownFor(s.examScores, (t) => /baseline/i.test(t) && !/aip/i.test(t));
+      const endline = breakdownFor(s.examScores, (t) => /endline/i.test(t) && !/aip/i.test(t));
+      const aipBaseline = breakdownFor(s.examScores, (t) => /aip/i.test(t) && /baseline/i.test(t));
+      const aipEndline = breakdownFor(s.examScores, (t) => /aip/i.test(t) && /endline/i.test(t));
+      return [
+        s.id,
+        s.fullName,
+        s.standard || "",
+        s.center?.name || "",
+        s.program?.name || "",
+        academicYearLabel(s.enrollmentDate || s.createdAt),
+        s.createdByUser?.fullName || "",
+        s.guardianName || "",
+        s.guardianPhone || "",
+        d(s.enrollmentDate),
+        s.isActive ? "Yes" : "No",
+        baseline.detail, baseline.avg,
+        endline.detail, endline.avg,
+        aipBaseline.detail, aipBaseline.avg,
+        aipEndline.detail, aipEndline.avg,
+      ];
+    }),
   );
 }
 
