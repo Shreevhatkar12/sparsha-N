@@ -13,6 +13,7 @@ import {
   getTodayFreshSheet,
   markHoliday,
   getRecentAbsentees,
+  generateAbsenteeReportWorkbook,
 } from "../services/attendanceService.js";
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -242,6 +243,39 @@ export async function getRecentAbsenteesController(
       days,
     );
     return res.status(200).json(result);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function downloadAbsenteeReportController(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : new Date().getFullYear();
+    const monthsParam = (req.query.months as string | undefined)?.trim();
+    const months = monthsParam
+      ? monthsParam.split(",").map((m) => parseInt(m, 10)).filter((m) => m >= 1 && m <= 12)
+      : undefined;
+
+    const workbook = await generateAbsenteeReportWorkbook(
+      (req as AuthenticatedRequest).user!,
+      { year: yearParam, months },
+    );
+
+    const label = months && months.length ? `${months.length}-months` : `${yearParam}-full-year`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="absentee-report-${label}.xlsx"`,
+    );
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (error) {
     return next(error);
   }

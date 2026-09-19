@@ -5,6 +5,8 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { ErrorMessage } from "../components/ui/ErrorMessage";
+import { Modal } from "../components/ui/Modal";
+import { Download } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { listCenters, listPrograms } from "../services/centers.service";
 import {
@@ -14,6 +16,7 @@ import {
   getTodayFreshSheet,
   markHoliday,
   getRecentAbsentees,
+  downloadAbsenteeReport,
 } from "../services/attendance.service";
 import type { CenterSummary, ProgramSummary } from "../types";
 
@@ -126,6 +129,11 @@ export const Attendance: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<"mark" | "absentees">("mark");
   const [absentees, setAbsentees] = useState<any[]>([]);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportYear, setExportYear] = useState(new Date().getFullYear());
+  const [exportWholeYear, setExportWholeYear] = useState(false);
+  const [exportMonths, setExportMonths] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
   const [loadingAbsentees, setLoadingAbsentees] = useState(false);
 
   useEffect(() => {
@@ -557,7 +565,12 @@ export const Attendance: React.FC = () => {
 
       {activeTab === "absentees" && (
         <Card>
-          <h2 className="text-lg font-semibold mb-4">Absentees Tracker (Last 7 Days)</h2>
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h2 className="text-lg font-semibold">Absentees Tracker (Last 7 Days)</h2>
+            <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)}>
+              <Download size={16} className="mr-2" /> Export Long-Absentee Report
+            </Button>
+          </div>
           {loadingAbsentees ? (
             <LoadingSpinner />
           ) : absentees.length === 0 ? (
@@ -591,6 +604,96 @@ export const Attendance: React.FC = () => {
           )}
         </Card>
       )}
+
+      {/* Export long-absentee report modal */}
+      <Modal isOpen={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export Long-Absentee Report">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-500">
+            Generates an Excel file: students absent 7+ days (with separate tabs for 1+/2+/3+ months, highlighted
+            by severity), plus a "Never Attended" tab. Pick a year, then either "Whole Year" or specific months —
+            nothing is selected by default.
+          </p>
+
+          <div>
+            <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-1 block">Year</label>
+            <Input
+              type="number"
+              value={exportYear}
+              onChange={(e) => setExportYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
+              className="max-w-[140px]"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={exportWholeYear}
+              onChange={(e) => {
+                setExportWholeYear(e.target.checked);
+                if (e.target.checked) setExportMonths(new Set());
+              }}
+              className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+            />
+            Whole Year
+          </label>
+
+          <div>
+            <label className="text-xs uppercase tracking-wide text-neutral-600 font-medium mb-1.5 block">
+              Or select specific month(s)
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((label, idx) => {
+                const m = idx + 1;
+                const checked = exportMonths.has(m);
+                return (
+                  <label
+                    key={m}
+                    className={`flex items-center gap-2 text-sm px-2 py-1.5 rounded-lg border cursor-pointer ${
+                      exportWholeYear ? "opacity-40 pointer-events-none" : ""
+                    } ${checked ? "bg-brand-50 border-brand-400" : "border-neutral-200 hover:bg-neutral-50"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setExportMonths((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(m)) next.delete(m); else next.add(m);
+                          return next;
+                        })
+                      }
+                      className="rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setExportModalOpen(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              isLoading={exporting}
+              disabled={!exportWholeYear && exportMonths.size === 0}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  await downloadAbsenteeReport(exportYear, exportWholeYear ? undefined : Array.from(exportMonths));
+                  setExportModalOpen(false);
+                } catch {
+                  setError("Failed to generate report. Please try again.");
+                } finally {
+                  setExporting(false);
+                }
+              }}
+            >
+              <Download size={16} className="mr-2" /> Download Report
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </PageWrapper>
   );
 };
