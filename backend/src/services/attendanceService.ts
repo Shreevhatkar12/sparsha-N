@@ -4,6 +4,7 @@ import type { JwtPayload } from '../lib/auth.js';
 import { hasRole } from '../lib/auth.js';
 import { ForbiddenError, NotFoundError, ValidationError, AppError } from '../lib/errors.js';
 import prisma from '../lib/prisma.js';
+import { isDefaultHoliday } from '../utils/holidays.js';
 
 type SessionCreateInput = {
   centerId: string;
@@ -123,6 +124,7 @@ export async function createSession(
         sessionDate,
         activityId: input.activityId ?? null,
         createdBy: user.userId,
+        isHoliday: isDefaultHoliday(sessionDate),
       },
       include: {
         center: true,
@@ -392,8 +394,8 @@ export async function bulkUpdateSessionRecords(
     throw new ValidationError("All recordIds must belong to the provided sessionId");
   }
 
-  await prisma.$transaction(
-    records.map((record) =>
+  await prisma.$transaction([
+    ...records.map((record) =>
       prisma.attendanceRecord.update({
         where: { id: record.recordId },
         data: {
@@ -402,7 +404,18 @@ export async function bulkUpdateSessionRecords(
         },
       }),
     ),
-  );
+    // A teacher actively saving attendance means a real class was held —
+    // even on a default-holiday day (Sunday / official holiday). Un-flag
+    // the session so it counts normally in attendance %.
+    ...(session.isHoliday
+      ? [
+        prisma.attendanceSession.update({
+          where: { id: sessionId },
+          data: { isHoliday: false },
+        }),
+      ]
+      : []),
+  ]);
 
   const updatedSession = await prisma.attendanceSession.findUnique({
     where: { id: sessionId },
@@ -454,6 +467,7 @@ export async function getStudentAttendanceHistory(
       studentId,
       ...(user.role === "super_admin" ? {} : { centerId: { in: user.centerIds } }),
       session: {
+        isHoliday: false,
         ...(query.programId ? { programId: query.programId } : {}),
         ...((from || to)
           ? {
@@ -532,11 +546,16 @@ export async function getAttendanceSummary(
       late,
       total: session.records.length,
       attendanceRate: rate,
+      isHoliday: session.isHoliday,
     };
   });
 
+  // Holiday sessions (Sunday / official holidays with no real class held)
+  // are still listed above for visibility, but excluded from the totals
+  // and overall rate so the percentage reflects working days only.
   const totals = sessionStats.reduce(
     (acc, item) => {
+      if (item.isHoliday) return acc;
       acc.present += item.present;
       acc.absent += item.absent;
       acc.late += item.late;

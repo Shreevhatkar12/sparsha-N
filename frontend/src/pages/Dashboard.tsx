@@ -187,9 +187,11 @@ const AdminDashboard: React.FC = () => {
                   <span className="text-neutral-500 font-bold text-xs uppercase tracking-wider">Growth Index</span>
                 </div>
                 <p className="text-4xl font-black text-neutral-900 mb-1">
-                   {Number(data?.totalStudents ?? 0) > 0 ? Math.round((Number(data?.newStudentsThisMonth ?? 0) / Number(data?.totalStudents ?? 1)) * 100) : 0}%
+                   {Number(data?.growthIndex ?? 0)}%
                 </p>
-                <span className="text-xs text-neutral-400 font-medium">Monthly acquisition rate</span>
+                <span className="text-xs text-neutral-400 font-medium">
+                  Attendance {Number(data?.monthlyAttendanceRate ?? 0)}% · Exam marks {Number(data?.monthlyExamMarksPercent ?? 0)}% (this month)
+                </span>
               </div>
             </Card>
           </div>

@@ -37,7 +37,7 @@ export async function getDashboardSummary(user: JwtPayload) {
     where: {
       centerId: centerScope,
       student: { isActive: true },
-      session: { sessionDate: { gte: thirtyDaysAgo } }
+      session: { sessionDate: { gte: thirtyDaysAgo }, isHoliday: false }
     },
     _count: { status: true },
   });
@@ -60,7 +60,7 @@ export async function getDashboardSummary(user: JwtPayload) {
     // rate for this specific center
     const cAtt = await prisma.attendanceRecord.groupBy({
       by: ['status'],
-      where: { centerId: center.id, student: { isActive: true } },
+      where: { centerId: center.id, student: { isActive: true }, session: { isHoliday: false } },
       _count: { status: true },
     });
     let cp = 0, cl = 0, ct = 0;
@@ -124,7 +124,8 @@ export async function getDashboardSummary(user: JwtPayload) {
     // Swayam programs not set up yet on this DB — leave raw counts as-is.
   }
 
-  // Growth (new students this month)
+  // Growth (new students this month) — kept for reference elsewhere on
+  // the dashboard, no longer used for the Growth Index itself.
   const firstOfMonth = new Date();
   firstOfMonth.setDate(1);
   firstOfMonth.setHours(0, 0, 0, 0);
@@ -137,11 +138,63 @@ export async function getDashboardSummary(user: JwtPayload) {
     }
   });
 
+  // ------------------------------------------------------------------
+  // Growth Index = this month's attendance % combined with this month's
+  // exam marks %. Holiday sessions (Sunday / official holidays with no
+  // real class held) are excluded, same as everywhere else.
+  // ------------------------------------------------------------------
+  const monthlyAttendanceGroups = await prisma.attendanceRecord.groupBy({
+    by: ['status'],
+    where: {
+      centerId: centerScope,
+      student: { isActive: true },
+      session: { sessionDate: { gte: firstOfMonth }, isHoliday: false }
+    },
+    _count: { status: true },
+  });
+  let mPresent = 0, mLate = 0, mAttTotal = 0;
+  for (const group of monthlyAttendanceGroups) {
+    if (group.status === 'present') mPresent += group._count.status;
+    if (group.status === 'late') mLate += group._count.status;
+    mAttTotal += group._count.status;
+  }
+  const monthlyAttendanceRate = mAttTotal === 0 ? 0 : Math.round(((mPresent + mLate) / mAttTotal) * 100);
+
+  const monthlyExamScores = await prisma.examScore.findMany({
+    where: {
+      centerId: centerScope,
+      isAbsent: false,
+      marks: { not: null },
+      exam: { examDate: { gte: firstOfMonth } },
+    },
+    select: {
+      marks: true,
+      subject: { select: { maxMarks: true } },
+    },
+  });
+  let examObtained = 0, examMax = 0;
+  for (const sc of monthlyExamScores) {
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max || sc.marks === null) continue;
+    examObtained += Number(sc.marks);
+    examMax += max;
+  }
+  const monthlyExamMarksPercent = examMax === 0 ? 0 : Math.round((examObtained / examMax) * 100);
+
+  // No exams entered yet this month → Growth Index falls back to
+  // attendance alone rather than dragging the average down with a 0.
+  const growthIndex = monthlyExamScores.length === 0
+    ? monthlyAttendanceRate
+    : Math.round((monthlyAttendanceRate + monthlyExamMarksPercent) / 2);
+
   return {
     totalStudents,
     totalCenters: totalCentersList.length,
     overallAttendanceRate,
     newStudentsThisMonth,
+    monthlyAttendanceRate,
+    monthlyExamMarksPercent,
+    growthIndex,
     centerBreakdown,
     programBreakdown
   };
@@ -720,7 +773,7 @@ export async function getTeacherDashboard(user: JwtPayload, query: any) {
     const records = await prisma.attendanceRecord.findMany({
       where: {
         studentId: { in: filteredIds },
-        session: { sessionDate: { gte: start, lt: end } },
+        session: { sessionDate: { gte: start, lt: end }, isHoliday: false },
       },
       select: { status: true, session: { select: { sessionDate: true } } },
     });
@@ -1186,7 +1239,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   // ---- attendance (last 12 months) ---------------------------------
   const records = ids.length
     ? await prisma.attendanceRecord.findMany({
-        where: { studentId: { in: ids }, session: { sessionDate: { gte: start, lt: end } } },
+        where: { studentId: { in: ids }, session: { sessionDate: { gte: start, lt: end }, isHoliday: false } },
         select: {
           status: true,
           studentId: true,

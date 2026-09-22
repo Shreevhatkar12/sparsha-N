@@ -425,6 +425,7 @@ export const getStudentSummary = async (user: TokenPayload, id: string) => {
       center: true,
       program: true,
       attendanceRecords: {
+        where: { session: { isHoliday: false } },
         include: { session: true },
         orderBy: { session: { sessionDate: "desc" } },
       },
@@ -487,6 +488,7 @@ export const getStudentProfile = async (user: TokenPayload, id: string) => {
       center: true,
       program: true,
       attendanceRecords: {
+        where: { session: { isHoliday: false } },
         include: { session: true },
         orderBy: { session: { sessionDate: "desc" } },
         take: 10,
@@ -909,8 +911,8 @@ export const updateStudentFees = async (
 export const getDashboardStats = async () => {
   const [totalStudents, totalAttendance, presentCount] = await Promise.all([
     prisma.student.count({ where: { isActive: true } }),
-    prisma.attendanceRecord.count({ where: { student: { isActive: true } } }),
-    prisma.attendanceRecord.count({ where: { status: "present", student: { isActive: true } } }),
+    prisma.attendanceRecord.count({ where: { student: { isActive: true }, session: { isHoliday: false } } }),
+    prisma.attendanceRecord.count({ where: { status: "present", student: { isActive: true }, session: { isHoliday: false } } }),
   ]);
 
   const attendanceRate = totalAttendance > 0 ? Number(((presentCount / totalAttendance) * 100).toFixed(1)) : 0;
