@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import type { JwtPayload } from '../lib/auth.js';
 import { hasAnyRole } from '../lib/auth.js';
 import { ForbiddenError } from '../lib/errors.js';
+import { getSwayamDashboardCounts } from './swayamService.js';
 
 // Helper to apply center scope safely
 function getCenterScope(user: JwtPayload) {
@@ -90,7 +91,7 @@ export async function getDashboardSummary(user: JwtPayload) {
     select: { id: true, name: true }
   });
 
-  const programBreakdown = programCounts.map((pc: any) => {
+  let programBreakdown = programCounts.map((pc: any) => {
     const p = programsMap.find((x: any) => x.id === pc.programId);
     return {
       programId: pc.programId,
@@ -98,6 +99,30 @@ export async function getDashboardSummary(user: JwtPayload) {
       studentCount: pc._count.programId
     };
   });
+
+  // Override Dropout Students / Re-enrolled Students / Sponsorship &
+  // Scholarship Students with the corrected, business-rule counts (school
+  // dropouts only, and only sponsorship rows the coordinator has kept
+  // "included" — see getSwayamDashboardCounts for why). Every other
+  // program keeps its plain headcount. Wrapped defensively so a fresh DB
+  // without these Swayam programs yet doesn't break the whole dashboard.
+  try {
+    const swayamCounts = await getSwayamDashboardCounts(centerScope);
+    programBreakdown = programBreakdown.map((p: any) => {
+      if (p.programId === swayamCounts.programIds.dropout) {
+        return { ...p, studentCount: swayamCounts.dropoutSchoolCount };
+      }
+      if (p.programId === swayamCounts.programIds.reenrolled) {
+        return { ...p, studentCount: swayamCounts.reenrolledSchoolCount };
+      }
+      if (p.programId === swayamCounts.programIds.sponsorship) {
+        return { ...p, studentCount: swayamCounts.sponsorshipIncludedCount };
+      }
+      return p;
+    });
+  } catch {
+    // Swayam programs not set up yet on this DB — leave raw counts as-is.
+  }
 
   // Growth (new students this month)
   const firstOfMonth = new Date();

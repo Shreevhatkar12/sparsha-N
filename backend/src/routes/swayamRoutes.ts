@@ -16,6 +16,7 @@ import {
   updateSponsorshipController,
   markSponsorshipDoneController,
   revertSponsorshipController,
+  setSponsorshipIncludeController,
 } from '../controllers/swayamController.js';
 
 const router = Router();
@@ -41,5 +42,6 @@ router.post('/sponsorships', createSponsorshipController);
 router.put('/sponsorships/:id', updateSponsorshipController);
 router.post('/sponsorships/:id/done', markSponsorshipDoneController);
 router.post('/sponsorships/:id/revert', revertSponsorshipController);
+router.put('/sponsorships/:id/include', setSponsorshipIncludeController);
 
 export default router;

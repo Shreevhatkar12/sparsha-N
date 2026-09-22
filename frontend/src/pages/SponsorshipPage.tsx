@@ -11,6 +11,7 @@ import {
   updateSponsorship,
   markSponsorshipDone,
   revertSponsorship,
+  setSponsorshipInclude,
   deleteSwayamStudent,
   type SponsorshipStudent,
   type SponsorshipListResponse,
@@ -84,6 +85,7 @@ export const SponsorshipPage: React.FC = () => {
     scholarship: 0,
     male: 0,
     female: 0,
+    includedInDashboard: 0,
   };
 
   const visibleRows = useMemo(() => {
@@ -200,6 +202,26 @@ export const SponsorshipPage: React.FC = () => {
     }
   };
 
+  // Checkbox — include/exclude this student from the main admin
+  // dashboard's Sponsorship count. Optimistic update, no confirm dialog
+  // needed since data is never touched.
+  const handleToggleInclude = async (r: SponsorshipStudent) => {
+    const next = !r.includeInCount;
+    setData((prev) => {
+      if (!prev) return prev;
+      const patch = (list: SponsorshipStudent[]) =>
+        list.map((x) => (x.id === r.id ? { ...x, includeInCount: next } : x));
+      return { ...prev, pending: patch(prev.pending), done: patch(prev.done) };
+    });
+    try {
+      await setSponsorshipInclude(r.id, next);
+      await load();
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Could not update dashboard count.');
+      await load();
+    }
+  };
+
   const handleDelete = async (r: SponsorshipStudent) => {
     if (!window.confirm(`Delete ${r.fullName}? This will remove them from all lists and reports.`)) return;
     try {
@@ -274,6 +296,7 @@ export const SponsorshipPage: React.FC = () => {
                 ['Stream', viewRow.stream || '—'],
                 ['Type', TYPE_LABEL[viewRow.supportType]],
                 ['Status', viewRow.status === 'done' ? 'Done ✅' : 'Pending ⏳'],
+                ['On Admin Dashboard', viewRow.includeInCount ? 'Yes ✅' : 'No — excluded'],
               ].map(([k, v]) => (
                 <div key={String(k)}>
                   <div className="text-[10px] uppercase tracking-wide text-neutral-400 font-semibold">{k}</div>
@@ -315,13 +338,17 @@ export const SponsorshipPage: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-4">
           {/* overview tiles */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {tile('Total Students', counts.total)}
             {tile('Pending', counts.pending, '#eda100')}
             {tile('Done', counts.done, '#008300')}
             {tile('Sponsorship', counts.sponsorship, '#2a78d6')}
             {tile('Scholarship', counts.scholarship, '#4a3aa7')}
+            {tile('On Dashboard', counts.includedInDashboard, '#111827')}
           </div>
+          <p className="text-xs text-neutral-500 -mt-2">
+            Uncheck a student below if they're already counted under Swayam 2 — main admin dashboard shows only the checked ones ({counts.includedInDashboard} of {counts.total}).
+          </p>
 
           {/* add / edit form */}
           {showForm && (
@@ -490,6 +517,7 @@ export const SponsorshipPage: React.FC = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-neutral-50">
                     <tr className="text-left text-neutral-600 border-b border-neutral-200">
+                      <th className="py-2.5 px-3 font-medium text-center" title="Counted on the main admin dashboard">On Dashboard</th>
                       <th className="py-2.5 px-3 font-medium">Student</th>
                       <th className="py-2.5 px-3 font-medium text-center">Type</th>
                       <th className="py-2.5 px-3 font-medium text-center">Std / Course</th>
@@ -504,6 +532,19 @@ export const SponsorshipPage: React.FC = () => {
                         key={r.id}
                         className={`border-b border-neutral-100 hover:bg-neutral-50 ${i % 2 ? 'bg-neutral-50/50' : ''}`}
                       >
+                        <td className="py-2.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={r.includeInCount}
+                            onChange={() => void handleToggleInclude(r)}
+                            title={
+                              r.includeInCount
+                                ? 'Counted in the main admin dashboard — uncheck to exclude (e.g. already counted under Swayam 2)'
+                                : 'Not counted in the main admin dashboard'
+                            }
+                            className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="py-2.5 px-3">
                           <div className="font-medium text-neutral-900">{r.fullName}</div>
                           <div className="text-xs text-neutral-500">

@@ -17,6 +17,7 @@ import {
   updateSponsorshipStudent,
   markSponsorshipDone,
   revertSponsorshipStudent,
+  setSponsorshipInclude,
 } from '../services/swayamService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -184,6 +185,20 @@ export async function revertSponsorshipController(req: Request, res: Response, n
   try {
     const user = ensureAccess(req);
     const data = await revertSponsorshipStudent(user, req.params.id as string);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Checkbox on the Sponsorship panel — include/exclude this student from the
+// main admin dashboard's Sponsorship count (used to avoid double-counting
+// children already counted under Swayam 2). Data itself is never touched.
+export async function setSponsorshipIncludeController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const include = req.body?.include !== false;
+    const data = await setSponsorshipInclude(user, req.params.id as string, include);
     return res.status(200).json({ success: true, ...data });
   } catch (err) {
     return next(err);

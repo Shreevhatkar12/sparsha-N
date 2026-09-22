@@ -59,6 +59,10 @@ export const deleteSwayamStudent = (id: string) =>
 
 // ── Dropout tracking ──────────────────────────────────────────────────
 
+// "center" = dropped out of the SPARSHA center; "school" = dropped out of
+// school/college. Only "school" counts on the main admin dashboard.
+export type DropoutType = 'center' | 'school' | '';
+
 export interface DropoutStudent {
   id: string;
   programId: string;
@@ -69,6 +73,7 @@ export interface DropoutStudent {
   age: number | null;
   dropoutStd: string;
   dropoutYear: number | null;
+  dropoutType: DropoutType;
   animatorName: string;
   reason: string;
   locationType: SwayamLocation;
@@ -83,7 +88,16 @@ export interface DropoutStudent {
 export interface DropoutListResponse {
   dropouts: DropoutStudent[];
   reenrolled: DropoutStudent[];
-  counts: { dropouts: number; reenrolled: number; dropoutIn: number; dropoutOut: number };
+  counts: {
+    dropouts: number;
+    reenrolled: number;
+    dropoutIn: number;
+    dropoutOut: number;
+    dropoutsSchool: number;
+    dropoutsCenter: number;
+    reenrolledSchool: number;
+    reenrolledCenter: number;
+  };
 }
 
 export interface DropoutPayload {
@@ -94,6 +108,7 @@ export interface DropoutPayload {
   aadharNumber?: string;
   dropoutStd: string;
   dropoutYear?: number | null; // null / absent when the child is Illiterate
+  dropoutType: DropoutType;
   animatorName?: string;
   reason?: string;
   locationType: SwayamLocation;
@@ -105,6 +120,7 @@ export interface ReenrollPayload {
   school: string;
   year: number;
   std: string;
+  dropoutType?: DropoutType;
 }
 
 export const listDropouts = () =>
@@ -146,6 +162,10 @@ export interface SponsorshipStudent {
   donorName: string;
   supportType: SupportType;
   status: SponsorshipStatus;
+  // Checkbox on the panel — false = kept in the data but excluded from the
+  // main admin dashboard's Sponsorship count (used to avoid double-counting
+  // a child already counted under Swayam 2). Default true.
+  includeInCount: boolean;
 }
 
 export interface SponsorshipCounts {
@@ -156,6 +176,7 @@ export interface SponsorshipCounts {
   scholarship: number;
   male: number;
   female: number;
+  includedInDashboard: number;
 }
 
 export interface SponsorshipListResponse {
@@ -193,3 +214,10 @@ export const markSponsorshipDone = (id: string) =>
 
 export const revertSponsorship = (id: string) =>
   api.post<{ success: boolean; id: string }>(`/swayam/sponsorships/${id}/revert`, {}).then((r) => r.data);
+
+// Checkbox toggle — include/exclude this student from the main admin
+// dashboard's Sponsorship count (record + data are never touched).
+export const setSponsorshipInclude = (id: string, include: boolean) =>
+  api
+    .put<{ success: boolean; id: string; includeInCount: boolean }>(`/swayam/sponsorships/${id}/include`, { include })
+    .then((r) => r.data);

@@ -361,7 +361,16 @@ function parseDropoutInput(body: SwayamBody) {
     throw new ValidationError('Area name is required for out-of-center children');
   }
 
-  return { fullName, age, gender, phone, aadharNumber, dropoutStd, dropoutYear, animatorName, reason, locationType, centerId, area };
+  // Dropout Type — "center" (dropped out of the SPARSHA center) vs "school"
+  // (dropped out of school). Only "school" dropouts count on the main admin
+  // dashboard — spec point (Dropout Type feature).
+  const dropoutTypeRaw = String(body.dropoutType ?? '').trim().toLowerCase();
+  const dropoutType: DropoutType = dropoutTypeRaw === 'center' || dropoutTypeRaw === 'school' ? dropoutTypeRaw : '';
+  if (!dropoutType) {
+    throw new ValidationError('Select Dropout Type — Center Dropout or School Dropout');
+  }
+
+  return { fullName, age, gender, phone, aadharNumber, dropoutStd, dropoutYear, animatorName, reason, locationType, centerId, area, dropoutType };
 }
 
 function dropoutProfileData(input: ReturnType<typeof parseDropoutInput>) {
@@ -374,8 +383,14 @@ function dropoutProfileData(input: ReturnType<typeof parseDropoutInput>) {
     reason: input.reason,
     locationType: input.locationType,
     area: input.locationType === 'out' ? input.area : '',
+    dropoutType: input.dropoutType,
   };
 }
+
+// "center" = dropped out of the SPARSHA center itself; "school" = dropped
+// out of school/college. '' only appears transiently for legacy rows that
+// were never edited after this feature shipped.
+type DropoutType = 'center' | 'school' | '';
 
 function parseReenrollInput(body: SwayamBody) {
   const school = String(body.school ?? '').trim();
@@ -386,7 +401,14 @@ function parseReenrollInput(body: SwayamBody) {
   }
   const std = String(body.std ?? '').trim();
   if (!std) throw new ValidationError('Re-enrolled std is required');
-  return { school, year, std };
+
+  // Optional — lets the coordinator set/correct Dropout Type from the
+  // Re-enrolled edit screen too (same two buttons: Center / School).
+  const dropoutTypeRaw = String(body.dropoutType ?? '').trim().toLowerCase();
+  const dropoutType: DropoutType | undefined =
+    dropoutTypeRaw === 'center' || dropoutTypeRaw === 'school' ? dropoutTypeRaw : undefined;
+
+  return { school, year, std, dropoutType };
 }
 
 export async function createDropoutStudent(user: JwtPayload, body: SwayamBody) {
@@ -466,6 +488,7 @@ export async function reenrollDropoutStudent(user: JwtPayload, studentId: string
     reenrollSchool: input.school,
     reenrollYear: input.year,
     reenrollStd: input.std,
+    ...(input.dropoutType ? { dropoutType: input.dropoutType } : {}),
   });
 
   return { id: studentId };
@@ -520,6 +543,7 @@ export async function updateReenrolledStudent(user: JwtPayload, studentId: strin
     reenrollSchool: input.school,
     reenrollYear: input.year,
     reenrollStd: input.std,
+    ...(input.dropoutType ? { dropoutType: input.dropoutType } : {}),
   });
 
   return { id: studentId };
@@ -566,6 +590,7 @@ export async function listDropoutData() {
       age: typeof p.age === 'number' ? p.age : null,
       dropoutStd: typeof p.dropoutStd === 'string' && p.dropoutStd ? p.dropoutStd : s.standard || '',
       dropoutYear: typeof p.dropoutYear === 'number' ? p.dropoutYear : null,
+      dropoutType: p.dropoutType === 'center' || p.dropoutType === 'school' ? p.dropoutType : '',
       animatorName: typeof p.animatorName === 'string' ? p.animatorName : '',
       reason: typeof p.reason === 'string' ? p.reason : '',
       locationType: isOut ? 'out' : 'in',
@@ -590,6 +615,11 @@ export async function listDropoutData() {
       reenrolled: reenrolled.length,
       dropoutIn: dropouts.filter((r) => r.locationType === 'in').length,
       dropoutOut: dropouts.filter((r) => r.locationType === 'out').length,
+      // School-only counts — these are what the main admin dashboard shows.
+      dropoutsSchool: dropouts.filter((r) => r.dropoutType === 'school').length,
+      dropoutsCenter: dropouts.filter((r) => r.dropoutType === 'center').length,
+      reenrolledSchool: reenrolled.filter((r) => r.dropoutType === 'school').length,
+      reenrolledCenter: reenrolled.filter((r) => r.dropoutType === 'center').length,
     },
   };
 }
@@ -843,6 +873,19 @@ export const markSponsorshipDone = (user: JwtPayload, studentId: string) =>
 export const revertSponsorshipStudent = (user: JwtPayload, studentId: string) =>
   setSponsorshipStatus(user, studentId, 'pending');
 
+// Include / exclude a student from the main admin dashboard's Sponsorship
+// count — used to avoid double-counting a child who is already counted
+// under Swayam 2. This only affects the DASHBOARD COUNT; the record and
+// its data are never removed, and Pending ⇄ Done never resets this flag
+// (checked by default, carries over automatically).
+export async function setSponsorshipInclude(user: JwtPayload, studentId: string, include: boolean) {
+  const program = await resolveSponsorshipProgram();
+  const existing = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!existing || existing.programId !== program.id) throw new NotFoundError('Sponsorship student');
+  await upsertSponsorshipProfile(user.userId, studentId, existing.centerId, { includeInCount: include });
+  return { id: studentId, includeInCount: include };
+}
+
 export async function listSponsorshipData() {
   const program = await resolveSponsorshipProgram();
   const students = await prisma.student.findMany({
@@ -881,6 +924,9 @@ export async function listSponsorshipData() {
       donorName: typeof p.donorName === 'string' ? p.donorName : '',
       supportType: p.supportType === 'scholarship' ? 'scholarship' : 'sponsorship',
       status: p.status === 'done' ? 'done' : 'pending',
+      // Default = included (checked). Only an explicit `false` excludes a
+      // student from the main dashboard's Sponsorship count.
+      includeInCount: p.includeInCount !== false,
     };
   });
 
@@ -898,6 +944,92 @@ export async function listSponsorshipData() {
       scholarship: rows.filter((r) => r.supportType === 'scholarship').length,
       male: rows.filter((r) => r.gender === 'male').length,
       female: rows.filter((r) => r.gender === 'female').length,
+      // How many of these are actually counted on the main admin dashboard
+      // (checkbox unchecked = data kept, but excluded from that count).
+      includedInDashboard: rows.filter((r) => r.includeInCount).length,
     },
+  };
+}
+
+// ----------------------------------------------------------------------
+// MAIN ADMIN DASHBOARD — corrected counts for Dropout / Re-enrolled /
+// Sponsorship & Scholarship, used by reportService.getDashboardSummary()
+// to override the raw per-program headcount:
+//   - Dropout Students / Re-enrolled Students → only "school" dropoutType
+//     counts (Center Dropout is tracked but excluded from this number).
+//   - Sponsorship & Scholarship Students → only rows with includeInCount
+//     !== false (coordinator unchecks a student here when they're already
+//     counted under Swayam 2, to avoid double-counting the same child).
+// Swayam 2's own count is left as the plain per-program headcount — no
+// filtering — since nothing marks a Swayam 2 row as "already counted
+// elsewhere".
+// ----------------------------------------------------------------------
+export async function getSwayamDashboardCounts(centerScope?: { in: string[] }) {
+  const [dropProgram, reProgram, sponsorProgram] = await Promise.all([
+    resolveDropoutProgram(),
+    resolveReenrolledProgram(),
+    resolveSponsorshipProgram(),
+  ]);
+
+  const [dropoutRows, sponsorshipRows] = await Promise.all([
+    prisma.student.findMany({
+      where: { isActive: true, centerId: centerScope, programId: { in: [dropProgram.id, reProgram.id] } },
+      select: { id: true, programId: true },
+    }),
+    prisma.student.findMany({
+      where: { isActive: true, centerId: centerScope, programId: sponsorProgram.id },
+      select: { id: true },
+    }),
+  ]);
+
+  const dropoutTpl = await prisma.formTemplate.findFirst({ where: { name: DROPOUT_TEMPLATE_NAME } });
+  const dropoutSubs =
+    dropoutTpl && dropoutRows.length
+      ? await prisma.formSubmission.findMany({
+          where: { templateId: dropoutTpl.id, studentId: { in: dropoutRows.map((s) => s.id) } },
+          orderBy: { submittedAt: 'asc' },
+          select: { studentId: true, data: true },
+        })
+      : [];
+  const dropoutProfiles = new Map<string, Record<string, unknown>>();
+  for (const s of dropoutSubs) {
+    if (s.studentId) dropoutProfiles.set(s.studentId, (s.data as Record<string, unknown>) || {});
+  }
+
+  let dropoutSchoolCount = 0;
+  let reenrolledSchoolCount = 0;
+  for (const s of dropoutRows) {
+    const p = dropoutProfiles.get(s.id) || {};
+    if (p.dropoutType !== 'school') continue;
+    if (s.programId === dropProgram.id) dropoutSchoolCount++;
+    else if (s.programId === reProgram.id) reenrolledSchoolCount++;
+  }
+
+  const sponsorTpl = await prisma.formTemplate.findFirst({ where: { name: SPONSORSHIP_TEMPLATE_NAME } });
+  const sponsorSubs =
+    sponsorTpl && sponsorshipRows.length
+      ? await prisma.formSubmission.findMany({
+          where: { templateId: sponsorTpl.id, studentId: { in: sponsorshipRows.map((s) => s.id) } },
+          orderBy: { submittedAt: 'asc' },
+          select: { studentId: true, data: true },
+        })
+      : [];
+  const sponsorProfiles = new Map<string, Record<string, unknown>>();
+  for (const s of sponsorSubs) {
+    if (s.studentId) sponsorProfiles.set(s.studentId, (s.data as Record<string, unknown>) || {});
+  }
+
+  let sponsorshipIncludedCount = 0;
+  for (const s of sponsorshipRows) {
+    const p = sponsorProfiles.get(s.id) || {};
+    if (p.includeInCount === false) continue; // explicit opt-out only — default is included
+    sponsorshipIncludedCount++;
+  }
+
+  return {
+    programIds: { dropout: dropProgram.id, reenrolled: reProgram.id, sponsorship: sponsorProgram.id },
+    dropoutSchoolCount,
+    reenrolledSchoolCount,
+    sponsorshipIncludedCount,
   };
 }

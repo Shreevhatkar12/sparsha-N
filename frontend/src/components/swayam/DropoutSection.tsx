@@ -15,6 +15,7 @@ import {
   type DropoutListResponse,
   type DropoutPayload,
   type SwayamLocation,
+  type DropoutType,
 } from '../../services/swayam.service';
 import type { CenterSummary } from '../../types';
 
@@ -58,6 +59,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
   const [locationType, setLocationType] = useState<SwayamLocation>('in');
   const [centerId, setCenterId] = useState('');
   const [area, setArea] = useState('');
+  const [dropoutType, setDropoutType] = useState<DropoutType>('');
 
   // re-enroll form state
   const [reTarget, setReTarget] = useState<DropoutStudent | null>(null);
@@ -65,6 +67,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
   const [reSchool, setReSchool] = useState('');
   const [reYear, setReYear] = useState('');
   const [reStd, setReStd] = useState('');
+  const [reDropoutType, setReDropoutType] = useState<DropoutType>('');
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,7 +76,16 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
 
   const dropouts = data?.dropouts ?? [];
   const reenrolled = data?.reenrolled ?? [];
-  const counts = data?.counts ?? { dropouts: 0, reenrolled: 0, dropoutIn: 0, dropoutOut: 0 };
+  const counts = data?.counts ?? {
+    dropouts: 0,
+    reenrolled: 0,
+    dropoutIn: 0,
+    dropoutOut: 0,
+    dropoutsSchool: 0,
+    dropoutsCenter: 0,
+    reenrolledSchool: 0,
+    reenrolledCenter: 0,
+  };
 
   const resetDropForm = () => {
     setEditingId(null);
@@ -89,6 +101,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setLocationType('in');
     setCenterId('');
     setArea('');
+    setDropoutType('');
     setError(null);
   };
 
@@ -112,6 +125,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setLocationType(s.locationType);
     setCenterId(s.locationType === 'in' ? s.centerId : '');
     setArea(s.area || '');
+    setDropoutType(s.dropoutType || '');
     setError(null);
     setSuccess(null);
     setShowForm(true);
@@ -134,6 +148,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     if (aadhar.trim() && !/^\d{12}$/.test(aadhar.trim())) return setError('Aadhar must be exactly 12 digits.');
     if (locationType === 'in' && !centerId) return setError('Please select a center.');
     if (locationType === 'out' && !area.trim()) return setError('Area name is required for out-center.');
+    if (!dropoutType) return setError('Please select Dropout Type — Center Dropout or School Dropout.');
 
     const payload: DropoutPayload = {
       fullName: fullName.trim(),
@@ -143,6 +158,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
       aadharNumber: aadhar.trim(),
       dropoutStd: dropStd.trim(),
       dropoutYear: isIlliterate ? null : yearNum,
+      dropoutType,
       animatorName: animator.trim(),
       reason: reason.trim(),
       locationType,
@@ -197,6 +213,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setReSchool('');
     setReYear('');
     setReStd('');
+    setReDropoutType(s.dropoutType || '');
     setError(null);
     setSuccess(null);
     setSubTab('re');
@@ -209,6 +226,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setReSchool(s.reenrollSchool || '');
     setReYear(s.reenrollYear != null ? String(s.reenrollYear) : '');
     setReStd(s.reenrollStd || '');
+    setReDropoutType(s.dropoutType || '');
     setError(null);
     setSuccess(null);
     setSubTab('re');
@@ -221,6 +239,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     setReSchool('');
     setReYear('');
     setReStd('');
+    setReDropoutType('');
     setError(null);
   };
 
@@ -232,8 +251,9 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
     if (reSchool.trim().length < 2) return setError('Re-enrolled school / college name is required.');
     if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2100) return setError('Valid re-enrolled year is required (e.g. 2026).');
     if (!reStd.trim()) return setError('Re-enrolled std is required (e.g. 10th).');
+    if (!reDropoutType) return setError('Please select Dropout Type — Center Dropout or School Dropout.');
 
-    const body = { school: reSchool.trim(), year: yearNum, std: reStd.trim() };
+    const body = { school: reSchool.trim(), year: yearNum, std: reStd.trim(), dropoutType: reDropoutType };
     setSaving(true);
     try {
       if (reEditing) {
@@ -341,6 +361,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                 ['Aadhar No', viewRow.aadharNumber || '—'],
                 ['Dropout Std', viewRow.dropoutStd || '—'],
                 ['Dropout Year', viewRow.dropoutYear != null ? String(viewRow.dropoutYear) : '—'],
+                ['Dropout Type', viewRow.dropoutType === 'school' ? 'School Dropout' : viewRow.dropoutType === 'center' ? 'Center Dropout' : '—'],
                 ['Animator', viewRow.animatorName || '—'],
                 [
                   'Location',
@@ -404,12 +425,17 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
       {/* ------------------------- DROPOUT SUB-TAB ------------------------- */}
       {subTab === 'drop' && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
             {tile('Total Dropout', counts.dropouts, C_DROP)}
             {tile('In Center', counts.dropoutIn, C_IN)}
             {tile('Out of Center', counts.dropoutOut, C_OUT)}
+            {tile('School Dropout', counts.dropoutsSchool, '#7c3aed')}
+            {tile('Center Dropout', counts.dropoutsCenter, '#0d9488')}
             {tile('Re-enrolled', counts.reenrolled, C_RE)}
           </div>
+          <p className="text-xs text-neutral-500 -mt-2">
+            Main admin dashboard shows only "School Dropout" — {counts.dropoutsSchool} of {counts.dropouts}.
+          </p>
 
           <div className="flex justify-end">
             <Button variant="primary" size="sm" onClick={() => (showForm ? setShowForm(false) : openAddForm())}>
@@ -482,6 +508,36 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                 <div>
                   <label className={labelCls}>Animator Name</label>
                   <input className={inputCls} value={animator} onChange={(e) => setAnimator(e.target.value)} placeholder="Animator who referred this child" />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Dropout Type *</label>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    Only "School Dropout" counts on the main admin dashboard.
+                  </p>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        ['center', 'Center Dropout'],
+                        ['school', 'School Dropout'],
+                      ] as Array<[Exclude<DropoutType, ''>, string]>
+                    ).map(([val, lbl]) => (
+                      <button
+                        type="button"
+                        key={val}
+                        onClick={() => setDropoutType(val)}
+                        className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                          dropoutType === val
+                            ? val === 'school'
+                              ? 'bg-violet-600 text-white border-violet-600'
+                              : 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">
@@ -564,6 +620,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                       <th className="py-2.5 px-3 font-medium">Child</th>
                       <th className="py-2.5 px-3 font-medium text-center">Dropout Std</th>
                       <th className="py-2.5 px-3 font-medium text-center">Year</th>
+                      <th className="py-2.5 px-3 font-medium text-center">Type</th>
                       <th className="py-2.5 px-3 font-medium">Animator</th>
                       <th className="py-2.5 px-3 font-medium">Center / Area</th>
                       <th className="py-2.5 px-3 font-medium text-center">Actions</th>
@@ -586,6 +643,21 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center text-neutral-700">{s.dropoutYear ?? '—'}</td>
+                        <td className="py-2.5 px-3 text-center">
+                          {s.dropoutType ? (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${
+                                s.dropoutType === 'school'
+                                  ? 'bg-violet-50 text-violet-700 border-violet-100'
+                                  : 'bg-teal-50 text-teal-700 border-teal-100'
+                              }`}
+                            >
+                              {s.dropoutType === 'school' ? 'School' : 'Center'}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-neutral-400" title="Edit this record to set the type">— not set</span>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3 text-neutral-700">{s.animatorName || '—'}</td>
                         <td className="py-2.5 px-3">
                           {s.locationType === 'out' ? (
@@ -608,11 +680,15 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
       {/* ----------------------- RE-ENROLLED SUB-TAB ----------------------- */}
       {subTab === 're' && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {tile('Re-enrolled', counts.reenrolled, C_RE)}
+            {tile('Re-enrolled (School)', counts.reenrolledSchool, '#7c3aed')}
             {tile('Still Dropout', counts.dropouts, C_DROP)}
             {tile('Total Tracked', counts.dropouts + counts.reenrolled)}
           </div>
+          <p className="text-xs text-neutral-500 -mt-2">
+            Main admin dashboard shows only "School Dropout" re-enrolled — {counts.reenrolledSchool} of {counts.reenrolled}.
+          </p>
 
           {/* re-enroll form */}
           {(reTarget || reEditing) ? (
@@ -637,6 +713,35 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                 <div>
                   <label className={labelCls}>Re-enrolled Std *</label>
                   <input className={inputCls} value={reStd} onChange={(e) => setReStd(e.target.value)} placeholder="e.g. 10th" required />
+                </div>
+                <div className="md:col-span-3">
+                  <label className={labelCls}>Dropout Type *</label>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    Only "School Dropout" counts on the main admin dashboard.
+                  </p>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        ['center', 'Center Dropout'],
+                        ['school', 'School Dropout'],
+                      ] as Array<[Exclude<DropoutType, ''>, string]>
+                    ).map(([val, lbl]) => (
+                      <button
+                        type="button"
+                        key={val}
+                        onClick={() => setReDropoutType(val)}
+                        className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
+                          reDropoutType === val
+                            ? val === 'school'
+                              ? 'bg-violet-600 text-white border-violet-600'
+                              : 'bg-teal-600 text-white border-teal-600'
+                            : 'bg-white text-neutral-600 border-neutral-300 hover:border-neutral-400'
+                        }`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="md:col-span-3 flex justify-end gap-2">
                   <Button variant="secondary" type="button" onClick={cancelReenroll}>
@@ -689,6 +794,7 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                       <th className="py-2.5 px-3 font-medium text-center">Re-Std</th>
                       <th className="py-2.5 px-3 font-medium text-center">Re-Year</th>
                       <th className="py-2.5 px-3 font-medium text-center">Dropout Std/Year</th>
+                      <th className="py-2.5 px-3 font-medium text-center">Type</th>
                       <th className="py-2.5 px-3 font-medium text-center">Actions</th>
                     </tr>
                   </thead>
@@ -712,6 +818,21 @@ export const DropoutSection: React.FC<Props> = ({ data, loading, centers, onRelo
                         <td className="py-2.5 px-3 text-center text-neutral-700">{s.reenrollYear ?? '—'}</td>
                         <td className="py-2.5 px-3 text-center text-neutral-500">
                           {s.dropoutStd || '—'} · {s.dropoutYear ?? '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          {s.dropoutType ? (
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold border ${
+                                s.dropoutType === 'school'
+                                  ? 'bg-violet-50 text-violet-700 border-violet-100'
+                                  : 'bg-teal-50 text-teal-700 border-teal-100'
+                              }`}
+                            >
+                              {s.dropoutType === 'school' ? 'School' : 'Center'}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-neutral-400" title="Edit this record to set the type">— not set</span>
+                          )}
                         </td>
                         <td className="py-2.5 px-3">{actionBtns(s, true)}</td>
                       </tr>
