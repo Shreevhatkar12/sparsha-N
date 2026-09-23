@@ -28,27 +28,13 @@ export async function getDashboardSummary(user: JwtPayload) {
 
   const centerIds = centerScope ? user.centerIds : totalCentersList.map((c: any) => c.id);
 
-  // Overall Attendance Rate (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const recentAttendance = await prisma.attendanceRecord.groupBy({
-    by: ['status'],
-    where: {
-      centerId: centerScope,
-      student: { isActive: true },
-      session: { sessionDate: { gte: thirtyDaysAgo }, isHoliday: false }
-    },
-    _count: { status: true },
-  });
-
-  let present = 0, late = 0, totalAtt = 0;
-  for (const group of recentAttendance) {
-    if (group.status === 'present') present += group._count.status;
-    if (group.status === 'late') late += group._count.status;
-    totalAtt += group._count.status;
-  }
-  const overallAttendanceRate = totalAtt === 0 ? 0 : Math.round(((present + late) / totalAtt) * 100);
+  // Current calendar month window — used for both the top "Attendance
+  // Rate" KPI and the Growth Index, so the two never show different
+  // numbers on the same page. Holiday sessions (Sunday / official
+  // holidays with no real class held) are excluded everywhere.
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1);
+  firstOfMonth.setHours(0, 0, 0, 0);
 
   // Center Breakdown
   const centerBreakdown = [];
@@ -126,10 +112,6 @@ export async function getDashboardSummary(user: JwtPayload) {
 
   // Growth (new students this month) — kept for reference elsewhere on
   // the dashboard, no longer used for the Growth Index itself.
-  const firstOfMonth = new Date();
-  firstOfMonth.setDate(1);
-  firstOfMonth.setHours(0, 0, 0, 0);
-
   const newStudentsThisMonth = await prisma.student.count({
     where: { 
       centerId: centerScope, 
@@ -159,6 +141,11 @@ export async function getDashboardSummary(user: JwtPayload) {
     mAttTotal += group._count.status;
   }
   const monthlyAttendanceRate = mAttTotal === 0 ? 0 : Math.round(((mPresent + mLate) / mAttTotal) * 100);
+
+  // The top "Attendance Rate" KPI and the Growth Index's attendance
+  // component are now the SAME number (this calendar month) — no more
+  // 59% vs 61% confusion from two different time windows.
+  const overallAttendanceRate = monthlyAttendanceRate;
 
   const monthlyExamScores = await prisma.examScore.findMany({
     where: {
