@@ -16,9 +16,24 @@ function getCenterScope(user: JwtPayload) {
 export async function getDashboardSummary(user: JwtPayload) {
   const centerScope = getCenterScope(user);
 
+  // Resolve the Swayam program business rules FIRST (school-only dropout /
+  // re-enrolled, included-only sponsorship — see getSwayamDashboardCounts).
+  // The same set of "hidden" students is then excluded from Total Students
+  // and Center Breakdown too, so every headline number on the dashboard
+  // reconciles with what Program Distribution shows. Wrapped defensively
+  // so a fresh DB without these Swayam programs yet doesn't break anything.
+  let swayamCounts: Awaited<ReturnType<typeof getSwayamDashboardCounts>> | null = null;
+  try {
+    swayamCounts = await getSwayamDashboardCounts(centerScope);
+  } catch {
+    // Swayam programs not set up yet on this DB — nothing to hide.
+  }
+  const hiddenStudentIds = swayamCounts?.hiddenStudentIds ?? [];
+  const hiddenFilter = hiddenStudentIds.length ? { id: { notIn: hiddenStudentIds } } : {};
+
   const [totalStudents, totalCentersList] = await Promise.all([
     prisma.student.count({
-      where: { isActive: true, centerId: centerScope },
+      where: { isActive: true, centerId: centerScope, ...hiddenFilter },
     }),
     prisma.center.findMany({
       where: { id: centerScope },
@@ -40,7 +55,7 @@ export async function getDashboardSummary(user: JwtPayload) {
   const centerBreakdown = [];
   for (const center of totalCentersList) {
     const studentCount = await prisma.student.count({
-      where: { centerId: center.id, isActive: true }
+      where: { centerId: center.id, isActive: true, ...hiddenFilter }
     });
     
     // rate for this specific center
@@ -90,24 +105,21 @@ export async function getDashboardSummary(user: JwtPayload) {
   // Scholarship Students with the corrected, business-rule counts (school
   // dropouts only, and only sponsorship rows the coordinator has kept
   // "included" — see getSwayamDashboardCounts for why). Every other
-  // program keeps its plain headcount. Wrapped defensively so a fresh DB
-  // without these Swayam programs yet doesn't break the whole dashboard.
-  try {
-    const swayamCounts = await getSwayamDashboardCounts(centerScope);
+  // program keeps its plain headcount.
+  if (swayamCounts) {
+    const sc = swayamCounts;
     programBreakdown = programBreakdown.map((p: any) => {
-      if (p.programId === swayamCounts.programIds.dropout) {
-        return { ...p, studentCount: swayamCounts.dropoutSchoolCount };
+      if (p.programId === sc.programIds.dropout) {
+        return { ...p, studentCount: sc.dropoutSchoolCount };
       }
-      if (p.programId === swayamCounts.programIds.reenrolled) {
-        return { ...p, studentCount: swayamCounts.reenrolledSchoolCount };
+      if (p.programId === sc.programIds.reenrolled) {
+        return { ...p, studentCount: sc.reenrolledSchoolCount };
       }
-      if (p.programId === swayamCounts.programIds.sponsorship) {
-        return { ...p, studentCount: swayamCounts.sponsorshipIncludedCount };
+      if (p.programId === sc.programIds.sponsorship) {
+        return { ...p, studentCount: sc.sponsorshipIncludedCount };
       }
       return p;
     });
-  } catch {
-    // Swayam programs not set up yet on this DB — leave raw counts as-is.
   }
 
   // Growth (new students this month) — kept for reference elsewhere on

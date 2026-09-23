@@ -996,11 +996,23 @@ export async function getSwayamDashboardCounts(centerScope?: { in: string[] }) {
     if (s.studentId) dropoutProfiles.set(s.studentId, (s.data as Record<string, unknown>) || {});
   }
 
+  // Students whose dropout/re-enrolled record isn't flagged "school" yet
+  // (Center Dropout, or not set at all), and sponsorship students the
+  // coordinator has explicitly unchecked. These are excluded from
+  // Program Distribution's dropout/re-enrolled/sponsorship counts, so we
+  // also exclude them from Total Students / Center Breakdown — otherwise
+  // those headline numbers wouldn't add up to what Program Distribution
+  // shows.
+  const hiddenStudentIds: string[] = [];
+
   let dropoutSchoolCount = 0;
   let reenrolledSchoolCount = 0;
   for (const s of dropoutRows) {
     const p = dropoutProfiles.get(s.id) || {};
-    if (p.dropoutType !== 'school') continue;
+    if (p.dropoutType !== 'school') {
+      hiddenStudentIds.push(s.id);
+      continue;
+    }
     if (s.programId === dropProgram.id) dropoutSchoolCount++;
     else if (s.programId === reProgram.id) reenrolledSchoolCount++;
   }
@@ -1022,7 +1034,10 @@ export async function getSwayamDashboardCounts(centerScope?: { in: string[] }) {
   let sponsorshipIncludedCount = 0;
   for (const s of sponsorshipRows) {
     const p = sponsorProfiles.get(s.id) || {};
-    if (p.includeInCount === false) continue; // explicit opt-out only — default is included
+    if (p.includeInCount === false) {
+      hiddenStudentIds.push(s.id); // explicit opt-out only — default is included
+      continue;
+    }
     sponsorshipIncludedCount++;
   }
 
@@ -1031,5 +1046,6 @@ export async function getSwayamDashboardCounts(centerScope?: { in: string[] }) {
     dropoutSchoolCount,
     reenrolledSchoolCount,
     sponsorshipIncludedCount,
+    hiddenStudentIds,
   };
 }
