@@ -3,6 +3,27 @@ import api from './api';
 export const getReportsDashboard = () =>
   api.get<Record<string, unknown>>('/reports/dashboard').then((r) => r.data);
 
+// ── AIP Impact (Holistic Development) ─────────────────────────────────
+export interface AipImpactCell {
+  studentCount: number;
+  totalMax: number;
+  totalObtained: number;
+  percent: number;
+}
+export interface AipImpactRow {
+  monthKey: string;
+  label: string;
+  baseline: Record<'1-4' | '5-7' | '8-10', AipImpactCell>;
+  endline: Record<'1-4' | '5-7' | '8-10', AipImpactCell>;
+}
+export interface AipImpactData {
+  bands: Array<{ key: '1-4' | '5-7' | '8-10'; label: string }>;
+  rows: AipImpactRow[];
+}
+
+export const getAipImpact = (params?: Record<string, string | undefined>) =>
+  api.get<AipImpactData>('/reports/aip-impact', { params }).then((r) => r.data);
+
 export const getReportsAttendance = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/reports/attendance', { params }).then((r) => r.data);
 

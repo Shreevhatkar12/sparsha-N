@@ -10,6 +10,7 @@ import {
   getTeacherDashboard,
   getAdminAnalytics,
   getExamCompletion,
+  getAipImpact,
 } from '../services/reportService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -68,6 +69,16 @@ export async function examsController(req: Request, res: Response, next: NextFun
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getExamAnalytics(user, req.query);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function aipImpactController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const data = await getAipImpact(user, req.query);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);

@@ -391,6 +391,129 @@ export async function getExamAnalytics(user: JwtPayload, query: any) {
 // ----------------------------------------------------------------------
 // SKILLS REPORT (no dedicated Skill model — averages from exam scores + skill-like forms)
 // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// AIP IMPACT (Holistic Development) — monthly AIP Baseline vs Endline
+// performance, by std band (1st-4th / 5th-7th / 8th-10th), for the main
+// dashboard's Holistic Development graph. Scope: only Sanskar + Swayam
+// program students, standards 1st-10th (Shiksha and Swayam 2 are out of
+// AIP's scope, as are Nursery/KG and 11th-12th — the AIP curriculum
+// doesn't cover them).
+// ----------------------------------------------------------------------
+const AIP_BAND_MAP: Record<string, '1-4' | '5-7' | '8-10'> = {
+  '1st': '1-4', '2nd': '1-4', '3rd': '1-4', '4th': '1-4',
+  '5th': '5-7', '6th': '5-7', '7th': '5-7',
+  '8th': '8-10', '9th': '8-10', '10th': '8-10',
+};
+const AIP_BANDS: Array<{ key: '1-4' | '5-7' | '8-10'; label: string }> = [
+  { key: '1-4', label: '1st - 4th' },
+  { key: '5-7', label: '5th - 7th' },
+  { key: '8-10', label: '8th - 10th' },
+];
+
+export async function getAipImpact(user: JwtPayload, query: any = {}) {
+  const centerScope = getCenterScope(user);
+
+  // Same Month / Year filter the rest of Organisation Analytics uses, so
+  // the Holistic Dev graph respects it instead of always showing every
+  // month of AIP data at once.
+  const { start, end } = tdResolvePeriod(query);
+
+  // Optional center filter from the analytics filter bar (on top of the
+  // role-based centerScope restriction).
+  const fCenter = typeof query?.centerId === 'string' && query.centerId.trim() ? query.centerId.trim() : undefined;
+  const isSuper = user.role === 'super_admin';
+  const centerFilter: { in: string[] } | undefined = isSuper
+    ? fCenter
+      ? { in: [fCenter] }
+      : undefined
+    : fCenter && user.centerIds.includes(fCenter)
+      ? { in: [fCenter] }
+      : centerScope;
+
+  const [sanskarProgram, swayamProgram] = await Promise.all([
+    prisma.program.findFirst({ where: { name: { equals: 'Sanskar', mode: 'insensitive' } } }),
+    prisma.program.findFirst({ where: { name: { equals: 'Swayam', mode: 'insensitive' } } }),
+  ]);
+  const programIds = [sanskarProgram?.id, swayamProgram?.id].filter((x): x is string => !!x);
+  if (programIds.length === 0) {
+    return { bands: AIP_BANDS, rows: [] };
+  }
+
+  const scores = await prisma.examScore.findMany({
+    where: {
+      centerId: centerFilter,
+      isAbsent: false,
+      marks: { not: null },
+      exam: { examType: { in: ['AIP Baseline', 'AIP Endline'] } },
+      student: { isActive: true, programId: { in: programIds } },
+    } as never,
+    select: {
+      marks: true,
+      studentId: true,
+      subject: { select: { maxMarks: true } },
+      exam: { select: { examType: true, examDate: true, createdAt: true } },
+      student: { select: { standard: true } },
+    },
+  });
+
+  type Cell = { studentIds: Set<string>; obtained: number; max: number };
+  const emptyCell = (): Cell => ({ studentIds: new Set(), obtained: 0, max: 0 });
+  const emptyBandSet = () => ({ '1-4': emptyCell(), '5-7': emptyCell(), '8-10': emptyCell() });
+
+  const table = new Map<string, { baseline: Record<string, Cell>; endline: Record<string, Cell> }>();
+
+  for (const sc of scores as any[]) {
+    const band = AIP_BAND_MAP[(sc.student?.standard || '').trim()];
+    if (!band) continue; // outside 1st-10th — not part of AIP
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max || sc.marks === null) continue;
+
+    const d = sc.exam?.examDate ?? sc.exam?.createdAt;
+    if (!d) continue;
+    const dDate = new Date(d);
+    if (dDate < start || dDate >= end) continue; // outside the selected Month/Year filter
+    const monthKey = tdMonthKey(dDate);
+
+    if (!table.has(monthKey)) {
+      table.set(monthKey, { baseline: emptyBandSet(), endline: emptyBandSet() });
+    }
+    const isBaseline = sc.exam?.examType === 'AIP Baseline';
+    const bucket = table.get(monthKey)!;
+    const cell = (isBaseline ? bucket.baseline : bucket.endline)[band];
+    cell.obtained += Number(sc.marks);
+    cell.max += max;
+    if (sc.studentId) cell.studentIds.add(sc.studentId);
+  }
+
+  const toOut = (cell: Cell) => ({
+    studentCount: cell.studentIds.size,
+    totalMax: cell.max,
+    totalObtained: cell.obtained,
+    percent: cell.max === 0 ? 0 : Math.round((cell.obtained / cell.max) * 100),
+  });
+
+  const monthKeys = Array.from(table.keys()).sort();
+  const rows = monthKeys.map((key) => {
+    const bucket = table.get(key)!;
+    return {
+      monthKey: key,
+      label: tdMonthLabel(key),
+      baseline: {
+        '1-4': toOut(bucket.baseline['1-4']),
+        '5-7': toOut(bucket.baseline['5-7']),
+        '8-10': toOut(bucket.baseline['8-10']),
+      },
+      endline: {
+        '1-4': toOut(bucket.endline['1-4']),
+        '5-7': toOut(bucket.endline['5-7']),
+        '8-10': toOut(bucket.endline['8-10']),
+      },
+    };
+  });
+
+  return { bands: AIP_BANDS, rows };
+}
+
 export async function getSkillsReport(user: JwtPayload, query: { centerId?: string; programId?: string }) {
   if (query.centerId && user.role !== "super_admin" && !user.centerIds.includes(query.centerId as string)) {
     throw new ForbiddenError("No access to requested center");

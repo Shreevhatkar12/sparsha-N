@@ -3,6 +3,7 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { ErrorMessage } from "../ui/ErrorMessage";
+import { HolisticDevelopment } from "./HolisticDevelopment";
 import {
   Users,
   UserCog,
@@ -117,6 +118,13 @@ export const AdminAnalytics: React.FC = () => {
   const [views, setViews] = useState<Record<string, "graph" | "table">>({});
   const viewOf = (k: string) => views[k] ?? "graph";
 
+  // Sections that can be collapsed (shrunk) to keep the page short by
+  // default — "Standard-wise Students per Center" starts collapsed since
+  // it can get very long with many centers.
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ stdPerCenter: true });
+  const isCollapsed = (k: string) => collapsedSections[k] ?? false;
+  const toggleCollapsed = (k: string) => setCollapsedSections((s) => ({ ...s, [k]: !s[k] }));
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -172,19 +180,34 @@ export const AdminAnalytics: React.FC = () => {
     title: string;
     subtitle?: string;
     toggleKey?: string;
+    collapseKey?: string;
     children: React.ReactNode;
-  }> = ({ title, subtitle, toggleKey, children }) => (
-    <Card className="border-none shadow-sm">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <h3 className="font-bold text-neutral-900">{title}</h3>
-          {subtitle && <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>}
+  }> = ({ title, subtitle, toggleKey, collapseKey, children }) => {
+    const collapsed = collapseKey ? isCollapsed(collapseKey) : false;
+    return (
+      <Card className="border-none shadow-sm">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 className="font-bold text-neutral-900">{title}</h3>
+            {subtitle && <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            {toggleKey && !collapsed && <ToggleView k={toggleKey} />}
+            {collapseKey && (
+              <button
+                type="button"
+                onClick={() => toggleCollapsed(collapseKey)}
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+              >
+                {collapsed ? "Expand" : "Collapse"}
+              </button>
+            )}
+          </div>
         </div>
-        {toggleKey && <ToggleView k={toggleKey} />}
-      </div>
-      {children}
-    </Card>
-  );
+        {!collapsed && children}
+      </Card>
+    );
+  };
 
   if (loading && !data) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -334,11 +357,15 @@ export const AdminAnalytics: React.FC = () => {
         )}
       </SectionCard>
 
+      {/* Holistic Development — AIP topic calendar + baseline/endline impact */}
+      <HolisticDevelopment periodVal={periodVal} centerId={centerId} />
+
       {/* Standard-wise students — per center */}
       {data.stdWiseByCenter && data.stdWiseByCenter.length > 0 && (
         <SectionCard
           title="Standard-wise Students — per Center"
           subtitle="Standard-wise totals with Male / Female count for every center"
+          collapseKey="stdPerCenter"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {data.stdWiseByCenter.map((c) => (

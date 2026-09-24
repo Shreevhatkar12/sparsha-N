@@ -12,7 +12,8 @@ import {
   examsController,
   skillsReportController,
   studentsFilterController,
-  exportCsvController
+  exportCsvController,
+  aipImpactController
 } from '../controllers/reportController.js';
 
 const reportRoutes = Router();
@@ -24,6 +25,7 @@ reportRoutes.get("/dashboard", dashboardController);
 reportRoutes.get("/teacher-dashboard", teacherDashboardController);
 reportRoutes.get("/admin-analytics", adminAnalyticsController);
 reportRoutes.get("/exam-completion", examCompletionController);
+reportRoutes.get("/aip-impact", aipImpactController);
 reportRoutes.get("/attendance", attendanceController);
 reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);
