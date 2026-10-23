@@ -53,7 +53,7 @@ async function syncStudents() {
       createdByUser: { select: { fullName: true } },
       examScores: {
         include: {
-          exam: { select: { examType: true } },
+          exam: { select: { examType: true, examDate: true, createdAt: true } },
           subject: { select: { name: true, maxMarks: true } },
         },
       },
@@ -63,38 +63,93 @@ async function syncStudents() {
 
   type ScoreRow = typeof students[number]["examScores"][number];
 
-  const breakdownFor = (scores: ScoreRow[], matcher: (t: string) => boolean) => {
-    const matched = scores.filter((s) => matcher(s.exam?.examType || "") && s.marks !== null);
-    if (matched.length === 0) return { detail: "", avg: "" };
-    const detail = matched
-      .map((s) => `${s.subject?.name || "Subject"}: ${Number(s.marks)}/${s.subject?.maxMarks !== undefined ? Number(s.subject.maxMarks) : "?"}`)
-      .join(", ");
-    // Average expressed as a percentage across subjects (so different max-marks scales combine fairly).
-    const pcts = matched
+  const examWhen = (s: ScoreRow): Date | null => s.exam?.examDate || s.exam?.createdAt || null;
+
+  // Collapse the many spellings of a subject into the 3 core columns.
+  const canonSubject = (name: string): "English" | "Maths" | "EVS/Science" | "Other" => {
+    if (/eng/i.test(name)) return "English";
+    if (/math/i.test(name)) return "Maths";
+    if (/sci|evs/i.test(name)) return "EVS/Science";
+    return "Other";
+  };
+
+  const fmt = (s: ScoreRow) =>
+    `${Number(s.marks)}/${s.subject?.maxMarks !== undefined ? Number(s.subject.maxMarks) : "?"}`;
+
+  const calcAvg = (list: ScoreRow[]) => {
+    const pcts = list
       .filter((s) => s.subject?.maxMarks)
       .map((s) => (Number(s.marks) / Number(s.subject!.maxMarks)) * 100);
-    const avg = pcts.length ? `${(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1)}%` : "";
-    return { detail, avg };
+    return pcts.length ? `${(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(1)}%` : "";
   };
+
+  const matchScores = (scores: ScoreRow[], matcher: (t: string) => boolean) =>
+    scores.filter((s) => matcher(s.exam?.examType || "") && s.marks !== null);
+
+  const latestDate = (list: ScoreRow[]): string => {
+    let best: Date | null = null;
+    for (const s of list) {
+      const w = examWhen(s);
+      if (w && (!best || w > best)) best = w;
+    }
+    return d(best);
+  };
+
+  // Sem Baseline / Endline: one column per core subject (latest entry wins if a subject repeats).
+  const perSubject = (scores: ScoreRow[], matcher: (t: string) => boolean) => {
+    const matched = matchScores(scores, matcher);
+    const latest = new Map<string, ScoreRow>();
+    const others: ScoreRow[] = [];
+    for (const s of matched) {
+      const key = canonSubject(s.subject?.name || "");
+      if (key === "Other") { others.push(s); continue; }
+      const prev = latest.get(key);
+      const w = examWhen(s);
+      const pw = prev ? examWhen(prev) : null;
+      if (!prev || (w && (!pw || w >= pw))) latest.set(key, s);
+    }
+    const used = [...latest.values(), ...others];
+    return {
+      date: latestDate(matched),
+      english: latest.has("English") ? fmt(latest.get("English")!) : "",
+      maths: latest.has("Maths") ? fmt(latest.get("Maths")!) : "",
+      evs: latest.has("EVS/Science") ? fmt(latest.get("EVS/Science")!) : "",
+      other: others.map((s) => `${s.subject?.name || "Subject"}: ${fmt(s)}`).join(", "),
+      avg: calcAvg(used),
+    };
+  };
+
+  // AIP: single-subject monthly exams stay as one text cell.
+  const aipBreakdown = (scores: ScoreRow[], matcher: (t: string) => boolean) => {
+    const matched = matchScores(scores, matcher);
+    return {
+      date: latestDate(matched),
+      detail: matched.map((s) => `${s.subject?.name || "Subject"}: ${fmt(s)}`).join(", "),
+      avg: calcAvg(matched),
+    };
+  };
+
+  const cap = (g: unknown) => (g ? String(g).charAt(0).toUpperCase() + String(g).slice(1) : "");
 
   await writeSheet(
     "1. Students",
     [
-      "Student ID", "Full Name", "Standard", "Center", "Program", "Academic Year",
+      "Student ID", "Full Name", "Gender", "Standard", "Center", "Program", "Academic Year",
       "Added By", "Guardian Name", "Guardian Phone", "Enrollment Date", "Active",
-      "Baseline (subject-wise)", "Baseline Avg",
-      "Endline (subject-wise)", "Endline Avg",
-      "AIP Baseline (subject-wise)", "AIP Baseline Avg",
-      "AIP Endline (subject-wise)", "AIP Endline Avg",
+      "Baseline Date", "Baseline English", "Baseline Maths", "Baseline EVS/Science", "Baseline Other Subjects", "Baseline Avg",
+      "Endline Date", "Endline English", "Endline Maths", "Endline EVS/Science", "Endline Other Subjects", "Endline Avg",
+      "AIP Baseline Date", "AIP Baseline (subject-wise)", "AIP Baseline Avg",
+      "AIP Endline Date", "AIP Endline (subject-wise)", "AIP Endline Avg",
     ],
     students.map((s) => {
-      const baseline = breakdownFor(s.examScores, (t) => /baseline/i.test(t) && !/aip/i.test(t));
-      const endline = breakdownFor(s.examScores, (t) => /endline/i.test(t) && !/aip/i.test(t));
-      const aipBaseline = breakdownFor(s.examScores, (t) => /aip/i.test(t) && /baseline/i.test(t));
-      const aipEndline = breakdownFor(s.examScores, (t) => /aip/i.test(t) && /endline/i.test(t));
+      const baseline = perSubject(s.examScores, (t) => /baseline/i.test(t) && !/aip/i.test(t));
+      const endline = perSubject(s.examScores, (t) => /endline/i.test(t) && !/aip/i.test(t));
+      const aipBaseline = aipBreakdown(s.examScores, (t) => /aip/i.test(t) && /baseline/i.test(t));
+      const aipEndline = aipBreakdown(s.examScores, (t) => /aip/i.test(t) && /endline/i.test(t));
       return [
         s.id,
         s.fullName,
+        cap(s.gender),
         s.standard || "",
         s.center?.name || "",
         s.program?.name || "",
@@ -104,10 +159,10 @@ async function syncStudents() {
         s.guardianPhone || "",
         d(s.enrollmentDate),
         s.isActive ? "Yes" : "No",
-        baseline.detail, baseline.avg,
-        endline.detail, endline.avg,
-        aipBaseline.detail, aipBaseline.avg,
-        aipEndline.detail, aipEndline.avg,
+        baseline.date, baseline.english, baseline.maths, baseline.evs, baseline.other, baseline.avg,
+        endline.date, endline.english, endline.maths, endline.evs, endline.other, endline.avg,
+        aipBaseline.date, aipBaseline.detail, aipBaseline.avg,
+        aipEndline.date, aipEndline.detail, aipEndline.avg,
       ];
     }),
   );
@@ -275,20 +330,66 @@ async function syncSponsorship() {
 
 // ─────────────────────────── 6. Health Camps (Sehat) ───────────────────────────
 async function syncHealthCamps() {
+  const headers = [
+    "Camp Type", "Date", "Time", "Hospital", "Doctors", "Area", "Audience", "Students Recorded",
+    "Swayam Count", "Shiksha Count", "Sanskar Count", "Center-wise Breakdown",
+  ];
   const tpl = await prisma.formTemplate.findFirst({ where: { name: "Sehat Health Camps" } });
   if (!tpl) {
-    await writeSheet("6. Health Camps", ["Camp Name / Type", "Date", "Time", "Hospital", "Doctors", "Area", "Audience", "Students Recorded"], []);
+    await writeSheet("6. Health Camps", headers, []);
     return;
   }
 
   const camps = await prisma.formSubmission.findMany({ where: { templateId: tpl.id }, orderBy: { submittedAt: "desc" } });
 
+  // Look up center + program of every student recorded in any camp (one query).
+  const ids = new Set<string>();
+  for (const c of camps) {
+    const data = (c.data || {}) as Record<string, any>;
+    if (data.records && typeof data.records === "object") Object.keys(data.records).forEach((k) => ids.add(k));
+  }
+  const studs = ids.size
+    ? await prisma.student.findMany({
+        where: { id: { in: [...ids] } },
+        select: { id: true, center: { select: { name: true } }, program: { select: { name: true } } },
+      })
+    : [];
+  const studMap = new Map(studs.map((s) => [s.id, s] as const));
+
+  const progKey = (name: string): "Swayam" | "Shiksha" | "Sanskar" | null => {
+    if (/swayam/i.test(name)) return "Swayam";
+    if (/shiksha/i.test(name)) return "Shiksha";
+    if (/sanskar/i.test(name)) return "Sanskar";
+    return null;
+  };
+
   await writeSheet(
     "6. Health Camps",
-    ["Camp Type", "Date", "Time", "Hospital", "Doctors", "Area", "Audience", "Students Recorded"],
+    headers,
     camps.map((c) => {
       const data = (c.data || {}) as Record<string, any>;
-      const recordsCount = data.records && typeof data.records === "object" ? Object.keys(data.records).length : 0;
+      const recKeys = data.records && typeof data.records === "object" ? Object.keys(data.records) : [];
+      const totals = { Swayam: 0, Shiksha: 0, Sanskar: 0 };
+      const byCenter = new Map<string, { Swayam: number; Shiksha: number; Sanskar: number }>();
+      for (const id of recKeys) {
+        const st = studMap.get(id);
+        if (!st) continue;
+        const pk = progKey(st.program?.name || "");
+        if (!pk) continue;
+        totals[pk] += 1;
+        const cn = st.center?.name || "Unknown";
+        const row = byCenter.get(cn) || { Swayam: 0, Shiksha: 0, Sanskar: 0 };
+        row[pk] += 1;
+        byCenter.set(cn, row);
+      }
+      const breakdown = [...byCenter.entries()]
+        .map(([cn, r]) => {
+          const parts = (["Swayam", "Shiksha", "Sanskar"] as const)
+            .filter((k) => r[k] > 0)
+            .map((k) => `${k} ${r[k]}`);
+          return `${cn}: ${parts.join(", ")}`;
+        })
+        .join(" | ");
       return [
         String(data.campType || ""),
         String(data.date || ""),
@@ -297,7 +398,11 @@ async function syncHealthCamps() {
         Array.isArray(data.doctors) ? data.doctors.join(", ") : "",
         String(data.area || ""),
         String(data.audience || ""),
-        recordsCount,
+        recKeys.length,
+        totals.Swayam,
+        totals.Shiksha,
+        totals.Sanskar,
+        breakdown,
       ];
     }),
   );

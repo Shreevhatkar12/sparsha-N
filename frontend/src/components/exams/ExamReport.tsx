@@ -468,17 +468,23 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600">Exam type</label>
-            <input
-              list="report-exam-types"
+            <select
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
               value={filterExamType}
               onChange={(e) => setFilterExamType(e.target.value)}
-              placeholder="All types"
-            />
-            <datalist id="report-exam-types">
-              <option value="baseline" />
-              <option value="endline" />
-            </datalist>
+            >
+              <option value="">All exam types</option>
+              <optgroup label="Yearly (Sem)">
+                {["Sem Baseline 1", "Sem Endline 1", "Sem Baseline 2", "Sem Endline 2"].map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Monthly (AIP)">
+                {["AIP Baseline", "AIP Endline"].map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </optgroup>
+            </select>
           </div>
           <div>
             <label className="text-xs font-medium text-neutral-600">Month</label>
