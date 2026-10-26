@@ -514,6 +514,97 @@ export async function getAipImpact(user: JwtPayload, query: any = {}) {
   return { bands: AIP_BANDS, rows };
 }
 
+// ----------------------------------------------------------------------
+// AIP PARTICIPATION (Holistic Development) — for each AIP topic (12 per std
+// band, one per month, June -> May) how many distinct students attended the
+// AIP Endline for that topic. The topic is read from the exam's subject name
+// (falls back to the exam name). Respects the same Month/Year + center filter.
+// ----------------------------------------------------------------------
+const AIP_MONTHS = ['June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March', 'April', 'May'];
+const AIP_TOPICS: Record<'1-4' | '5-7' | '8-10', string[]> = {
+  '1-4': ['National Symbol', 'Cleanliness and Hygiene', 'Community Helpers', 'Animal and Birds Around Us', 'Amazing Science Around Us', 'Be Kind, Be Confident', 'Digital Devices Around Us', 'Save Water, Save Earth', 'My School, My City and India', 'Money Matters (Coins and Notes)', 'Road Safety Rules', 'Solar System'],
+  '5-7': ['Personality Development', 'Artificial Intelligence (AI)', 'States and Capital', 'Foreign Currency and World Money', 'Amazing Facts Around the World', 'Digital Payment and Online Safety - Banking', 'Parts of Robot and Their Function', 'Career Guidance - How to Achieve Goals', 'Importance of Voting and Democracy', 'Disaster Management', 'Entrepreneurship and Small Business Idea', 'Types of Communication'],
+  '8-10': ['Current Affairs', 'Indian History', 'Geography of India and the World', 'Science and Technology', 'Environment and Climate Changes', 'Indian Constitution and Civics', 'Famous Personalities', 'Sports and Awards', 'Space and Discoveries', 'Digital Literacy and Cyber Safety', 'Basic Economics and Banking', 'Cultural Heritage of India'],
+};
+
+export async function getAipParticipation(user: JwtPayload, query: any = {}) {
+  const centerScope = getCenterScope(user);
+  const { start, end } = tdResolvePeriod(query);
+  const fCenter = typeof query?.centerId === 'string' && query.centerId.trim() ? query.centerId.trim() : undefined;
+  const isSuper = user.role === 'super_admin';
+  const centerFilter: { in: string[] } | undefined = isSuper
+    ? fCenter ? { in: [fCenter] } : undefined
+    : fCenter && user.centerIds.includes(fCenter) ? { in: [fCenter] } : centerScope;
+
+  const [sanskarProgram, swayamProgram] = await Promise.all([
+    prisma.program.findFirst({ where: { name: { equals: 'Sanskar', mode: 'insensitive' } } }),
+    prisma.program.findFirst({ where: { name: { equals: 'Swayam', mode: 'insensitive' } } }),
+  ]);
+  const programIds = [sanskarProgram?.id, swayamProgram?.id].filter((x): x is string => !!x);
+
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const bandKeys = ['1-4', '5-7', '8-10'] as const;
+  const sets: Record<string, Set<string>> = {};
+  const idx = (b: string, i: number) => `${b}|${i}`;
+  for (const b of bandKeys) AIP_TOPICS[b].forEach((_, i) => (sets[idx(b, i)] = new Set()));
+  const unmatched = new Map<string, Set<string>>();
+
+  if (programIds.length > 0) {
+    const scores = await prisma.examScore.findMany({
+      where: {
+        centerId: centerFilter,
+        isAbsent: false,
+        marks: { not: null },
+        exam: { examType: 'AIP Endline' },
+        student: { isActive: true, programId: { in: programIds } },
+      } as never,
+      select: {
+        studentId: true,
+        subject: { select: { name: true } },
+        exam: { select: { name: true, examDate: true, createdAt: true } },
+        student: { select: { standard: true } },
+      },
+    });
+
+    const findIdx = (band: typeof bandKeys[number], text: string): number => {
+      const n = norm(text || '');
+      if (!n) return -1;
+      const topics = AIP_TOPICS[band].map(norm);
+      let i = topics.indexOf(n);
+      if (i < 0) i = topics.findIndex((t) => n.length >= 6 && (t.includes(n) || n.includes(t)));
+      return i;
+    };
+
+    for (const sc of scores as any[]) {
+      const band = AIP_BAND_MAP[(sc.student?.standard || '').trim()];
+      if (!band || !sc.studentId) continue;
+      const d = sc.exam?.examDate ?? sc.exam?.createdAt;
+      if (!d) continue;
+      const dDate = new Date(d);
+      if (dDate < start || dDate >= end) continue;
+      let i = findIdx(band, sc.subject?.name || '');
+      if (i < 0) i = findIdx(band, sc.exam?.name || '');
+      if (i >= 0) {
+        sets[idx(band, i)].add(sc.studentId);
+      } else {
+        const label = `${sc.subject?.name || sc.exam?.name || 'Unknown'} (${band})`;
+        if (!unmatched.has(label)) unmatched.set(label, new Set());
+        unmatched.get(label)!.add(sc.studentId);
+      }
+    }
+  }
+
+  return {
+    months: AIP_MONTHS.map((month, i) => ({
+      month,
+      cells: Object.fromEntries(
+        bandKeys.map((b) => [b, { topic: AIP_TOPICS[b][i], count: sets[idx(b, i)].size }]),
+      ),
+    })),
+    unmatched: Array.from(unmatched.entries()).map(([name, set]) => ({ name, count: set.size })),
+  };
+}
+
 export async function getSkillsReport(user: JwtPayload, query: { centerId?: string; programId?: string }) {
   if (query.centerId && user.role !== "super_admin" && !user.centerIds.includes(query.centerId as string)) {
     throw new ForbiddenError("No access to requested center");

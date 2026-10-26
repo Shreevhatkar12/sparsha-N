@@ -24,6 +24,16 @@ export interface AipImpactData {
 export const getAipImpact = (params?: Record<string, string | undefined>) =>
   api.get<AipImpactData>('/reports/aip-impact', { params }).then((r) => r.data);
 
+export interface AipParticipationData {
+  months: Array<{
+    month: string;
+    cells: Record<'1-4' | '5-7' | '8-10', { topic: string; count: number }>;
+  }>;
+  unmatched: Array<{ name: string; count: number }>;
+}
+export const getAipParticipation = (params?: Record<string, string | undefined>) =>
+  api.get<AipParticipationData>('/reports/aip-participation', { params }).then((r) => r.data);
+
 export const getReportsAttendance = (params?: Record<string, string | undefined>) =>
   api.get<Record<string, unknown>>('/reports/attendance', { params }).then((r) => r.data);
 

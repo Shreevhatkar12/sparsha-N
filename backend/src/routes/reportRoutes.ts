@@ -13,7 +13,8 @@ import {
   skillsReportController,
   studentsFilterController,
   exportCsvController,
-  aipImpactController
+  aipImpactController,
+  aipParticipationController
 } from '../controllers/reportController.js';
 
 const reportRoutes = Router();
@@ -26,6 +27,7 @@ reportRoutes.get("/teacher-dashboard", teacherDashboardController);
 reportRoutes.get("/admin-analytics", adminAnalyticsController);
 reportRoutes.get("/exam-completion", examCompletionController);
 reportRoutes.get("/aip-impact", aipImpactController);
+reportRoutes.get("/aip-participation", aipParticipationController);
 reportRoutes.get("/attendance", attendanceController);
 reportRoutes.get("/skills", skillsReportController);
 reportRoutes.get("/exams", examsController);

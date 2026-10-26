@@ -2,6 +2,7 @@ import React from "react";
 import { Sparkles } from "lucide-react";
 import { AipTopicWheel } from "./AipTopicWheel";
 import { AipImpactChart } from "./AipImpactChart";
+import { AipParticipation } from "./AipParticipation";
 import type { PeriodValue } from "./PeriodFilter";
 
 export const HolisticDevelopment: React.FC<{ periodVal: PeriodValue; centerId?: string }> = ({ periodVal, centerId }) => {
@@ -14,6 +15,9 @@ export const HolisticDevelopment: React.FC<{ periodVal: PeriodValue; centerId?: 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <AipTopicWheel />
         <AipImpactChart periodVal={periodVal} centerId={centerId} />
+      </div>
+      <div className="mt-6">
+        <AipParticipation periodVal={periodVal} centerId={centerId} />
       </div>
     </div>
   );

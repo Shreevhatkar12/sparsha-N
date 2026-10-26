@@ -11,6 +11,7 @@ import {
   getAdminAnalytics,
   getExamCompletion,
   getAipImpact,
+  getAipParticipation,
 } from '../services/reportService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -79,6 +80,16 @@ export async function aipImpactController(req: Request, res: Response, next: Nex
   try {
     const user = (req as AuthenticatedRequest).user!;
     const data = await getAipImpact(user, req.query);
+    return res.status(200).json(data);
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function aipParticipationController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user!;
+    const data = await getAipParticipation(user, req.query);
     return res.status(200).json(data);
   } catch (err) {
     return next(err);
