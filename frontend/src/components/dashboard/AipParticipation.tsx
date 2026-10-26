@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Cell, LabelList } from "recharts";
 import { Card } from "../ui/Card";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { ErrorMessage } from "../ui/ErrorMessage";
@@ -54,14 +54,15 @@ export const AipParticipation: React.FC<{ periodVal: PeriodValue; centerId?: str
   }
 
   const months = data?.months ?? [];
-  const chartData = months.map((m) => {
-    const point: Record<string, string | number> = { month: m.month };
-    for (const b of BAND_ORDER) {
-      point[b] = m.cells[b].count;
-      point[`topic_${b}`] = m.cells[b].topic;
-    }
-    return point;
-  });
+  // One horizontal bar per topic, grouped by standard (blue, then pink, then green).
+  const chartData = BAND_ORDER.flatMap((b) =>
+    months.map((m) => ({
+      topic: m.cells[b].topic,
+      count: m.cells[b].count,
+      band: b,
+      month: m.month,
+    })),
+  );
 
   const tabCls = (active: boolean) =>
     `px-3 py-1 text-xs font-bold ${active ? "bg-primary text-white" : "bg-white text-neutral-500"}`;
@@ -82,32 +83,40 @@ export const AipParticipation: React.FC<{ periodVal: PeriodValue; centerId?: str
       </div>
 
       {view === "graph" ? (
-        <div style={{ width: "100%", height: 320 }} className="mt-3">
+        <div style={{ width: "100%", height: chartData.length * 30 + 40 }} className="mt-3">
           <ResponsiveContainer>
-            <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 8, left: 0 }} barGap={2} barCategoryGap={14}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700, fill: "#6b7280" }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={32} />
+            <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 24, bottom: 4, left: 8 }} barCategoryGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" horizontal={false} />
+              <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis
+                type="category"
+                dataKey="topic"
+                width={230}
+                interval={0}
+                tick={{ fontSize: 11, fontWeight: 600, fill: "#4b5563" }}
+                axisLine={false}
+                tickLine={false}
+              />
               <RTooltip
-                content={({ active, payload, label }) => {
+                cursor={{ fill: "rgba(0,0,0,0.03)" }}
+                content={({ active, payload }) => {
                   if (!active || !payload?.length) return null;
-                  const p = payload[0].payload as Record<string, string | number>;
+                  const p = payload[0].payload as { topic: string; count: number; band: BandKey; month: string };
                   return (
-                    <div className="rounded-lg border border-neutral-200 bg-white p-2 shadow text-xs max-w-[260px]">
-                      <p className="font-bold text-neutral-700 mb-1">{label}</p>
-                      {BAND_ORDER.map((b) => (
-                        <p key={b} className="mb-0.5">
-                          <span className="font-bold" style={{ color: BAND_COLOR[b] }}>{BAND_LABEL[b]}: {p[b]}</span>
-                          <span className="text-neutral-500"> &middot; {p[`topic_${b}`]}</span>
-                        </p>
-                      ))}
+                    <div className="rounded-lg border border-neutral-200 bg-white p-2 shadow text-xs">
+                      <p className="font-bold text-neutral-700">{p.topic}</p>
+                      <p className="text-neutral-500">{BAND_LABEL[p.band]} &middot; {p.month}</p>
+                      <p className="font-bold" style={{ color: BAND_COLOR[p.band] }}>{p.count} students attended</p>
                     </div>
                   );
                 }}
               />
-              {BAND_ORDER.map((b) => (
-                <Bar key={b} dataKey={b} name={BAND_LABEL[b]} fill={BAND_COLOR[b]} radius={[3, 3, 0, 0]} />
-              ))}
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} minPointSize={22}>
+                {chartData.map((d) => (
+                  <Cell key={`${d.band}-${d.topic}`} fill={BAND_COLOR[d.band]} />
+                ))}
+                <LabelList dataKey="count" position="insideRight" fill="#ffffff" fontSize={11} fontWeight={700} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
