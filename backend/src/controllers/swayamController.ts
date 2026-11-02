@@ -18,6 +18,10 @@ import {
   markSponsorshipDone,
   revertSponsorshipStudent,
   setSponsorshipInclude,
+  createDropoutRequest,
+  listDropoutRequests,
+  acceptDropoutRequest,
+  declineDropoutRequest,
 } from '../services/swayamService.js';
 
 type AuthenticatedRequest = Request & { user?: JwtPayload };
@@ -199,6 +203,48 @@ export async function setSponsorshipIncludeController(req: Request, res: Respons
     const user = ensureAccess(req);
     const include = req.body?.include !== false;
     const data = await setSponsorshipInclude(user, req.params.id as string, include);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+// Teacher side: any logged-in user may request a dropout for a student of
+// their own center (checked in the service). Accept / decline = coordinator.
+export async function createDropoutRequestController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = (req as AuthenticatedRequest).user;
+    if (!user) throw new ForbiddenError('Login required');
+    const data = await createDropoutRequest(user, req.params.id as string);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function listDropoutRequestsController(req: Request, res: Response, next: NextFunction) {
+  try {
+    ensureAccess(req);
+    return res.status(200).json(await listDropoutRequests());
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function acceptDropoutRequestController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await acceptDropoutRequest(user, req.params.id as string);
+    return res.status(200).json({ success: true, ...data });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function declineDropoutRequestController(req: Request, res: Response, next: NextFunction) {
+  try {
+    const user = ensureAccess(req);
+    const data = await declineDropoutRequest(user, req.params.id as string);
     return res.status(200).json({ success: true, ...data });
   } catch (err) {
     return next(err);

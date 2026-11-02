@@ -12,6 +12,7 @@ import { DataTable, type DataTableColumn } from '../components/ui/DataTable';
 import { Search, Download, Plus, Eye, Edit2, Trash2, ArrowUp, ArrowDown, Building2, ArrowRightLeft, CheckSquare, Square } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuthStore } from '../store/useAuthStore';
+import { createDropoutRequest } from '../services/swayam.service';
 import { deleteStudent, getStudents, requestTransfer, getTransferRequests, completeTransfer, type StudentListQuery } from '../services/students.service';
 import { listCenters, listPrograms } from '../services/centers.service';
 import { listUsers, type UserAdminItem } from '../services/users.service';
@@ -171,6 +172,18 @@ export const StudentList: React.FC = () => {
       void loadTransferRequests();
     }
   }, [showTransferTab, isAdmin, loadTransferRequests]);
+
+  const [dropNotice, setDropNotice] = useState<string | null>(null);
+  const handleDropoutRequest = async () => {
+    if (!deleteId) return;
+    try {
+      await createDropoutRequest(deleteId);
+      setDropNotice(`Dropout request for ${deleteName} sent to the Swayam coordinator.`);
+    } catch {
+      setError('Could not send the dropout request.');
+    }
+    setDeleteId(null);
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -426,8 +439,39 @@ export const StudentList: React.FC = () => {
         </div>
       }
     >
+      {isTeacher && Boolean(deleteId) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <button type="button" className="absolute inset-0 bg-neutral-900/50" aria-label="Close" onClick={() => setDeleteId(null)} />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-neutral-900">Remove {deleteName}?</h2>
+            <p className="mt-2 text-sm text-neutral-600">Choose what should happen to this student.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <Button type="button" variant="danger" onClick={() => void handleDelete()}>
+                Delete permanently
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => void handleDropoutRequest()}>
+                Dropout from center
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setDeleteId(null)}>
+                Cancel
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-neutral-500">
+              Permanent delete removes all records. Dropout sends a request to the Swayam coordinator; the student stays until it is accepted.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {dropNotice && (
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-800">
+          {dropNotice}
+          <button type="button" className="ml-3 font-bold" onClick={() => setDropNotice(null)}>×</button>
+        </div>
+      )}
+
       <ConfirmModal
-        open={Boolean(deleteId)}
+        open={Boolean(deleteId) && !isTeacher}
         title="Delete student permanently?"
         message={`${deleteName} will be permanently deleted along with all their attendance, exam marks, meeting and form records. This cannot be undone.`}
         confirmLabel="Delete Permanently"

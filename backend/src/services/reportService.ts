@@ -164,7 +164,13 @@ export async function getDashboardSummary(user: JwtPayload) {
       centerId: centerScope,
       isAbsent: false,
       marks: { not: null },
-      exam: { examDate: { gte: firstOfMonth } },
+      // Growth Index exam part = Sem Endline results of the current
+      // academic year (June -> May) — a bigger, more meaningful signal
+      // than whatever small exams happened this month.
+      exam: {
+        examType: { startsWith: 'Sem Endline', mode: 'insensitive' },
+        examDate: { gte: new Date(new Date().getMonth() >= 5 ? new Date().getFullYear() : new Date().getFullYear() - 1, 5, 1) },
+      },
     },
     select: {
       marks: true,
@@ -1257,27 +1263,22 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   const isSuper = user.role === "super_admin" || user.role === "tech_admin";
   const myCenterIds = user.centerIds ?? [];
 
-  const pickUuid = (v: unknown): string | undefined =>
-    typeof v === "string" && v && TD_UUID_RE.test(v) ? v : undefined;
-  const fCenter = pickUuid(query.centerId);
-  const fProgram = pickUuid(query.programId);
-  const fTeacher = pickUuid(query.teacherId);
-  const fStandard =
-    typeof query.standard === "string" && query.standard.trim()
-      ? query.standard.trim()
-      : undefined;
-  const fGrade =
-    typeof query.grade === "string" && ["A", "B", "C", "D", "E"].includes(query.grade)
-      ? (query.grade as "A" | "B" | "C" | "D" | "E")
-      : undefined;
+  // Filters accept one value or a comma-separated list (multi-select).
+  const splitList = (v: unknown): string[] =>
+    typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean) : [];
+  const fCenters = splitList(query.centerId).filter((x) => TD_UUID_RE.test(x));
+  const fPrograms = splitList(query.programId).filter((x) => TD_UUID_RE.test(x));
+  const fTeachers = splitList(query.teacherId).filter((x) => TD_UUID_RE.test(x));
+  const fStandards = splitList(query.standard);
+  const fGrades = splitList(query.grade).filter((g) => ["A", "B", "C", "D", "E"].includes(g)) as Array<"A" | "B" | "C" | "D" | "E">;
 
   // Allowed centers: super/tech = all (undefined), others = their centers.
   const centerIn: string[] | undefined = isSuper
-    ? fCenter
-      ? [fCenter]
+    ? fCenters.length
+      ? fCenters
       : undefined
-    : fCenter && myCenterIds.includes(fCenter)
-      ? [fCenter]
+    : fCenters.filter((c) => myCenterIds.includes(c)).length
+      ? fCenters.filter((c) => myCenterIds.includes(c))
       : myCenterIds;
 
   const gradeOf = (pct: number): "A" | "B" | "C" | "D" | "E" =>
@@ -1291,9 +1292,9 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   // ---- students -----------------------------------------------------
   const studentWhere: Prisma.StudentWhereInput = { isActive: true };
   if (centerIn) studentWhere.centerId = { in: centerIn };
-  if (fProgram) studentWhere.programId = fProgram;
-  if (fStandard) studentWhere.standard = fStandard;
-  if (fTeacher) studentWhere.createdById = fTeacher;
+  if (fPrograms.length) studentWhere.programId = { in: fPrograms };
+  if (fStandards.length) studentWhere.standard = { in: fStandards };
+  if (fTeachers.length) studentWhere.createdById = { in: fTeachers };
 
   const allStudents = await prisma.student.findMany({
     where: studentWhere,
@@ -1322,7 +1323,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
           enteredBy: true,
           examId: true,
           subject: { select: { name: true, maxMarks: true } },
-          exam: { select: { examDate: true, createdAt: true } },
+          exam: { select: { examDate: true, createdAt: true, examType: true } },
         },
       })
     : [];
@@ -1344,13 +1345,16 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   }
 
   // grade filter narrows the effective student set
-  const students = fGrade
-    ? allStudents.filter((s) => studentGrade.get(s.id) === fGrade)
+  const students = fGrades.length
+    ? allStudents.filter((s) => {
+        const g = studentGrade.get(s.id);
+        return !!g && fGrades.includes(g);
+      })
     : allStudents;
   const ids = students.map((s) => s.id);
   const idSet = new Set(ids);
   const studentById = new Map(students.map((s) => [s.id, s] as const));
-  const effScores = fGrade ? scores.filter((sc) => idSet.has(sc.studentId)) : scores;
+  const effScores = fGrades.length ? scores.filter((sc) => idSet.has(sc.studentId)) : scores;
 
   // ---- gender ------------------------------------------------------
   let male = 0,
@@ -1539,8 +1543,8 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   // ---- activities ---------------------------------------------------
   const actWhere: Prisma.ActivityWhereInput = { isActive: true };
   if (centerIn) actWhere.centerId = { in: centerIn };
-  if (fProgram) actWhere.programId = fProgram;
-  if (fTeacher) actWhere.createdBy = fTeacher;
+  if (fPrograms.length) actWhere.programId = { in: fPrograms };
+  if (fTeachers.length) actWhere.createdBy = { in: fTeachers };
   const activities = await prisma.activity.findMany({
     where: actWhere,
     select: { startDate: true, createdAt: true, centerId: true, createdBy: true },
@@ -1794,7 +1798,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
   // ---- standard options (independent of std/grade filter) ----------
   const stdWhere: Prisma.StudentWhereInput = { isActive: true };
   if (centerIn) stdWhere.centerId = { in: centerIn };
-  if (fProgram) stdWhere.programId = fProgram;
+  if (fPrograms.length) stdWhere.programId = { in: fPrograms };
   const stdRows = await prisma.student.findMany({ where: stdWhere, select: { standard: true } });
   const stdOptions = Array.from(
     new Set(stdRows.map((r) => r.standard).filter((x): x is string => !!x && x.trim().length > 0)),
@@ -1856,6 +1860,61 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     }))
     .sort((a, b) => a.centerName.localeCompare(b.centerName));
 
+  // ---- Sem Baseline vs Sem Endline comparison (honours all filters) ----
+  const semProgs = await prisma.program.findMany({ select: { id: true, name: true } });
+  const progGroup = new Map<string, "sanskar" | "swayam">();
+  for (const p of semProgs) {
+    const n = (p.name || "").toLowerCase().trim();
+    if (n === "sanskar") progGroup.set(p.id, "sanskar");
+    else if (n.startsWith("swayam")) progGroup.set(p.id, "swayam");
+  }
+  const SEM_SUBJECTS = ["English", "Maths", "EVS/Science", "Overall"];
+  const semSubj = (name: string): string | null =>
+    /eng/i.test(name) ? "English" : /math/i.test(name) ? "Maths" : /sci|evs/i.test(name) ? "EVS/Science" : null;
+  type SemAcc = { obt: number; max: number; sids: Set<string> };
+  const semAcc = new Map<string, SemAcc>();
+  const semKey = (g: string, s: string, k: string) => `${g}|${s}|${k}`;
+  for (const sc of effScores) {
+    if (sc.isAbsent || sc.marks === null) continue;
+    const t = sc.exam?.examType || "";
+    const kind = /^sem\s*baseline/i.test(t) ? "baseline" : /^sem\s*endline/i.test(t) ? "endline" : null;
+    if (!kind) continue;
+    const when = sc.exam?.examDate ?? sc.exam?.createdAt;
+    if (when && (when < start || when >= end)) continue;
+    const max = sc.subject ? Number(sc.subject.maxMarks) : 0;
+    if (!max) continue;
+    const st = studentById.get(sc.studentId);
+    if (!st) continue;
+    const grp = progGroup.get(st.programId);
+    const subj = semSubj(sc.subject?.name || "");
+    for (const g of grp ? ["all", grp] : ["all"]) {
+      for (const sj of subj ? ["Overall", subj] : ["Overall"]) {
+        const k = semKey(g, sj, kind);
+        const a = semAcc.get(k) ?? { obt: 0, max: 0, sids: new Set<string>() };
+        a.obt += Number(sc.marks);
+        a.max += max;
+        a.sids.add(sc.studentId);
+        semAcc.set(k, a);
+      }
+    }
+  }
+  const semRows = (g: string) =>
+    SEM_SUBJECTS.map((sj) => {
+      const b = semAcc.get(semKey(g, sj, "baseline"));
+      const e = semAcc.get(semKey(g, sj, "endline"));
+      const bp = b && b.max > 0 ? Math.round((b.obt / b.max) * 1000) / 10 : null;
+      const ep = e && e.max > 0 ? Math.round((e.obt / e.max) * 1000) / 10 : null;
+      return {
+        subject: sj,
+        baseline: bp,
+        endline: ep,
+        improvement: bp !== null && ep !== null ? Math.round((ep - bp) * 10) / 10 : null,
+        baselineStudents: b ? b.sids.size : 0,
+        endlineStudents: e ? e.sids.size : 0,
+      };
+    });
+  const semCompare = { all: semRows("all"), sanskar: semRows("sanskar"), swayam: semRows("swayam") };
+
   return {
     scope: isSuper ? "all" : "centers",
     appliedPeriod: { period, label: periodLabel },
@@ -1867,6 +1926,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     gradeByMonth,
     gradeByStd,
     avgBySubject,
+    semCompare,
     enrollmentMonthly,
     activitiesMonthly,
     centerComparison,
@@ -1883,11 +1943,11 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
       grades: ["A", "B", "C", "D", "E"],
     },
     appliedFilters: {
-      centerId: fCenter ?? null,
-      programId: fProgram ?? null,
-      standard: fStandard ?? null,
-      grade: fGrade ?? null,
-      teacherId: fTeacher ?? null,
+      centerId: fCenters.join(",") || null,
+      programId: fPrograms.join(",") || null,
+      standard: fStandards.join(",") || null,
+      grade: fGrades.join(",") || null,
+      teacherId: fTeachers.join(",") || null,
     },
   };
 }

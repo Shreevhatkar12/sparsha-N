@@ -654,6 +654,42 @@ export const ExamReport: React.FC<Props> = ({ centers, programs, canDelete, onEd
                       })}
                     </div>
 
+                    {ex.subjects.length > 1 && (
+                      <div className="mb-4">
+                        <span className="text-[11px] uppercase tracking-wide text-neutral-400 font-semibold">
+                          Subject-wise grades
+                        </span>
+                        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {ex.subjects.map((sub) => {
+                            const sc: Record<Grade, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+                            for (const st of ex.students) {
+                              const cell = st.perSubject[sub.id];
+                              if (cell && !cell.isAbsent && cell.marks != null && cell.maxMarks > 0) {
+                                sc[gradeOf((cell.marks / cell.maxMarks) * 100)]++;
+                              }
+                            }
+                            return (
+                              <div key={sub.id} className="rounded-xl border border-neutral-200 p-3">
+                                <div className="text-sm font-bold text-neutral-800 mb-2">{sub.name}</div>
+                                <div className="flex gap-1.5">
+                                  {GRADE_KEYS.map((g) => (
+                                    <div
+                                      key={g}
+                                      className="flex-1 rounded-lg px-1 py-1.5 text-center border"
+                                      style={{ backgroundColor: `${GRADE_COLORS[g]}12`, borderColor: `${GRADE_COLORS[g]}33` }}
+                                    >
+                                      <div className="text-base font-bold" style={{ color: GRADE_COLORS[g] }}>{sc[g]}</div>
+                                      <div className="text-[10px] uppercase text-neutral-500">{g}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* student data — table or graph */}
                     {mode === "graph" ? (
                       renderCharts(ex)

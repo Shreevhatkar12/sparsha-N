@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { DropoutSection } from '../components/swayam/DropoutSection';
+import { DropoutRequestsBox } from '../components/swayam/DropoutRequestsBox';
 import { listCenters } from '../services/centers.service';
 import { listDropouts, type DropoutListResponse } from '../services/swayam.service';
 import type { CenterSummary } from '../types';
@@ -39,6 +40,7 @@ export const DropoutPage: React.FC = () => {
 
   return (
     <PageWrapper title="Dropout Student Info">
+      <DropoutRequestsBox onChanged={load} />
       <DropoutSection data={data} loading={loading} centers={centers} onReload={load} />
     </PageWrapper>
   );

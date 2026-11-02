@@ -1049,3 +1049,142 @@ export async function getSwayamDashboardCounts(centerScope?: { in: string[] }) {
     hiddenStudentIds,
   };
 }
+
+// ─────────────────────── Teacher dropout requests ───────────────────────
+// A teacher can ask for a student to be moved to the Dropout list. The
+// request is stored as a form submission (no schema change). The Swayam
+// coordinator accepts (student is moved to Dropout Students, type "center")
+// or declines (student simply stays in the teacher's center).
+const DROPOUT_REQUEST_TEMPLATE = 'Dropout Requests';
+
+async function getDropoutRequestTemplate(userId: string) {
+  let tpl = await prisma.formTemplate.findFirst({ where: { name: DROPOUT_REQUEST_TEMPLATE } });
+  if (!tpl) {
+    tpl = await prisma.formTemplate.create({
+      data: {
+        name: DROPOUT_REQUEST_TEMPLATE,
+        formType: 'system',
+        targetEntity: 'student',
+        createdBy: userId,
+        schema: { fields: [] },
+      },
+    });
+  }
+  return tpl;
+}
+
+export async function createDropoutRequest(user: JwtPayload, studentId: string) {
+  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!student || !student.isActive) throw new NotFoundError('Student');
+  const isAdmin = user.role === 'super_admin' || user.role === 'tech_admin';
+  if (!isAdmin && !(user.centerIds ?? []).includes(student.centerId)) {
+    throw new ValidationError('You can only request dropout for students of your own center');
+  }
+  const [dropProgram, reProgram] = await Promise.all([resolveDropoutProgram(), resolveReenrolledProgram()]);
+  if (student.programId === dropProgram.id || student.programId === reProgram.id) {
+    throw new ValidationError('This student is already in the dropout / re-enrolled list');
+  }
+  const me = await prisma.user.findUnique({ where: { id: user.userId }, select: { fullName: true } });
+  const tpl = await getDropoutRequestTemplate(user.userId);
+  const data = {
+    status: 'pending',
+    requestedById: user.userId,
+    requestedByName: me?.fullName || 'Teacher',
+    requestedAt: new Date().toISOString(),
+  };
+  const existing = await prisma.formSubmission.findFirst({
+    where: { templateId: tpl.id, studentId },
+    orderBy: { submittedAt: 'desc' },
+  });
+  if (existing) {
+    await prisma.formSubmission.update({ where: { id: existing.id }, data: { data, centerId: student.centerId } });
+  } else {
+    await prisma.formSubmission.create({
+      data: { templateId: tpl.id, studentId, centerId: student.centerId, submittedBy: user.userId, data },
+    });
+  }
+  return { id: studentId };
+}
+
+export async function listDropoutRequests() {
+  const tpl = await prisma.formTemplate.findFirst({ where: { name: DROPOUT_REQUEST_TEMPLATE } });
+  if (!tpl) return { requests: [] };
+  const subs = await prisma.formSubmission.findMany({
+    where: { templateId: tpl.id, studentId: { not: null } },
+    orderBy: { submittedAt: 'desc' },
+    include: {
+      student: { select: { id: true, fullName: true, standard: true, isActive: true, center: { select: { name: true } } } },
+    },
+  });
+  const requests = subs
+    .filter((s) => s.student && s.student.isActive && (s.data as Record<string, unknown>)?.status === 'pending')
+    .map((s) => {
+      const d = (s.data || {}) as Record<string, unknown>;
+      return {
+        studentId: s.student!.id,
+        studentName: s.student!.fullName,
+        standard: s.student!.standard || '',
+        centerName: s.student!.center?.name || '',
+        teacherName: typeof d.requestedByName === 'string' ? d.requestedByName : '',
+        requestedAt: typeof d.requestedAt === 'string' ? d.requestedAt : s.submittedAt.toISOString(),
+      };
+    });
+  return { requests };
+}
+
+async function findPendingRequest(studentId: string) {
+  const tpl = await prisma.formTemplate.findFirst({ where: { name: DROPOUT_REQUEST_TEMPLATE } });
+  if (!tpl) throw new NotFoundError('Dropout request');
+  const sub = await prisma.formSubmission.findFirst({
+    where: { templateId: tpl.id, studentId },
+    orderBy: { submittedAt: 'desc' },
+  });
+  if (!sub || (sub.data as Record<string, unknown>)?.status !== 'pending') throw new NotFoundError('Dropout request');
+  return sub;
+}
+
+export async function acceptDropoutRequest(user: JwtPayload, studentId: string) {
+  const sub = await findPendingRequest(studentId);
+  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!student) throw new NotFoundError('Student');
+  const reqData = (sub.data || {}) as Record<string, unknown>;
+  const dropProgram = await resolveDropoutProgram();
+
+  // Move the SAME student record to the Dropout program (history is kept),
+  // take them out of every class batch, and mark them a center dropout.
+  await prisma.$transaction([
+    prisma.batchEnrollment.deleteMany({ where: { studentId } }),
+    prisma.student.update({ where: { id: studentId }, data: { programId: dropProgram.id } }),
+  ]);
+  let age: number | null = null;
+  if (student.dob) {
+    age = Math.floor((Date.now() - new Date(student.dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+  }
+  await upsertDropoutProfile(user.userId, studentId, student.centerId, {
+    dropout: true,
+    age,
+    dropoutStd: student.standard || '',
+    dropoutYear: new Date().getFullYear(),
+    animatorName: typeof reqData.requestedByName === 'string' ? reqData.requestedByName : '',
+    reason: 'Dropped out of center (teacher request)',
+    locationType: 'in',
+    area: '',
+    dropoutType: 'center',
+    previousProgramId: student.programId,
+  });
+  await prisma.formSubmission.update({
+    where: { id: sub.id },
+    data: { data: { ...reqData, status: 'accepted', decidedAt: new Date().toISOString() } as never },
+  });
+  return { id: studentId };
+}
+
+export async function declineDropoutRequest(_user: JwtPayload, studentId: string) {
+  const sub = await findPendingRequest(studentId);
+  const reqData = (sub.data || {}) as Record<string, unknown>;
+  await prisma.formSubmission.update({
+    where: { id: sub.id },
+    data: { data: { ...reqData, status: 'declined', decidedAt: new Date().toISOString() } as never },
+  });
+  return { id: studentId };
+}

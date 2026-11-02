@@ -190,7 +190,7 @@ const AdminDashboard: React.FC = () => {
                    {Number(data?.growthIndex ?? 0)}%
                 </p>
                 <span className="text-xs text-neutral-400 font-medium">
-                  Attendance {Number(data?.monthlyAttendanceRate ?? 0)}% · Exam marks {Number(data?.monthlyExamMarksPercent ?? 0)}% (this month)
+                  Attendance {Number(data?.monthlyAttendanceRate ?? 0)}% · Exam marks {Number(data?.monthlyExamMarksPercent ?? 0)}% (Sem Endline)
                 </span>
               </div>
             </Card>

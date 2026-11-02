@@ -17,6 +17,10 @@ import {
   markSponsorshipDoneController,
   revertSponsorshipController,
   setSponsorshipIncludeController,
+  createDropoutRequestController,
+  listDropoutRequestsController,
+  acceptDropoutRequestController,
+  declineDropoutRequestController,
 } from '../controllers/swayamController.js';
 
 const router = Router();
@@ -35,6 +39,12 @@ router.put('/dropouts/:id', updateDropoutController);
 router.post('/dropouts/:id/reenroll', reenrollDropoutController);
 router.put('/dropouts/:id/reenroll', updateReenrolledController);
 router.post('/dropouts/:id/revert', revertReenrolledController);
+
+// Teacher dropout requests (create = any logged-in teacher of that center)
+router.post('/dropout-requests/:id', createDropoutRequestController);
+router.get('/dropout-requests', listDropoutRequestsController);
+router.post('/dropout-requests/:id/accept', acceptDropoutRequestController);
+router.post('/dropout-requests/:id/decline', declineDropoutRequestController);
 
 // Sponsorship / scholarship tracking (delete reuses /students/:id soft delete)
 router.get('/sponsorships', listSponsorshipController);

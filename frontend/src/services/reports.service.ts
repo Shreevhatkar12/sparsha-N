@@ -24,6 +24,20 @@ export interface AipImpactData {
 export const getAipImpact = (params?: Record<string, string | undefined>) =>
   api.get<AipImpactData>('/reports/aip-impact', { params }).then((r) => r.data);
 
+export interface SemCompareRow {
+  subject: string;
+  baseline: number | null;
+  endline: number | null;
+  improvement: number | null;
+  baselineStudents: number;
+  endlineStudents: number;
+}
+export interface SemCompareData {
+  all: SemCompareRow[];
+  sanskar: SemCompareRow[];
+  swayam: SemCompareRow[];
+}
+
 export interface AipParticipationData {
   months: Array<{
     month: string;
@@ -147,6 +161,7 @@ export interface AdminAnalyticsData {
   gradeByMonth: Array<{ monthKey: string; label: string } & Grade5 & { total: number }>;
   gradeByStd: Array<{ standard: string } & Grade5 & { total: number }>;
   avgBySubject: Array<{ name: string; avgPercent: number }>;
+  semCompare?: SemCompareData;
   enrollmentMonthly: Array<{
     monthKey: string;
     label: string;

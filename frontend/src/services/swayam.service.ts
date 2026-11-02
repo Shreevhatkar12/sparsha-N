@@ -221,3 +221,21 @@ export const setSponsorshipInclude = (id: string, include: boolean) =>
   api
     .put<{ success: boolean; id: string; includeInCount: boolean }>(`/swayam/sponsorships/${id}/include`, { include })
     .then((r) => r.data);
+
+// ─────────────── Teacher dropout requests ───────────────
+export interface DropoutRequestRow {
+  studentId: string;
+  studentName: string;
+  standard: string;
+  centerName: string;
+  teacherName: string;
+  requestedAt: string;
+}
+export const createDropoutRequest = (studentId: string) =>
+  api.post<{ success: boolean }>(`/swayam/dropout-requests/${studentId}`).then((r) => r.data);
+export const listDropoutRequests = () =>
+  api.get<{ requests: DropoutRequestRow[] }>('/swayam/dropout-requests').then((r) => r.data);
+export const acceptDropoutRequest = (studentId: string) =>
+  api.post<{ success: boolean }>(`/swayam/dropout-requests/${studentId}/accept`).then((r) => r.data);
+export const declineDropoutRequest = (studentId: string) =>
+  api.post<{ success: boolean }>(`/swayam/dropout-requests/${studentId}/decline`).then((r) => r.data);

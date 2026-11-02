@@ -27,13 +27,13 @@ import {
   Tooltip,
   Legend,
   LabelList,
-  Cell,
 } from "recharts";
+import { MultiSelect } from "../ui/MultiSelect";
+import { SemCompare } from "./SemCompare";
 import { getAdminAnalytics, type AdminAnalyticsData } from "../../services/reports.service";
 import { PeriodFilter, defaultPeriod, periodParams, type PeriodValue } from "./PeriodFilter";
 
 // Shared, colour-blind-safe system (same as the rest of the app).
-const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
 const C_MALE = "#2a78d6";
 const C_FEMALE = "#e87ba4";
 const C_ATT = "#1baf7a";
@@ -108,11 +108,11 @@ export const AdminAnalytics: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [centerId, setCenterId] = useState("");
-  const [programId, setProgramId] = useState("");
-  const [standard, setStandard] = useState("");
-  const [grade, setGrade] = useState("");
-  const [teacherId, setTeacherId] = useState("");
+  const [centerId, setCenterId] = useState<string[]>([]);
+  const [programId, setProgramId] = useState<string[]>([]);
+  const [standard, setStandard] = useState<string[]>([]);
+  const [grade, setGrade] = useState<string[]>([]);
+  const [teacherId, setTeacherId] = useState<string[]>([]);
   const [periodVal, setPeriodVal] = useState<PeriodValue>(defaultPeriod);
 
   const [views, setViews] = useState<Record<string, "graph" | "table">>({});
@@ -130,11 +130,11 @@ export const AdminAnalytics: React.FC = () => {
     setError(null);
     try {
       const params: Record<string, string | undefined> = { ...periodParams(periodVal) };
-      if (centerId) params.centerId = centerId;
-      if (programId) params.programId = programId;
-      if (standard) params.standard = standard;
-      if (grade) params.grade = grade;
-      if (teacherId) params.teacherId = teacherId;
+      if (centerId.length) params.centerId = centerId.join(",");
+      if (programId.length) params.programId = programId.join(",");
+      if (standard.length) params.standard = standard.join(",");
+      if (grade.length) params.grade = grade.join(",");
+      if (teacherId.length) params.teacherId = teacherId.join(",");
       const d = await getAdminAnalytics(params);
       setData(d);
     } catch {
@@ -149,14 +149,14 @@ export const AdminAnalytics: React.FC = () => {
   }, [load]);
 
   const resetFilters = () => {
-    setCenterId("");
-    setProgramId("");
-    setStandard("");
-    setGrade("");
-    setTeacherId("");
+    setCenterId([]);
+    setProgramId([]);
+    setStandard([]);
+    setGrade([]);
+    setTeacherId([]);
   };
 
-  const hasFilters = !!centerId || !!programId || !!standard || !!grade || !!teacherId;
+  const hasFilters = centerId.length > 0 || programId.length > 0 || standard.length > 0 || grade.length > 0 || teacherId.length > 0;
 
   const ToggleView: React.FC<{ k: string }> = ({ k }) => (
     <div className="inline-flex rounded-lg border border-neutral-200 overflow-hidden text-xs font-semibold">
@@ -233,48 +233,23 @@ export const AdminAnalytics: React.FC = () => {
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">Center</label>
-            <select className="w-full h-10 rounded-lg border border-neutral-300 px-2 text-sm bg-white" value={centerId} onChange={(e) => setCenterId(e.target.value)}>
-              <option value="">All</option>
-              {data.filterOptions.centers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <MultiSelect value={centerId} onChange={setCenterId} options={data.filterOptions.centers.map((c) => ({ value: c.id, label: c.name }))} />
           </div>
           <div>
             <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">Program</label>
-            <select className="w-full h-10 rounded-lg border border-neutral-300 px-2 text-sm bg-white" value={programId} onChange={(e) => setProgramId(e.target.value)}>
-              <option value="">All</option>
-              {data.filterOptions.programs.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            <MultiSelect value={programId} onChange={setProgramId} options={data.filterOptions.programs.map((p) => ({ value: p.id, label: p.name }))} />
           </div>
           <div>
             <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">Standard</label>
-            <select className="w-full h-10 rounded-lg border border-neutral-300 px-2 text-sm bg-white" value={standard} onChange={(e) => setStandard(e.target.value)}>
-              <option value="">All</option>
-              {data.filterOptions.standards.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <MultiSelect value={standard} onChange={setStandard} options={data.filterOptions.standards.map((x) => ({ value: x, label: x }))} />
           </div>
           <div>
             <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">Grade</label>
-            <select className="w-full h-10 rounded-lg border border-neutral-300 px-2 text-sm bg-white" value={grade} onChange={(e) => setGrade(e.target.value)}>
-              <option value="">All</option>
-              {data.filterOptions.grades.map((g) => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
+            <MultiSelect value={grade} onChange={setGrade} options={data.filterOptions.grades.map((g) => ({ value: g, label: g }))} />
           </div>
           <div>
             <label className="text-[11px] uppercase tracking-wide text-neutral-500 font-bold mb-1 block">Teacher</label>
-            <select className="w-full h-10 rounded-lg border border-neutral-300 px-2 text-sm bg-white" value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
-              <option value="">All</option>
-              {data.filterOptions.teachers.map((t) => (
-                <option key={t.id} value={t.id}>{t.fullName}</option>
-              ))}
-            </select>
+            <MultiSelect value={teacherId} onChange={setTeacherId} options={data.filterOptions.teachers.map((t) => ({ value: t.id, label: t.fullName }))} />
           </div>
         </div>
         {hasFilters && (
@@ -358,7 +333,7 @@ export const AdminAnalytics: React.FC = () => {
       </SectionCard>
 
       {/* Holistic Development — AIP topic calendar + baseline/endline impact */}
-      <HolisticDevelopment periodVal={periodVal} centerId={centerId} />
+      <HolisticDevelopment periodVal={periodVal} centerId={centerId.length === 1 ? centerId[0] : ""} />
 
       {/* Standard-wise students — per center */}
       {data.stdWiseByCenter && data.stdWiseByCenter.length > 0 && (
@@ -538,25 +513,8 @@ export const AdminAnalytics: React.FC = () => {
         )}
       </SectionCard>
 
-      {/* Avg by subject */}
-      {data.avgBySubject.length > 0 && (
-        <SectionCard title="Average % by Subject" subtitle="How students perform in each subject">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data.avgBySubject} margin={CHART_MARGIN}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_INK} vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: AXIS_INK }} tickLine={false} label={{ value: "Subject", position: "insideBottom", offset: -12, fill: AXIS_INK, fontSize: 12 }} />
-              <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 12, fill: AXIS_INK }} tickLine={false} axisLine={false} label={{ value: "Average %", angle: -90, position: "insideLeft", fill: AXIS_INK, fontSize: 12 }} />
-              <Tooltip formatter={(v) => `${v ?? 0}%`} cursor={{ fill: "#f6f8fa" }} />
-              <Bar dataKey="avgPercent" name="Average %" radius={[4, 4, 0, 0]} maxBarSize={64}>
-                {data.avgBySubject.map((_, i) => (
-                  <Cell key={i} fill={CAT_COLORS[i % CAT_COLORS.length]} />
-                ))}
-                <LabelList dataKey="avgPercent" position="top" fontSize={11} fill={AXIS_INK} formatter={pctLabel} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </SectionCard>
-      )}
+      {/* Sem Baseline vs Sem Endline */}
+      <SemCompare data={data.semCompare} />
 
       {/* Teacher-wise summary */}
       <SectionCard title="Teacher-wise Summary" subtitle="Each teacher\u2019s students / attendance / exams / activities">
