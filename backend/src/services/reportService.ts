@@ -1885,7 +1885,7 @@ export async function getAdminAnalytics(user: JwtPayload, query: any) {
     if (!max) continue;
     const st = studentById.get(sc.studentId);
     if (!st) continue;
-    const grp = progGroup.get(st.programId);
+    const grp = st.programId ? progGroup.get(st.programId) : undefined;
     const subj = semSubj(sc.subject?.name || "");
     for (const g of grp ? ["all", grp] : ["all"]) {
       for (const sj of subj ? ["Overall", subj] : ["Overall"]) {
